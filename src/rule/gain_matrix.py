@@ -2,7 +2,7 @@ from .character import Character
 import numpy as np
 
 
-class GainMatrix:
+class Environment:
     def __init__(self, characters: list[Character]):
         self.characters = characters
         self.set_matrix()
@@ -19,8 +19,5 @@ class GainMatrix:
         return self.matrix
 
     def _calculate_gain(self, char_i: Character, char_j: Character) -> float:
-        print(char_i.v.x, char_i.v.y)
-        print(char_j.v.x, char_j.v.y)
         gain = char_i.p - char_j.p +char_i.v.times(char_j.v) 
-        print("gain",char_i.v.times(char_j.v))
         return gain
