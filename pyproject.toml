@@ -6,21 +6,14 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = []
 
-
-[build-system]
-requires = ["setuptools>=61.0", "wheel"]
-build-backend = "setuptools.build_meta"
-
-[tool.setuptools]
-[tool.setuptools.package-dir]
-"" = "src"
-
-[tool.setuptools.packages.find]
-where = ["src"]
-include = ["*"]
+# ビルド用の設定でサンプルコードにはよく書かれてる
+# 本プロジェクトで使っていないっぽいのにコピペで有効にしておくのは危険
+# 一旦コメントにして問題起きたら疑う
+# [build-system]
+# requires = ["hatchling"]
+# build-backend = "hatchling.build"
 
 [tool.pytest.ini_options]
-minversion = "6.0"
-addopts = "-ra -q"
-testpaths = ["test"]
+testpaths = ["tests"]
+pythonpath= ["src"]
 
