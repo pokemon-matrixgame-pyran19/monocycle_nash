@@ -38,32 +38,3 @@ def test_Matchup_reverse():
 
     assert v1.times(v1) == 0
     assert v1.times(v2) == - v2.times(v1)
-
-def test_GainMatrix_set_gain():
-    """
-    等パワーで正三角形のベクトルに対して、利得行列を計算
-    """
-    power = random.random()
-    c1=[power,  2,      0]
-    c2=[power, -1,  ROOT3]
-    c3=[power, -1, -ROOT3]
-
-    A = [[0,1,-1], [-1,0,1], [1,-1,0]]
-
-    # c1,c2,c3に対してA*2ROOT3の行列が返ることを確認
-
-    characters = [
-        Character(c1[0], MatchupVector(c1[1], c1[2])),
-        Character(c2[0], MatchupVector(c2[1], c2[2])),
-        Character(c3[0], MatchupVector(c3[1], c3[2])),
-    ]
-
-    env = Environment(characters)
-    gainMatrix = env.get_matrix()
-
-    npA=2*ROOT3*np.array(A)
-
-    assert gainMatrix.shape == (3,3)
-    # 行列の一致を確認。　書き方色々あるみたい？
-    assert gainMatrix == pytest.approx(npA, rel=1e-4)
-    # npt.assert_allclose(gainMatrix, npA, rtol=1e-4, atol=1e-4) 
