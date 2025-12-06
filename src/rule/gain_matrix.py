@@ -1,22 +1,26 @@
 from .character import Character
+import numpy as np
 
 
 class GainMatrix:
     def __init__(self, characters: list[Character]):
         self.characters = characters
-        self._initialize_matrix()
+        self.set_matrix()
 
-    def _initialize_matrix(self):
+    def set_matrix(self):
         size = len(self.characters)
-        self.matrix = [[0 for _ in range(size)] for _ in range(size)]
-
-    def set_gain(self):
-
+        temp_matrix = [[0 for _ in range(size)] for _ in range(size)]
         for i, char_i in enumerate(self.characters):
             for j, char_j in enumerate(self.characters):
-                self.matrix[i][j] = self._calculate_gain(char_i, char_j)
+                temp_matrix[i][j] = self._calculate_gain(char_i, char_j)
+        self.matrix = np.array(temp_matrix)
+
+    def get_matrix(self) -> np.array:
+        return self.matrix
 
     def _calculate_gain(self, char_i: Character, char_j: Character) -> float:
-        dot_product = sum(a * b for a, b in zip(char_i.v, char_j.v))
-        gain = char_i.p - char_j.p +(char_i.v * char_j.v) * dot_product
+        print(char_i.v.x, char_i.v.y)
+        print(char_j.v.x, char_j.v.y)
+        gain = char_i.p - char_j.p +char_i.v.times(char_j.v) 
+        print("gain",char_i.v.times(char_j.v))
         return gain

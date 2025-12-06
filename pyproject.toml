@@ -4,7 +4,9 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "numpy>=2.3.5",
+]
 
 # ビルド用の設定でサンプルコードにはよく書かれてる
 # 本プロジェクトで使っていないっぽいのにコピペで有効にしておくのは危険
