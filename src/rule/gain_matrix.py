@@ -5,10 +5,10 @@ import numpy as np
 class Environment:
     def __init__(self, characters: list[Character]):
         self.characters = characters
+        self.size = len(self.characters)
         self.set_matrix()
         self.precision = 1e-4
 
-        self.size = len(self.characters)
 
     def set_matrix(self):
         temp_matrix = [[0 for _ in range(self.size)] for _ in range(self.size)]
@@ -32,12 +32,56 @@ class Environment:
 
     def convert(self, action_vector: list[float]) -> "Environment":
         """
-        行動ベクトルに基づいて新しい環境を生成
+        aベクトルに基づいて新しい環境を生成
         """
-        new_characters = []
-        for i, char in enumerate(self.characters):
-            a = action_vector[i]
-            new_power = char.p + char.v.times(Character(0, MatchupVector(a,0)).v)
-            new_vector = MatchupVector(char.v.x - a, char.v.y)
-            new_characters.append(Character(new_power, new_vector))
+        new_characters = [c.convert(action_vector) for c in self.characters]
         return Environment(new_characters)
+
+class BatchEnvironment(Environment):
+    """
+     一括処理用に最適化したアルゴリズム使うもの 
+     データをnumpyで保持。
+     一行ごとにcharacterの関数呼び出すオーバーヘッド避けて、こちらのクラス中で外積計算等を実装
+    """
+    def __init__(self, characters: list[Character] | np.ndarray):
+        if isinstance(characters, np.ndarray):
+            self.characters = characters
+            self.size = len(self.characters)
+        elif isinstance(characters, list):
+            self.characters = np.array([ c.tolist() for c in characters])
+            self.size = len(self.characters)
+        else:
+            raise TypeError("characters must be list or np.ndarray")
+        self.set_matrix()
+        self.precision = 1e-4
+
+    def set_matrix(self):
+        """
+        行列生成
+
+        charactersが次の形の二次元numpyになってるの注意
+        [
+            (power, vx, vy),
+            (power, vx, vy),
+            (power, vx, vy),
+            (power, vx, vy)
+        ]
+        """
+        power_vector = np.tile(self.characters[:,0],(self.size,1))
+        P = power_vector.T - power_vector
+
+        matrix1=self.characters[:,1:3]
+        matrix2=np.vstack((-self.characters[:,2],-self.characters[:,1]))
+
+        V = matrix1.T.dot(matrix2)
+
+        self.matrix = P + V
+
+
+    def convert(self, action_vector: list[float]) -> "BatchEnvironment":
+        np_action_vector = np.array(action_vector)
+        np_action_matrix = np.tile(np.hstack((0,np.array(np_action_vector))),(self.size,1))
+
+        new_characters=self.characters - np_action_matrix
+
+        return BatchEnvironment(new_characters)
