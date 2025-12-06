@@ -10,13 +10,13 @@ class Environment:
         self.precision = 1e-4
 
     def set_matrix(self):
-        temp_matrix = [[0 for _ in range(self.size)] for _ in range(self.size)]
+        temp_matrix:list[list[float]] = [[0 for _ in range(self.size)] for _ in range(self.size)]
         for i, char_i in enumerate(self.characters):
             for j, char_j in enumerate(self.characters):
                 temp_matrix[i][j] = self._calculate_gain(char_i, char_j)
         self.matrix = np.array(temp_matrix)
 
-    def get_matrix(self) -> np.array:
+    def get_matrix(self) -> np.ndarray:
         return self.matrix
 
     def _calculate_gain(self, char_i: Character, char_j: Character) -> float:

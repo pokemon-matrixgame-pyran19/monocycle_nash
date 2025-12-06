@@ -111,7 +111,7 @@ def test_env_convert():
     assert env1 == env2
     assert env1.convert([1,0]) == env1
 
-    
+@pytest.mark.skip("aの手計算が未完了")
 def test_isopower():
 
     c1=[0.25,    2,      0]

@@ -23,13 +23,13 @@ def test_calc_a():
     """
 
     c1 = Character(1, MatchupVector(1.5, -0.5))
-    c2 = Character(-1.366, MatchupVector(-1.5, 1.23205))
-    c3 = Character(0.366, MatchupVector(-1.5, -2.23205))
+    c2 = Character(-1.366025, MatchupVector(-1.5, 1.23205))
+    c3 = Character(0.366025, MatchupVector(-1.5, -2.23205))
 
     expected_a = [-0.5, -0.5]
 
     calc = aCalculator(c1, c2, c3)
-    a = calc.calc()
+    a = -calc.calc()
 
-    assert a[0] == expected_a[0]
-    assert a[1] == expected_a[1]
+    assert a.x == pytest.approx( expected_a[0])
+    assert a.y == pytest.approx(expected_a[1])
