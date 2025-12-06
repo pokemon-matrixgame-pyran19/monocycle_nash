@@ -28,8 +28,8 @@ def test_Matchup_reverse():
     外積の交換法則
     入れ替えて負になることを確認
     """
-    v1 = MatchupVector(random.random, random.random)
-    v2 = MatchupVector(random.random, random.random)
+    v1 = MatchupVector(random.random(), random.random())
+    v2 = MatchupVector(random.random(), random.random())
 
     assert v1.times(v1) == 0
     assert v1.times(v2) == - v2.times(v1)
