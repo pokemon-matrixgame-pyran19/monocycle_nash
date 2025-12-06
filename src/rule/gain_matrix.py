@@ -71,17 +71,23 @@ class BatchEnvironment(Environment):
         P = power_vector.T - power_vector
 
         matrix1=self.characters[:,1:3]
-        matrix2=np.vstack((-self.characters[:,2],-self.characters[:,1]))
+        matrix2=np.vstack((self.characters[:,2],-self.characters[:,1]))
 
-        V = matrix1.T.dot(matrix2)
+        V = matrix1.dot(matrix2)
 
         self.matrix = P + V
 
 
     def convert(self, action_vector: list[float]) -> "BatchEnvironment":
         np_action_vector = np.array(action_vector)
-        np_action_matrix = np.tile(np.hstack((0,np.array(np_action_vector))),(self.size,1))
+        #np_action_matrix = np.tile(np.hstack((0,np.array(np_action_vector))),(self.size,1))
 
-        new_characters=self.characters - np_action_matrix
+        dv = np.tile(np.array(np_action_vector),(self.size,1))
+        cross_a = np.vstack((np_action_vector[1],-np_action_vector[0]))
+        dp = self.characters[:,1:3].dot(cross_a)
+        # cross_a = np.hstack((np_action_vector[1],-np_action_vector[0]))
+        # dp = cross_a.dot(self.characters[:,1:3].T)
+
+        new_characters=self.characters + np.hstack((dp.reshape(-1,1),-dv))
 
         return BatchEnvironment(new_characters)

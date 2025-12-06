@@ -1,5 +1,5 @@
 import pytest
-from rule.gain_matrix import Environment
+from rule.gain_matrix import Environment, BatchEnvironment
 from rule.character import MatchupVector, Character
 import random
 import numpy as np
@@ -142,3 +142,62 @@ def test_isopower():
     env2 = Environment(characters2)
 
     assert env1 == env2
+
+def test_bulk_env():
+    c1=[random.random(),  random.random(),  random.random()]
+    c2=[random.random(),  random.random(),  random.random()]
+    c3=[random.random(),  random.random(),  random.random()]
+    c4=[random.random(),  random.random(),  random.random()]
+    c5=[random.random(),  random.random(),  random.random()]
+
+    d1=[random.random(),  random.random(),  random.random()]
+    d2=[random.random(),  random.random(),  random.random()]
+
+    characters1 = [
+        Character(c1[0], MatchupVector(c1[1], c1[2])),
+        Character(c2[0], MatchupVector(c2[1], c2[2])),
+        Character(c3[0], MatchupVector(c3[1], c3[2])),
+        Character(c4[0], MatchupVector(c4[1], c4[2])),
+        Character(c5[0], MatchupVector(c5[1], c5[2])),
+    ]
+
+    characters2 = [
+        Character(d1[0], MatchupVector(d1[1], d1[2])),
+        Character(d2[0], MatchupVector(d2[1], d2[2])),
+    ]
+
+    env1 = Environment(characters1)
+    env2 = Environment(characters2)
+    benv1 = BatchEnvironment(characters1)
+    benv2 = BatchEnvironment(characters2)
+
+    assert benv1 == env1
+    assert benv2 == env2
+
+def test_bulk_convert():
+
+    c1=[0.25,    2,      0]
+    c2=[0.10,   -1,      1]
+    c3=[0.00,   -1,     -1]
+
+    d1=[0.25+0,   1.0,       0]   
+    d2=[0.1-1 ,  -2.0,       1]
+    d3=[0+1   ,  -2.0,      -1]
+
+    characters1 = [
+        Character(c1[0], MatchupVector(c1[1], c1[2])),
+        Character(c2[0], MatchupVector(c2[1], c2[2])),
+        Character(c3[0], MatchupVector(c3[1], c3[2])),
+    ]
+
+    env1  = Environment(characters1)
+    benv1 = BatchEnvironment(characters1)
+
+    assert benv1 == env1 # テスト済みの内容だけど念のため確認
+
+    for _ in range(3):
+        a = [random.random(), random.random()]
+        env2  = env1.convert(a)
+        benv2 = benv1.convert(a)
+        assert benv2 == env2
+        assert benv2 == benv1
