@@ -9,7 +9,6 @@ class Environment:
         self.set_matrix()
         self.precision = 1e-4
 
-
     def set_matrix(self):
         temp_matrix = [[0 for _ in range(self.size)] for _ in range(self.size)]
         for i, char_i in enumerate(self.characters):
@@ -36,6 +35,12 @@ class Environment:
         """
         new_characters = [c.convert(action_vector) for c in self.characters]
         return Environment(new_characters)
+
+    def get_param(self) -> list[list[float]]:
+        """
+        環境パラメータを二次元リストで取得
+        """
+        return [c.tolist() for c in self.characters]
 
 class BatchEnvironment(Environment):
     """
@@ -80,13 +85,10 @@ class BatchEnvironment(Environment):
 
     def convert(self, action_vector: list[float]) -> "BatchEnvironment":
         np_action_vector = np.array(action_vector)
-        #np_action_matrix = np.tile(np.hstack((0,np.array(np_action_vector))),(self.size,1))
 
         dv = np.tile(np.array(np_action_vector),(self.size,1))
         cross_a = np.vstack((np_action_vector[1],-np_action_vector[0]))
         dp = self.characters[:,1:3].dot(cross_a)
-        # cross_a = np.hstack((np_action_vector[1],-np_action_vector[0]))
-        # dp = cross_a.dot(self.characters[:,1:3].T)
 
         new_characters=self.characters + np.hstack((dp.reshape(-1,1),-dv))
 
