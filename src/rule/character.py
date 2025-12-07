@@ -66,7 +66,7 @@ class Character:
         self.v = vector
 
     def tolist(self) -> list[float]:
-        return [self.p, self.v.x, self.v.y]
+        return [float(self.p), float(self.v.x), float(self.v.y)]
 
     def convert(self, action_vector: list[float]) -> "Character":
         """
