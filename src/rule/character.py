@@ -56,6 +56,9 @@ class MatchupVector():
     
     def __repr__(self) -> str:
         return f"MatchupVector({self.x}, {self.y})"
+
+    def __str__(self) -> str:
+        return f"{self.x},{self.y}"
     
     def __eq__(self, other: 'MatchupVector') -> bool:
         return np.allclose(self._data, other._data)
@@ -65,8 +68,20 @@ class Character:
         self.p = power
         self.v = vector
 
-    def tolist(self) -> list[float]:
-        return [float(self.p), float(self.v.x), float(self.v.y)]
+    def tolist(self,order:list[str]=[]) -> list[float]:
+        if order == []:
+            return [float(self.p), float(self.v.x), float(self.v.y)]
+        result = []
+        for key in order:
+            if key not in ["p","x","y"]:
+                raise ValueError(f"Invalid key in order: {key}")
+            elif key == "p":
+                result.append(float(self.p))
+            elif key == "x":
+                result.append(float(self.v.x))
+            elif key == "y":
+                result.append(float(self.v.y))
+        return result
 
     def convert(self, action_vector: list[float]) -> "Character":
         """
@@ -78,3 +93,20 @@ class Character:
         new_power = self.p + self.v.times(MatchupVector(*a))
         new_vector = MatchupVector(self.v.x - a[0], self.v.y- a[1])
         return Character(new_power, new_vector)
+
+    def __str__(self):
+        return f"power:{self.p}, vector: {self.v}"
+
+
+def get_characters(data:list|np.ndarray) -> list[Character]:
+    """
+    p,x,yの順で並んだデータを受け取りcharacerのリストを返す
+    """
+    if isinstance(data,list):
+        result = [ Character(d[0],MatchupVector(d[1],d[2])) for d in data ]
+        return result
+    elif isinstance(data,np.ndarray):
+        result = [ Character(d[0],MatchupVector(d[1:])) for d in data ]
+        return result
+    else:
+        raise
