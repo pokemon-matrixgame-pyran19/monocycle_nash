@@ -22,6 +22,21 @@ def test_calc_a():
     assert a.x == pytest.approx(expected_a[0])
     assert a.y == pytest.approx(expected_a[1])
 
+def test_a_order():
+    c1 = Character(1, MatchupVector(1.5, -0.5))
+    c2 = Character(-1.366025, MatchupVector(-1.5, 1.23205))
+    c3 = Character(0.366025, MatchupVector(-1.5, -2.23205))
+
+    calc = aCalculator(c1, c2, c3)
+    reverse_calc=aCalculator(c1, c3, c2)
+
+    a = calc.calc()
+    ra =  reverse_calc.calc()
+
+    assert a.x == pytest.approx(ra.x)
+    assert a.y == pytest.approx(ra.y)
+
+
 def test_inner():
     c1 = Character(1, MatchupVector(2, 0))
     c2 = Character(0, MatchupVector(-1, 1.732050))

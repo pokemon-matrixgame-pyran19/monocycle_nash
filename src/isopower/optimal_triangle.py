@@ -1,19 +1,21 @@
-from rule.character import Character
 import numpy as np
-from isopower.surface import Surface
 from isopower.calc_a import aCalculator
 from scipy.spatial import ConvexHull
+from rule.gain_matrix import Pool
 
+from typing import TYPE_CHECKING, Any
 
+#if TYPE_CHECKING:
+from rule.character import Character, MatchupVector
 
 class OptimalTriangleFinder:
     """
     最適な3点を探索
     """
-    def __init__(self, characters: list[Character]):
-        self.points = np.array([c.tolist() for c in characters])
-        self.characters=characters
-        self.result=[]
+    def __init__(self, pool: Pool):
+        self.points = np.array(pool.get_pxy_list())
+        self.characters = pool.get_characters()
+        self.result = []
 
     def find(self):
         """
@@ -29,6 +31,33 @@ class OptimalTriangleFinder:
                 a=calculator.calc()
                 if calculator.is_inner:
                     self.result.append([a,*tri_char])
+    
+    def get_result(self) -> list[list]:
+        """
+        Docstring for get_result
+        
+        :param self: Description
+        :return: 最適な3点の取得。複数該当する可能性に備えて配列で返す
+        :rtype: list[list[Any]]
+
+        結果全体の取得
+        """
+
+        return self.result
+
+    def get_a(self) -> MatchupVector:
+        """
+        平行移動ベクトルaの取得。普通一つなのでrusult[0]に決め打ち
+        Docstring for get_a
+        
+        :param self: Description
+        :return: Description
+        :rtype: Any
+        """
+        return self.result[0][0]
+
+    def get_optimal_3characters(self) -> set[Character]:
+        return {self.result[0][1],self.result[0][2],self.result[0][3]}
 
     def display(self):
         for element in self.result:

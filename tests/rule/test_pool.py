@@ -1,5 +1,5 @@
 import pytest
-from rule.gain_matrix import Environment, BatchEnvironment
+from rule.gain_matrix import Pool, BatchEnvironment
 from rule.character import MatchupVector, Character
 import random
 import numpy as np
@@ -28,7 +28,7 @@ def test_GainMatrix_set_gain():
         Character(c3[0], MatchupVector(c3[1], c3[2])),
     ]
 
-    env = Environment(characters)
+    env = Pool(characters)
     gainMatrix = env.get_matrix()
 
     npA=2*ROOT3*np.array(A) + np.array(P3)
@@ -72,9 +72,9 @@ def test_env_equal():
         Character(0, MatchupVector(0, 0)),
     ]
 
-    env1 = Environment(characters1)
-    env2 = Environment(characters2)
-    env3 = Environment(characters3)
+    env1 = Pool(characters1)
+    env2 = Pool(characters2)
+    env3 = Pool(characters3)
     assert env1 == env1
     assert env1 == env2
     assert env1 != env3
@@ -105,8 +105,8 @@ def test_env_convert():
         Character(d3[0], MatchupVector(d3[1], d3[2])),
     ]
 
-    env1 = Environment(characters1)
-    env2 = Environment(characters2)
+    env1 = Pool(characters1)
+    env2 = Pool(characters2)
 
     assert env1 == env2
     assert env1.convert([1,0]) == env1
@@ -138,8 +138,8 @@ def test_isopower():
         Character(d3[0], MatchupVector(d3[1], d3[2])),
     ]
 
-    env1 = Environment(characters1)
-    env2 = Environment(characters2)
+    env1 = Pool(characters1)
+    env2 = Pool(characters2)
 
     assert env1 == env2
 
@@ -166,8 +166,8 @@ def test_bulk_env():
         Character(d2[0], MatchupVector(d2[1], d2[2])),
     ]
 
-    env1 = Environment(characters1)
-    env2 = Environment(characters2)
+    env1 = Pool(characters1)
+    env2 = Pool(characters2)
     benv1 = BatchEnvironment(characters1)
     benv2 = BatchEnvironment(characters2)
 
@@ -190,7 +190,7 @@ def test_bulk_convert():
         Character(c3[0], MatchupVector(c3[1], c3[2])),
     ]
 
-    env1  = Environment(characters1)
+    env1  = Pool(characters1)
     benv1 = BatchEnvironment(characters1)
 
     assert benv1 == env1 # テスト済みの内容だけど念のため確認

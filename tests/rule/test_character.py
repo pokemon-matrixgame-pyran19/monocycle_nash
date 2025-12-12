@@ -1,5 +1,5 @@
 import pytest
-from rule.gain_matrix import Environment
+from rule.gain_matrix import Pool
 from rule.character import MatchupVector, Character
 import random
 import numpy as np

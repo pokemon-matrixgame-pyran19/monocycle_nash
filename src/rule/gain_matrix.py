@@ -1,8 +1,11 @@
 from .character import Character
+from typing import Literal, TYPE_CHECKING
 import numpy as np
 
+# if TYPE_CHECKING:
+from .character import MatchupVector
 
-class Environment:
+class Pool:
     def __init__(self, characters: list[Character]):
         self.characters = characters
         self.size = len(self.characters)
@@ -23,26 +26,32 @@ class Environment:
         gain = char_i.p - char_j.p +char_i.v.times(char_j.v) 
         return gain
 
-    def __eq__(self, other: 'Environment') -> bool:
+    def __eq__(self, other: 'Pool') -> bool:
         """
         利得行列の一致で等価判定
         """
         return np.allclose(self.matrix, other.matrix, rtol=self.precision, atol=self.precision)
 
-    def convert(self, action_vector: list[float]) -> "Environment":
+    def convert(self, action_vector: list[float]|MatchupVector) -> "Pool":
         """
         aベクトルに基づいて新しい環境を生成
         """
         new_characters = [c.convert(action_vector) for c in self.characters]
-        return Environment(new_characters)
+        return Pool(new_characters)
 
-    def get_param(self) -> list[list[float]]:
+    def get_pxy_list(self, order:list[Literal["p","x","y"]]=[]) -> list[list[float]]:
         """
         環境パラメータを二次元リストで取得
         """
-        return [c.tolist() for c in self.characters]
+        if order == []:
+            return [c.tolist() for c in self.characters]
+        else:
+            return [c.tolist(order) for c in self.characters]
 
-class BatchEnvironment(Environment):
+    def get_characters(self):
+        return self.characters
+
+class BatchEnvironment(Pool):
     """
      一括処理用に最適化したアルゴリズム使うもの 
      データをnumpyで保持。

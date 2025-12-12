@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Union
+from typing import Union, Literal
 
 class MatchupVector():
     # 二次元ベクトル
@@ -60,15 +60,22 @@ class MatchupVector():
     def __str__(self) -> str:
         return f"{self.x},{self.y}"
     
-    def __eq__(self, other: 'MatchupVector') -> bool:
-        return np.allclose(self._data, other._data)
+    def __eq__(self, other: Union['MatchupVector',list[float],np.ndarray]) -> bool:
+        if isinstance(other, MatchupVector):
+            return np.allclose(self._data, other._data)
+        elif isinstance(other,list):
+            return np.allclose(self._data, np.array(other))
+        elif isinstance(other,np.ndarray):
+            return np.allclose(self._data, other)
+        else:
+            raise TypeError("相性ベクトルが想定しない値と比較されました")
 
 class Character:
     def __init__(self, power:float, vector: MatchupVector):
         self.p = power
         self.v = vector
 
-    def tolist(self,order:list[str]=[]) -> list[float]:
+    def tolist(self,order:list[Literal["p","x","y"]]=[]) -> list[float]:
         if order == []:
             return [float(self.p), float(self.v.x), float(self.v.y)]
         result = []
@@ -83,15 +90,20 @@ class Character:
                 result.append(float(self.v.y))
         return result
 
-    def convert(self, action_vector: list[float]) -> "Character":
+    def convert(self, action_vector: list[float]|MatchupVector) -> "Character":
         """
         aベクトルに基づいて新しいキャラクターを生成
         p' = p + v x a
         v' = v - a
         """
-        a = action_vector
-        new_power = self.p + self.v.times(MatchupVector(*a))
-        new_vector = MatchupVector(self.v.x - a[0], self.v.y- a[1])
+        if isinstance(action_vector,list):
+            a = MatchupVector(*action_vector)
+        elif isinstance(action_vector,MatchupVector):
+            a = action_vector
+        else:
+            raise TypeError("想定しない型がaとして入力されました")
+        new_power = self.p + self.v.times(a)
+        new_vector = MatchupVector(self.v.x - a.x, self.v.y- a.y)
         return Character(new_power, new_vector)
 
     def __str__(self):
