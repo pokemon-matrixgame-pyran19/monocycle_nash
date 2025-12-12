@@ -3,13 +3,21 @@ import numpy as np
 from typing import Literal
 
 class MatchupVector():
+    def __new__(cls,data,*arg, **kwarg):
+        """
+        入力が既に変換済みか判定せずにv=MatchupVector(data)と出来るように、このクラスであればそのままにする処理
+        """
+        return data if isinstance(data, cls) else super().__new__(cls)
     # 二次元ベクトル
-    def __init__(self, x: float| np.ndarray, y: float|None = None):
+    def __init__(self, x: float| np.ndarray |list | MatchupVector, y: float|None = None):
         """
         Args:
             x: x座標、または[x, y]の配列
             y: y座標（xが配列の場合は不要）
         """
+        if isinstance(x, MatchupVector):
+            return 
+
         if y is None:
             arr = np.asarray(x, dtype=float)
         else:
@@ -97,29 +105,18 @@ class Character:
         p' = p + v x a
         v' = v - a
         """
-        if isinstance(action_vector,list):
-            a = MatchupVector(*action_vector)
-        elif isinstance(action_vector,MatchupVector):
-            a = action_vector
-        else:
-            raise TypeError("想定しない型がaとして入力されました")
+        a = MatchupVector(action_vector)
         new_power = self.p + self.v.times(a)
-        new_vector = MatchupVector(self.v.x - a.x, self.v.y- a.y)
+        new_vector = MatchupVector(self.v.x - a.x, self.v.y - a.y)
         return Character(new_power, new_vector)
 
     def __str__(self):
         return f"power:{self.p}, vector: {self.v}"
 
 
-def get_characters(data:list|np.ndarray) -> list[Character]:
+def get_characters(data:list[list[float]]|np.ndarray) -> list[Character]:
     """
     p,x,yの順で並んだデータを受け取りcharacerのリストを返す
     """
-    if isinstance(data,list):
-        result = [ Character(d[0],MatchupVector(d[1],d[2])) for d in data ]
-        return result
-    elif isinstance(data,np.ndarray):
-        result = [ Character(d[0],MatchupVector(d[1:])) for d in data ]
-        return result
-    else:
-        raise
+    result = [ Character(d[0],MatchupVector(d[1],d[2])) for d in data ]
+    return result
