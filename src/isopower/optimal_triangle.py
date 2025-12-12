@@ -1,11 +1,11 @@
+from __future__ import annotations
 import numpy as np
 from isopower.calc_a import aCalculator
 from scipy.spatial import ConvexHull
 from rule.gain_matrix import Pool
 
-from typing import TYPE_CHECKING, Any
 
-#if TYPE_CHECKING:
+# 型ヒント
 from rule.character import Character, MatchupVector
 
 class OptimalTriangleFinder:

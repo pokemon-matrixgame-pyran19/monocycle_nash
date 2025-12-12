@@ -1,9 +1,10 @@
+from __future__ import annotations
 import numpy as np
-from typing import Union, Literal
+from typing import Literal
 
 class MatchupVector():
     # 二次元ベクトル
-    def __init__(self, x: Union[float, np.ndarray], y: float|None = None):
+    def __init__(self, x: float| np.ndarray, y: float|None = None):
         """
         Args:
             x: x座標、または[x, y]の配列
@@ -60,7 +61,7 @@ class MatchupVector():
     def __str__(self) -> str:
         return f"{self.x},{self.y}"
     
-    def __eq__(self, other: Union['MatchupVector',list[float],np.ndarray]) -> bool:
+    def __eq__(self, other: MatchupVector|list[float]|np.ndarray) -> bool:
         if isinstance(other, MatchupVector):
             return np.allclose(self._data, other._data)
         elif isinstance(other,list):

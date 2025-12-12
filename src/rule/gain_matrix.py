@@ -1,9 +1,9 @@
-from .character import Character
-from typing import Literal, TYPE_CHECKING
+from __future__ import annotations
 import numpy as np
 
-# if TYPE_CHECKING:
-from .character import MatchupVector
+# 型ヒント
+from .character import Character, MatchupVector
+from typing import Literal
 
 class Pool:
     def __init__(self, characters: list[Character]):
