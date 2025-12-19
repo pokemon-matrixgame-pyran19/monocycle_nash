@@ -35,6 +35,7 @@ class Pool:
     def convert(self, action_vector: list[float]|MatchupVector) -> "Pool":
         """
         aベクトルに基づいて新しい環境を生成
+        平行移動なんだから関数名shiftとかな気がしてきた。後で関数名変更
         """
         new_characters = [c.convert(action_vector) for c in self.characters]
         return Pool(new_characters)

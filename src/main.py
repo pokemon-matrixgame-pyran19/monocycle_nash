@@ -21,10 +21,7 @@ def main():
     finder = OptimalTriangleFinder(pool=environment)
     finder.find() 
     result=finder.get_result()
-    calc=isopower.calc_a.aCalculator(*result[0][1:4])
-    a=calc.calc()
     print("By finder, a:",result[0])
-    print("for 123, a:",a)
 
     new_env = environment.convert([0.2,0.3])
     B=new_env.get_matrix()
@@ -66,7 +63,15 @@ def B2A():
     print(A)
     print(new_env.get_pxy_list())
 
+
+def squere_example():
+    from example import squere
+    A=squere.get_matrix()
+    print(A)
+
+
 if __name__ == "__main__":
-    main()
+    #main()
     #equilateral_triangle()
-    B2A()
+    #B2A()
+    squere_example()
