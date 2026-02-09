@@ -22,15 +22,15 @@ src/
 │   └── power_vector.py        # パワー・ベクトル計算ユーティリティ
 ├── matrix/                    # 利得行列関連
 │   ├── __init__.py
-│   ├── domain.py              # GainMatrix（ドメイン層）
-│   ├── calculator.py          # 利得行列計算
+│   ├── domain.py              # PayoffMatrix（ドメイン層）
+│   ├── monov_calculator.py          # 単平面系用の利得行列計算
 │   ├── pool.py                # キャラクタープール管理
 │   └── batch.py               # 高速バッチ計算（BatchEnvironment相当）
 ├── equilibrium/               # 均衡解関連
 │   ├── __init__.py
 │   ├── domain.py              # MixedStrategy（ドメイン層）
-│   ├── strict.py              # 厳密解（線形最適化）
-│   └── approximate.py         # 近似解（反復法など）
+│   ├── strict.py              # 厳密解（nashpyモジュールを使った線形最適化）
+│   └── monov.py               # 単平面系用の解法
 ├── strategy/                  # 戦略関連
 │   ├── __init__.py
 │   ├── domain.py              # Strategyプロトコル（ドメイン層）
@@ -40,13 +40,14 @@ src/
 │   ├── __init__.py
 │   ├── domain.py              # Build（ドメイン層）
 │   ├── factory.py             # 構築生成ファクトリ
-│   ├── matrix.py              # 構築利得行列生成
+│   ├── matrix.py              # 構築利得行列生成(厳密解)
+│   ├── matrix_2to1.py              # 構築利得行列生成(2キャラクター構築用)
+│   ├── matrix_monov.py              # 構築利得行列生成(2キャラクター構築+単平面系用)
 │   └── ordering.py            # 構築順序管理
 ├── power/                     # 等パワー座標関連（コロケーション）
 │   ├── __init__.py
 │   ├── converter.py           # 原点移動・座標変換
-│   ├── a_calculator.py        # aベクトル計算（厳密解）
-│   ├── a_calculator_approx.py # aベクトル計算（近似解）
+│   ├── a_calculator.py        # aベクトル計算
 │   ├── triangle_finder.py     # 最適三角形探索
 │   └── evaluator.py           # 三角形評価
 └── visualizer/                # 可視化関連（コロケーション）
@@ -63,7 +64,7 @@ src/
 ### ドメイン層（domain層）
 以下のファイルのクラスが該当:
 - `character/domain.py`: Character, MatchupVector
-- `matrix/domain.py`: GainMatrix
+- `matrix/domain.py`: PayoffMatrix
 - `equilibrium/domain.py`: MixedStrategy
 - `strategy/domain.py`: Strategy（Protocol）
 - `build/domain.py`: Build
@@ -115,7 +116,7 @@ class PowerVectorCalculator:
 ### 3. matrix/domain.py（ドメイン層）
 
 ```python
-class GainMatrix:
+class PayoffMatrix:
     """利得行列エンティティ"""
     - matrix: np.ndarray        # 利得行列
     - row_strategies: list[str] # 行戦略ID
@@ -128,21 +129,21 @@ class GainMatrix:
 ### 4. matrix/calculator.py（アプリケーション層）
 
 ```python
-class GainMatrixCalculator:
+class PayoffMatrixCalculator:
     """利得行列計算"""
-    - calculate(characters: list[Character]): GainMatrix
-    - calculate_for_builds(builds: list[Build]): GainMatrix
+    - calculate(characters: list[Character]): PayoffMatrix
+    - calculate_for_builds(builds: list[Build]): PayoffMatrix
 ```
 
 ### 5. matrix/pool.py（アプリケーション層）
 
-既存の `rule/gain_matrix.py` (Pool) を移動・リファクタリング。
+既存の `rule/payoff_matrix.py` (Pool) を移動・リファクタリング。
 
 ```python
 class CharacterPool:
     """キャラクタープールと利得行列の管理"""
     - characters: list[Character]
-    - matrix: GainMatrix
+    - matrix: PayoffMatrix
     - convert(action_vector): CharacterPool  # 平行移動
     - get_character(index): Character
     - get_pxy_list(): list[list[float]]
@@ -151,7 +152,7 @@ class CharacterPool:
 
 ### 6. matrix/batch.py（アプリケーション層）
 
-既存の `rule/gain_matrix.py` (BatchEnvironment) を移動。
+既存の `rule/payoff_matrix.py` (BatchEnvironment) を移動。
 
 ```python
 class BatchMatrixCalculator:
@@ -179,8 +180,8 @@ class MixedStrategy:
 ```python
 class StrictEquilibriumSolver:
     """厳密な均衡解計算（線形最適化）"""
-    - solve(matrix: GainMatrix): MixedStrategy
-    - solve_nash_equilibrium(matrix: GainMatrix): tuple[MixedStrategy, MixedStrategy]
+    - solve(matrix: PayoffMatrix): MixedStrategy
+    - solve_nash_equilibrium(matrix: PayoffMatrix): tuple[MixedStrategy, MixedStrategy]
     - calc_score(A, v1, v2): float
     - calc_weight(A, v): np.ndarray
 ```
@@ -190,9 +191,9 @@ class StrictEquilibriumSolver:
 ```python
 class ApproximateEquilibriumSolver:
     """近似均衡解計算（反復法）"""
-    - solve_fp(matrix: GainMatrix, iterations: int): MixedStrategy  # 仮想対戦
-    - solve_replicator(matrix: GainMatrix, iterations: int): MixedStrategy  # 複製子動態
-    - solve_regret_matching(matrix: GainMatrix, iterations: int): MixedStrategy  # 後悔一致
+    - solve_fp(matrix: PayoffMatrix, iterations: int): MixedStrategy  # 仮想対戦
+    - solve_replicator(matrix: PayoffMatrix, iterations: int): MixedStrategy  # 複製子動態
+    - solve_regret_matching(matrix: PayoffMatrix, iterations: int): MixedStrategy  # 後悔一致
 ```
 
 ### 10. strategy/domain.py（ドメイン層）
@@ -219,8 +220,8 @@ class BuildStrategy:
 ```python
 class EpsilonStrategyCalculator:
     """ε戦略計算"""
-    - calculate(matrix: GainMatrix, mixed_strategy: MixedStrategy): EpsilonStrategyResult
-    - find_best_response(matrix: GainMatrix, mixed_strategy: MixedStrategy): list[str]
+    - calculate(matrix: PayoffMatrix, mixed_strategy: MixedStrategy): EpsilonStrategyResult
+    - find_best_response(matrix: PayoffMatrix, mixed_strategy: MixedStrategy): list[str]
 
 class EpsilonStrategyResult:
     - epsilon: float            # ε値
@@ -233,8 +234,8 @@ class EpsilonStrategyResult:
 ```python
 class BestResponseCalculator:
     """最適反応計算"""
-    - calc_best_response(matrix: GainMatrix, opponent_strategy: MixedStrategy): MixedStrategy
-    - calc_best_response_value(matrix: GainMatrix, opponent_strategy: MixedStrategy): float
+    - calc_best_response(matrix: PayoffMatrix, opponent_strategy: MixedStrategy): MixedStrategy
+    - calc_best_response_value(matrix: PayoffMatrix, opponent_strategy: MixedStrategy): float
 ```
 
 ### 13. build/domain.py（ドメイン層）
@@ -270,9 +271,9 @@ class BuildRule:
 class BuildMatrixGenerator:
     """構築利得行列生成"""
     - generate_from_character_matrix(
-        char_matrix: GainMatrix,
+        char_matrix: PayoffMatrix,
         builds: list[Build]
-      ): GainMatrix
+      ): PayoffMatrix
 ```
 
 ### 16. build/ordering.py（アプリケーション層）
@@ -281,7 +282,7 @@ class BuildMatrixGenerator:
 class BuildOrderingService:
     """構築順序サービス"""
     - order_builds(builds: list[Build], ordering: OrderingStrategy): list[Build]
-    - create_consistent_ordering(matrix: GainMatrix): list[int]
+    - create_consistent_ordering(matrix: PayoffMatrix): list[int]
 ```
 
 ### 17. power/converter.py（アプリケーション層）
@@ -357,8 +358,8 @@ class CharacterVisualizer:
 ```python
 class MatrixVisualizer:
     """行列可視化"""
-    - plot_matchup_heatmap(matrix: GainMatrix): plt.Figure
-    - plot_matrix_3d(matrix: GainMatrix): plt.Figure
+    - plot_matchup_heatmap(matrix: PayoffMatrix): plt.Figure
+    - plot_matrix_3d(matrix: PayoffMatrix): plt.Figure
 ```
 
 ### 24. visualizer/equilibrium.py（プレゼンテーション層）
@@ -389,9 +390,9 @@ class PowerVisualizer:
 ```python
 class StrategyVisualizer:
     """戦略可視化"""
-    - plot_best_response_matrix(matrix: GainMatrix): plt.Figure
+    - plot_best_response_matrix(matrix: PayoffMatrix): plt.Figure
     - plot_epsilon_landscape(
-        matrix: GainMatrix,
+        matrix: PayoffMatrix,
         strategies: list[MixedStrategy]
       ): plt.Figure
 ```
@@ -405,8 +406,8 @@ class StrategyVisualizer:
 ### Phase 2: matrixモジュール
 - [ ] matrix/domain.py の作成
 - [ ] matrix/calculator.py の作成
-- [ ] matrix/pool.py の作成（既存 rule/gain_matrix.py Poolから）
-- [ ] matrix/batch.py の作成（既存 rule/gain_matrix.py BatchEnvironmentから）
+- [ ] matrix/pool.py の作成（既存 rule/payoff_matrix.py Poolから）
+- [ ] matrix/batch.py の作成（既存 rule/payoff_matrix.py BatchEnvironmentから）
 
 ### Phase 3: equilibriumモジュール
 - [ ] equilibrium/domain.py の作成
@@ -448,7 +449,7 @@ class StrategyVisualizer:
 |------|---------|-----------|-------------|
 | 相性ベクトル | MatchupVector | domain.py | character/ |
 | キャラクター | Character | domain.py | character/ |
-| 利得行列 | GainMatrix | domain.py | matrix/ |
+| 利得行列 | PayoffMatrix | domain.py | matrix/ |
 | キャラクタープール | CharacterPool | pool.py | matrix/ |
 | 混合戦略 | MixedStrategy | domain.py | equilibrium/ |
 | 厳密均衡解 | StrictEquilibriumSolver | strict.py | equilibrium/ |
