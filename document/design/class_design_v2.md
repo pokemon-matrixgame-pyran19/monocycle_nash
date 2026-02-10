@@ -409,14 +409,34 @@ class IsopowerSolver(EquilibriumSolver):
         shifted: MonocyclePayoffMatrix, 
         triangle_result
     ) -> MixedStrategy:
-        """原点移動後の均衡を計算"""
-        # TODO: 三角形の頂点に対応する戦略確率を計算
-        # 簡易実装: 三角形の頂点に均等分布
+        """
+        原点移動後の均衡を計算
+        
+        理論: i,j,kの組み合わせに対し、混合戦略の比率は
+        i:j:k = Ajk : Aki : Aij
+        
+        ここで Aij は移動後の利得行列の要素
+        """
+        i, j, k = triangle_result.indices
+        A = shifted.matrix
+        
+        # 比率を計算: i:j:k = A[j,k] : A[k,i] : A[i,j]
+        ratio_i = A[j, k]
+        ratio_j = A[k, i]
+        ratio_k = A[i, j]
+        
+        # 確率に正規化（合計が1になるように）
+        total = ratio_i + ratio_j + ratio_k
+        prob_i = ratio_i / total
+        prob_j = ratio_j / total
+        prob_k = ratio_k / total
+        
+        # 全戦略の確率配列を作成（ijk以外は0）
         n = shifted.size
         probs = np.zeros(n)
-        
-        # 三角形に含まれるキャラクターのインデックスを特定
-        # ...
+        probs[i] = prob_i
+        probs[j] = prob_j
+        probs[k] = prob_k
         
         return MixedStrategy(probs, shifted.labels)
 ```
@@ -455,6 +475,60 @@ class SolverSelector:
         """適切なソルバーで均衡解を計算"""
         solver = self.select(matrix)
         return solver.solve(matrix)
+```
+
+### isopower/a_calculator.py
+
+```python
+class IsopowerACalculator:
+    """
+    等パワー座標 a の計算
+    
+    理論: 任意の3つの戦略 i, j, k を等パワーにする座標 a は
+    
+    a = (p_i(v_j - v_k) + p_j(v_k - v_i) + p_k(v_i - v_j)) / T
+    
+    ここで T は以下の 3×3 行列式:
+    T = | p_i  p_j  p_k |
+        | v_i  v_j  v_k |
+    
+    v は2次元ベクトルなので、これで3×3の行列式となる。
+    分子はベクトル、分母はスカラーなので、a はベクトルとなる。
+    """
+    
+    - calculate_a_vector(c_i: MonocycleCharacter, 
+                        c_j: MonocycleCharacter, 
+                        c_k: MonocycleCharacter) -> MatchupVector
+    - calculate_t_determinant(c_i, c_j, c_k) -> float  # Tの計算
+    - calculate_numerator(c_i, c_j, c_k) -> MatchupVector  # 分子の計算
+    - is_inner: bool  # aが三角形の内部にあるか（ナッシュ均衡判定に使用）
+```
+
+### isopower/triangle.py
+
+```python
+class OptimalTriangleFinder:
+    """
+    最適な3点（ナッシュ均衡を形成する三角形）を探索
+    
+    探索アルゴリズム:
+    1. キャラクターの凸包（ConvexHull）を計算
+    2. 凸包の各面（三角形）に対して:
+       a. その3点で等パワー座標 a を計算
+       b. a が三角形の内部にあるか判定（is_inner）
+    3. 内部にaがある三角形を最適な組み合わせとして返す
+    
+    理論的根拠:
+    - 平行移動前の点 vi, vj, vk の内側に a がある
+    - または同じ意味だが平行移動後の vi, vj, vk が原点を囲む
+    - この条件を満たすとき、等パワーの3点が最大パワーになりナッシュ均衡となる
+    """
+    
+    - __init__(pool: Pool)
+    - find() -> None  # 探索実行
+    - get_result() -> list[list]  # 結果取得 [a, c_i, c_j, c_k] のリスト
+    - get_a() -> MatchupVector  # 最初の結果のaを返す
+    - get_optimal_3characters() -> set[Character]  # 最適3キャラクター
 ```
 
 ### equilibrium/domain.py
