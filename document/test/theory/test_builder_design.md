@@ -23,15 +23,23 @@ class TheoryTestCase:
     """理論予測テストケース - この利得行列の理論的な正しい値を保持"""
     name: str                    # 例: "janken"
     
-    # キャラクター設定
-    powers: list[float]          # パワー値 [p1, p2, p3]
+    # キャラクター設定（単相性モデル用）
+    powers: list[float]          # パワー値 [p1, p2, ...]
     vectors: list[tuple[float, float]]  # 相性ベクトル [(vx1, vy1), ...]
     
     # 利得行列（理論値）
-    matrix: np.ndarray           # 理論的な利得行列
+    matrix: np.ndarray           # 単相性モデルの利得行列
+    
+    # チーム設定（チームテスト用）
+    teams: list[list[int]] | None  # チーム構成 [[0,1], [2,3]] など
+    team_matrix: np.ndarray | None  # チーム利得行列
     
     # ナッシュ均衡（理論値）
     equilibrium: np.ndarray      # 混合戦略の確率分布
+    
+    # ゲーム値（チーム利得用）
+    game_value: float | None     # 2×2ゲーム値公式による値
+    approx_game_value: float | None  # 単相性近似による値
     
     # 等パワー座標（理論値）
     isopower_a: tuple[float, float] | None  # 等パワー座標a
@@ -41,6 +49,20 @@ class TheoryTestCase:
     
     description: str             # 説明
 ```
+
+**各プロパティの用途:**
+
+| プロパティ | 用途 |
+|-----------|------|
+| `powers`, `vectors` | 単相性モデル行列計算の入力 |
+| `matrix` | 単相性モデル行列計算の出力 / 一般均衡解の入力 |
+| `teams` | チーム行列計算の入力 |
+| `team_matrix` | チーム行列計算の出力 / 2×2ゲーム値の入力 |
+| `equilibrium` | 均衡解計算の出力 / ε値計算の入力 |
+| `game_value` | 2×2ゲーム値公式の出力 |
+| `approx_game_value` | 単相性近似の出力 |
+| `isopower_a` | 等パワー座標計算の出力 |
+| `epsilon` | ε値計算の出力 |
 
 **使い方:**
 - テストビルダーは「理論的な正しい値」を保持する
