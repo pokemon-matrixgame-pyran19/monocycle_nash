@@ -2,6 +2,12 @@
 
 ## 前提と設計方針
 
+### 利得行列の構造
+
+利得行列の行・列は「戦略」に対応。戦略には以下を設定可能：
+- **キャラクター戦略**: 1体のキャラクター
+- **チーム戦略**: 複数キャラクターのチーム（Team）
+
 ### 利得行列の2種類
 
 **一般の利得行列 (GeneralPayoffMatrix)**
@@ -9,15 +15,27 @@
 - 解法: nashpyによる線形最適化（汎用的だが計算コスト高）
 
 **単相性モデルの利得行列 (MonocyclePayoffMatrix)**
-- Character (p, v) から生成: Aij = pi - pj + vi×vj
+- MonocycleCharacter (p, v) から生成: Aij = pi - pj + vi×vj
 - 解法: 等パワー座標による高速解法（構造的性質を活用）
 - 元のCharacter情報を保持
 
+### キャラクターの2種類
+
+**MonocycleCharacter（単相性モデル用）**
+- power: パワー値
+- vector: 相性ベクトル(vx, vy)
+- 等パワー座標計算に使用
+
+**GenericCharacter（一般・表示用）**
+- label: 表示用ラベル
+- パラメータを持たない軽量なキャラクター
+
 ### 設計方針
 
-1. **利得行列を型で区別**: 2種類の利得行列を別クラスとして定義
-2. **Solverは行列型に応じて自動選択**: Strategy Pattern
-3. **単相性モデル専用の最適化**: Character情報を活かした高速計算
+1. **戦略の抽象化**: 利得行列は「戦略」に対応、戦略の実体はキャラクターまたはチーム
+2. **利得行列を型で区別**: 2種類の利得行列を別クラスとして定義
+3. **Solverは行列型に応じて自動選択**: Strategy Pattern
+4. **単相性モデル専用の最適化**: MonocycleCharacter情報を活かした高速計算
 
 ---
 
@@ -58,11 +76,11 @@ src/
 │   ├── __init__.py
 │   ├── epsilon.py             # ε戦略
 │   └── best_response.py       # 最適反応
-├── build/                     # 構築関連
+├── team/                      # チーム関連
 │   ├── __init__.py
-│   ├── domain.py              # Build
-│   ├── factory.py             # 構築ファクトリ
-│   └── matrix.py              # 構築利得行列
+│   ├── domain.py              # Team
+│   ├── factory.py             # チーム生成ファクトリ
+│   └── matrix.py              # チーム利得行列
 └── visualizer/                # 可視化
     ├── __init__.py
     ├── character.py
@@ -235,13 +253,13 @@ from .monocycle import MonocyclePayoffMatrix
 from character.domain import Character
 
 if TYPE_CHECKING:
-    from build.domain import Build
+    from team.domain import Team
 
 class PayoffMatrixBuilder:
     """
     利得行列ビルダー
     - CharacterからMonocyclePayoffMatrixを生成
-    - Buildから構築利得行列を生成
+    - Teamからチーム利得行列を生成
     """
     
     @staticmethod
@@ -255,20 +273,20 @@ class PayoffMatrixBuilder:
         return GeneralPayoffMatrix(matrix, labels)
     
     @staticmethod
-    def from_builds(builds: list["Build"], character_matrix: MonocyclePayoffMatrix) -> GeneralPayoffMatrix:
+    def from_teams(teams: list["Team"], character_matrix: MonocyclePayoffMatrix) -> GeneralPayoffMatrix:
         """
-        構築リストから構築利得行列を生成
-        - 構築は一般行列（Monocycleの構造を持たない）
+        チームリストからチーム利得行列を生成
+        - チームは一般行列（Monocycleの構造を持たない）
         """
-        n = len(builds)
+        n = len(teams)
         matrix = np.zeros((n, n))
         
-        for i, build_i in enumerate(builds):
-            for j, build_j in enumerate(builds):
-                # 構築同士の利得を計算
-                matrix[i, j] = build_i.calculate_payoff(build_j, character_matrix)
+        for i, team_i in enumerate(teams):
+            for j, team_j in enumerate(teams):
+                # チーム同士の利得を計算
+                matrix[i, j] = team_i.calculate_payoff(team_j, character_matrix)
         
-        labels = [b.name for b in builds]
+        labels = [t.name for t in teams]
         return GeneralPayoffMatrix(matrix, labels)
 ```
 
@@ -485,6 +503,107 @@ class MixedStrategy:
 
 ---
 
+## キャラクターと戦略の設計
+
+### character/domain.py
+
+```python
+from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from strategy.domain import PureStrategy
+
+class MatchupVector:
+    """相性ベクトル（2次元ベクトル）- 値オブジェクト"""
+    - x: float
+    - y: float
+    - times(other): float  # 外積計算
+    - 演算子オーバーロード（+, -, *, /, -v）
+
+class Character(ABC):
+    """キャラクターの抽象基底クラス"""
+    
+    @property
+    @abstractmethod
+    def label(self) -> str:
+        """表示用ラベル"""
+        pass
+    
+    @abstractmethod
+    def to_strategy(self) -> "PureStrategy":
+        """純粋戦略に変換"""
+        pass
+
+class MonocycleCharacter(Character):
+    """
+    単相性モデル用キャラクター
+    - power: パワー値
+    - vector: 相性ベクトル(vx, vy)
+    - 等パワー座標計算に使用
+    """
+    - power: float
+    - vector: MatchupVector
+    - _label: str
+    
+    - __init__(power, vector, label)
+    - convert(action_vector): MonocycleCharacter  # 等パワー座標で平行移動
+    - tolist(order): list[float]
+    - to_strategy(): PureStrategy
+
+class GenericCharacter(Character):
+    """
+    一般・表示用キャラクター
+    - パラメータを持たない軽量なキャラクター
+    - グラフ出力時のラベル表示用
+    """
+    - _label: str
+    
+    - __init__(label)
+    - to_strategy(): PureStrategy
+```
+
+### strategy/domain.py
+
+```python
+from typing import Protocol, TYPE_CHECKING, Union
+from abc import ABC, abstractmethod
+
+if TYPE_CHECKING:
+    from character.domain import Character
+    from team.domain import Team
+
+class Strategy(Protocol):
+    """戦略のプロトコル"""
+    id: str
+    label: str
+
+class PureStrategy:
+    """
+    純粋戦略（利得行列の行/列に対応）
+    - 実体はキャラクターまたはチーム
+    """
+    id: str
+    label: str
+    _entity: Character | Team
+    
+    - __init__(entity: Character | Team)
+    - @property entity: Character | Team
+    - is_character(): bool
+    - is_team(): bool
+
+class MixedStrategy:
+    """混合戦略（ナッシュ均衡解）- ε戦略と区別"""
+    probabilities: np.ndarray
+    strategies: list[PureStrategy]
+    
+    - validate(): bool
+    - get_probability(strategy_id): float
+    - get_support(): list[PureStrategy]
+```
+
+---
+
 ## 利得行列の型階層
 
 ```
@@ -493,9 +612,21 @@ PayoffMatrix (抽象基底)
     │   └── 解法: NashpySolver (線形最適化)
     │
     └── MonocyclePayoffMatrix    # 単相性モデル
-        ├── Character情報を保持
+        ├── MonocycleCharacter情報を保持
         ├── 等パワー座標による高速解法: IsopowerSolver
         └── shift_origin() で原点移動可能
+```
+
+### 利得行列と戦略の関係
+
+```
+利得行列 (PayoffMatrix)
+    ├── 行: PureStrategy[0], PureStrategy[1], ...
+    └── 列: PureStrategy[0], PureStrategy[1], ...
+
+PureStrategy
+    ├── CharacterStrategy → Character（MonocycleCharacter or GenericCharacter）
+    └── TeamStrategy → Team（複数キャラクターのチーム）
 ```
 
 ---
