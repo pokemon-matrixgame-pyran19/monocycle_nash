@@ -19,11 +19,7 @@ document/test/
 │   ├── index.md               # 理論予測の概要・テストパターン
 │   └── test_builder_design.md # テストビルダーの設計
 └── implementation/            # 実装確認テスト
-    ├── index.md
-    ├── matchup.md
-    ├── pool.md
-    ├── batch_env.md
-    └── calc_a.md
+    └── index.md               # 実装確認テストの概要
 ```
 
 ## 理論予測テスト（theory/）
@@ -34,14 +30,9 @@ document/test/
 
 ## 実装確認テスト（implementation/）
 
-実装上の振る舞いを確認。
+[implementation/index.md](./implementation/index.md) を参照。
 
-| ファイル | 内容 |
-|----------|------|
-| [matchup.md](./implementation/matchup.md) | 外積の交換法則 |
-| [pool.md](./implementation/pool.md) | 等価判定、convert機能 |
-| [batch_env.md](./implementation/batch_env.md) | BatchEnvironmentの一致確認 |
-| [calc_a.md](./implementation/calc_a.md) | 順序非依存、内部/外部判定 |
+実装上必要な振る舞い（対称性、保存則、エッジケース）を確認。
 
 ## 分類の判断基準
 
