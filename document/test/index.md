@@ -14,7 +14,9 @@
 ```
 document/test/
 ├── index.md                    # このファイル
-├── janken.md                   # 元のメモ（参考用）
+├── data/                       # テストビルダーに入力する具体例メモ(参考用)
+│   ├── janken.md                   # じゃんけん
+│   ├── extended_janken.md          # じゃんけんに弱い手追加した系
 ├── theory/                     # 理論予測テスト
 │   ├── index.md               # 理論予測の概要・テストパターン
 │   └── test_builder_design.md # テストビルダーの設計
