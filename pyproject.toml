@@ -7,6 +7,7 @@ requires-python = ">=3.12"
 dependencies = [
     "numpy>=2.3.5",
     "scipy>=1.16.3",
+    "nashpy>=0.0.41",
 ]
 
 # ビルド用の設定でサンプルコードにはよく書かれてる
