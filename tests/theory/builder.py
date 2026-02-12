@@ -136,6 +136,65 @@ class TheoryTestBuilder:
         )
     
     @staticmethod
+    def extended_janken() -> TheoryTestCase:
+        """
+        拡張じゃんけん: 弱いキャラクター（p4）を追加した4点
+        
+        じゃんけんの利得行列A'に対して弱いキャラクターp4を追加した行列A。
+        p4は他の全てのキャラクターに対して不利な位置に配置される。
+        
+        利得行列: A = 2√3 * base + offset
+        
+        均衡解は (1/3, 1/3, 1/3, 0) - p4は使用されない。
+        """
+        ROOT3 = 1.7320508075688772
+        
+        # 共通の利得行列（4x4）
+        # A = 2√3 * base + offset
+        base = np.array([
+            [0.0, 1.0, -1.0, 0.0],
+            [-1.0, 0.0, 1.0, 0.0],
+            [1.0, -1.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 0.0]
+        ])
+        offset = np.array([
+            [0.0, 0.0, 0.0, 2.1],
+            [0.0, 0.0, 0.0, -0.9],
+            [0.0, 0.0, 0.0, -0.9],
+            [-2.1, 0.9, 0.9, 0.0]
+        ])
+        matrix = 2 * ROOT3 * base + offset
+        
+        # 均衡解: p4は弱いので使用されない
+        equilibrium = np.array([1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0, 0.0])
+        
+        # variant 1: ドキュメント記載の値（powers, vectorsの組）
+        # この組み合わせで上記のmatrixが計算される
+        variant1 = TestVariant(
+            name="document",
+            powers=[0.0, 0.0, 0.0, -0.1],
+            vectors=[(2.0, 0.0), (-1.0, ROOT3), (-1.0, -ROOT3), (0.0, 1.0)],
+            isopower_a=(0.0, 0.0)
+        )
+        
+        # variant 2: ドキュメント記載の別の等価な表現
+        variant2 = TestVariant(
+            name="alternative",
+            powers=[-2.0, 1.0 + ROOT3, 1.0 - ROOT3,  0.9],
+            vectors=[(3.0, 1.0), (0.0, 1.0 + ROOT3), (0.0, 1.0 - ROOT3), (1.0, 2.0)],
+            isopower_a=(1.0, 1.0)
+        )
+        
+        return TheoryTestCase(
+            name="extended_janken",
+            variants=[variant1, variant2],
+            matrix=matrix,
+            equilibrium=equilibrium,
+            description="じゃんけんに弱いキャラクターp4を追加した4点。均衡解ではp4は使用されない。",
+            transformations=None
+        )
+    
+    @staticmethod
     def get_all_cases() -> list[TheoryTestCase]:
         """
         全テストケースを取得
@@ -148,7 +207,6 @@ class TheoryTestBuilder:
         """
         return [
             TheoryTestBuilder.janken(),
+            TheoryTestBuilder.extended_janken(),
             # 新しいケースをここに追加
-            # TheoryTestBuilder.extended_janken(),
-            # TheoryTestBuilder.four_characters(),
         ]
