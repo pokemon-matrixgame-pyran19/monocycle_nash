@@ -9,7 +9,7 @@ import numpy as np
 from monocycle_nash.isopower.triangle import OptimalTriangleFinder, OptimalTriangleResult
 from monocycle_nash.matrix.monocycle import MonocyclePayoffMatrix
 from monocycle_nash.character.domain import Character, MatchupVector
-from tests.theory.builder import TheoryTestBuilder
+from theory.builder import TheoryTestBuilder
 
 
 ROOT3 = 1.7320508075688772
