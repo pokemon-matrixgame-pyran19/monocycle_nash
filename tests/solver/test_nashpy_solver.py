@@ -1,9 +1,9 @@
 import pytest
 import numpy as np
-from solver.nashpy_solver import NashpySolver
-from matrix.general import GeneralPayoffMatrix
-from matrix.monocycle import MonocyclePayoffMatrix
-from rule.character import Character, MatchupVector
+from monocycle_nash.solver.nashpy_solver import NashpySolver
+from monocycle_nash.matrix.general import GeneralPayoffMatrix
+from monocycle_nash.matrix.monocycle import MonocyclePayoffMatrix
+from monocycle_nash.character.domain import Character, MatchupVector
 
 
 class TestNashpySolver:
@@ -100,7 +100,7 @@ class TestNashpySolver:
         
         result = solver.solve(matrix)
         
-        from equilibrium.domain import MixedStrategy
+        from monocycle_nash.equilibrium.domain import MixedStrategy
         assert isinstance(result, MixedStrategy)
     
     def test_result_probabilities_sum_to_one(self):

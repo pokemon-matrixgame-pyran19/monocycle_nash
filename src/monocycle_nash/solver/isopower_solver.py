@@ -1,11 +1,9 @@
 import numpy as np
 
 from .base import EquilibriumSolver
-from matrix.monocycle import MonocyclePayoffMatrix
-from equilibrium.domain import MixedStrategy
-from isopower.calc_a import aCalculator
-from isopower.optimal_triangle import OptimalTriangleFinder
-from rule.gain_matrix import Pool
+from ..matrix.monocycle import MonocyclePayoffMatrix
+from ..equilibrium.domain import MixedStrategy
+from ..isopower.triangle import OptimalTriangleFinder
 
 
 class IsopowerSolver(EquilibriumSolver):
@@ -28,54 +26,24 @@ class IsopowerSolver(EquilibriumSolver):
         2. aで原点移動
         3. 移動後の空間で均衡を計算
         """
-        # Pool経由でOptimalTriangleFinderを使用
-        pool = Pool(matrix.characters)
-        
         # 最適三角形を探索
-        finder = OptimalTriangleFinder(pool)
-        finder.find()
+        finder = OptimalTriangleFinder(matrix)
+        result = finder.find_best()
         
-        result = finder.get_result()
-        
-        if not result:
+        if result is None:
             # 有効な三角形がない場合はフォールバック
             return self._fallback_solve(matrix)
         
-        # 最初の結果を使用
-        a_vector = finder.get_a()
-        indices = self._get_character_indices(finder, matrix)
-        
         # 等パワー座標で原点移動
-        shifted = matrix.shift_origin(a_vector)
+        shifted = matrix.shift_origin(result.a_vector)
         
         # 移動後の均衡を計算
-        return self._calculate_shifted_equilibrium(shifted, indices)
+        return self._calculate_shifted_equilibrium(shifted, result.indices)
     
     def _fallback_solve(self, matrix: MonocyclePayoffMatrix) -> MixedStrategy:
         """フォールバック: 均等分布を返す"""
         probs = np.ones(matrix.size) / matrix.size
         return MixedStrategy(probs, matrix.labels)
-    
-    def _get_character_indices(
-        self, 
-        finder: OptimalTriangleFinder,
-        matrix: MonocyclePayoffMatrix
-    ) -> tuple[int, int, int]:
-        """最適3キャラクターのインデックスを取得"""
-        optimal_chars = finder.get_optimal_3characters()
-        indices = []
-        for char in optimal_chars:
-            for i, c in enumerate(matrix.characters):
-                if c is char or (c.p == char.p and c.v == char.v):
-                    indices.append(i)
-                    break
-        
-        # 3つのインデックスを返す
-        if len(indices) >= 3:
-            return (indices[0], indices[1], indices[2])
-        else:
-            # フォールバック: 最初の3つ
-            return (0, 1, 2)
     
     def _calculate_shifted_equilibrium(
         self, 

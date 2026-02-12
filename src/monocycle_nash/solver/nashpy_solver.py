@@ -2,8 +2,8 @@ import numpy as np
 import nashpy as nash
 
 from .base import EquilibriumSolver
-from matrix.general import GeneralPayoffMatrix
-from equilibrium.domain import MixedStrategy
+from ..matrix.general import GeneralPayoffMatrix
+from ..equilibrium.domain import MixedStrategy
 
 
 class NashpySolver(EquilibriumSolver):
@@ -34,5 +34,6 @@ class NashpySolver(EquilibriumSolver):
             return MixedStrategy(probs, matrix.labels)
         
         # 最初の均衡を使用（行プレイヤーの戦略）
-        sigma_r, _ = equilibria[0]
+        # nashpy.linear_program()はnumpy配列を直接返す
+        sigma_r = equilibria[0]
         return MixedStrategy(sigma_r, matrix.labels)
