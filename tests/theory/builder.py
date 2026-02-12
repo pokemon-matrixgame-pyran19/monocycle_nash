@@ -11,26 +11,67 @@ import numpy as np
 
 
 @dataclass(frozen=True)
-class TheoryTestCase:
+class TestVariant:
     """
-    理論予測テストケース - この利得行列の理論的な正しい値を保持
+    同じ利得行列の異なる表現（パワー・ベクトルの組）
+    
+    利得行列は同じでも、パワーとベクトルの組み合わせは複数ありうる。
+    このクラスはその一つの表現を保持する。
     
     Attributes:
-        name: テストケース名（例: "janken"）
+        name: variant名（例: "original", "shifted"）
         powers: パワー値 [p1, p2, ...]
         vectors: 相性ベクトル [(vx1, vy1), ...]
-        matrix: 利得行列（理論値）
-        equilibrium: 混合戦略の確率分布（ナッシュ均衡解）
-        isopower_a: 等パワー座標a (x, y)
-        description: 説明文
+        isopower_a: このvariantから等パワーへの変換ベクトル (x, y)
     """
     name: str
     powers: list[float]
     vectors: list[tuple[float, float]]
+    isopower_a: tuple[float, float] | None = None
+
+
+@dataclass(frozen=True)
+class TheoryTestCase:
+    """
+    理論予測テストケース - 複数variantを持つ
+    
+    同じ利得行列に対する複数のパワー・ベクトル表現を保持し、
+    それぞれでテストを実行できる。
+    
+    Attributes:
+        name: テストケース名（例: "janken"）
+        variants: 同じ行列の異なる表現（TestVariantのリスト）
+        matrix: 利得行列（理論値）- 全variantで共通
+        equilibrium: 混合戦略の確率分布（ナッシュ均衡解）
+        description: 説明文
+        transformations: variant間の変換関係 [(from_idx, to_idx, shift_vector), ...]
+    """
+    name: str
+    variants: list[TestVariant]
     matrix: np.ndarray
     equilibrium: np.ndarray | None
-    isopower_a: tuple[float, float] | None
     description: str
+    transformations: list[tuple[int, int, tuple[float, float]]] | None = None
+    
+    @property
+    def primary_variant(self) -> TestVariant:
+        """主variant（最初のvariant）を取得"""
+        return self.variants[0]
+    
+    @property
+    def powers(self) -> list[float]:
+        """後方互換性: 主variantのpowersを返す"""
+        return self.primary_variant.powers
+    
+    @property
+    def vectors(self) -> list[tuple[float, float]]:
+        """後方互換性: 主variantのvectorsを返す"""
+        return self.primary_variant.vectors
+    
+    @property
+    def isopower_a(self) -> tuple[float, float] | None:
+        """後方互換性: 主variantのisopower_aを返す"""
+        return self.primary_variant.isopower_a
 
 
 class TheoryTestBuilder:
@@ -49,28 +90,49 @@ class TheoryTestBuilder:
         
         3キャラクターが正三角形を形成し、全てパワー0で等パワー。
         均衡解は各1/3の完全混合戦略。
+        
+        2つのvariantを持つ:
+        - original: [(3.0, 1.0), (0.0, 1.+ROOT3), (0.0, 1.-ROOT3)]
+        - shifted:  [(2.0, 0.0), (-1.0, ROOT3), (-1.0, -ROOT3)]
+        
+        originalを(-1, -1)だけ平行移動するとshiftedになる。
         """
         ROOT3 = 1.7320508075688772
         
-        # 理論値データ
-        powers = [0.0, 0.0, 0.0]
-        vectors = [(2.0, 0.0), (-1.0, ROOT3), (-1.0, -ROOT3)]
+        # 共通の利得行列
         matrix = np.array([
             [0.0, 2 * ROOT3, -2 * ROOT3],
             [-2 * ROOT3, 0.0, 2 * ROOT3],
             [2 * ROOT3, -2 * ROOT3, 0.0]
         ])
         equilibrium = np.array([1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0])
-        isopower_a = (0.0, 0.0)
+        
+        # variant 1: original
+        variant_original = TestVariant(
+            name="original",
+            powers=[-2.0, 1.0+ROOT3, 1.0-ROOT3],
+            vectors=[(3.0, 1.0), (0.0, 1.+ROOT3), (0.0, 1.-ROOT3)],
+            isopower_a=(1.0, 1.0)  # (1,1)平行移動で等パワー化
+        )
+        
+        # variant 2: shifted（originalを(-1, -1)平行移動）
+        variant_shifted = TestVariant(
+            name="shifted",
+            powers=[0.0, 0.0, 0.0],
+            vectors=[(2.0, 0.0), (-1.0, ROOT3), (-1.0, -ROOT3)],
+            isopower_a=(0.0, 0.0)  # 既に等パワー
+        )
+        
+        # 変換関係: original(0)を(1, 1)移動するとshifted(1)になる (v' = v - a, a = (1,1))
+        transformations = [(0, 1, (1.0, 1.0))]
         
         return TheoryTestCase(
             name="janken",
-            powers=powers,
-            vectors=vectors,
+            variants=[variant_original, variant_shifted],
             matrix=matrix,
             equilibrium=equilibrium,
-            isopower_a=isopower_a,
-            description="正三角形配置の等パワー3点。均衡解は1/3ずつ。"
+            description="正三角形配置の等パワー3点。2つのvariantで同一行列を表現。",
+            transformations=transformations
         )
     
     @staticmethod
@@ -87,6 +149,6 @@ class TheoryTestBuilder:
         return [
             TheoryTestBuilder.janken(),
             # 新しいケースをここに追加
-            # TheoryTestBuilder.janken_with_power_shift(),
+            # TheoryTestBuilder.extended_janken(),
             # TheoryTestBuilder.four_characters(),
         ]
