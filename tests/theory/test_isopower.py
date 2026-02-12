@@ -12,7 +12,7 @@ import pytest
 from monocycle_nash.matrix.monocycle import MonocyclePayoffMatrix
 from monocycle_nash.character.domain import Character, MatchupVector
 
-from tests.theory import TheoryTestBuilder, TestVariant
+from theory import TheoryTestBuilder, TestVariant
 
 
 class TestIsopowerCoordinate:

@@ -1,7 +1,7 @@
 from .base import EquilibriumSolver
-from matrix.base import PayoffMatrix
-from matrix.general import GeneralPayoffMatrix
-from matrix.monocycle import MonocyclePayoffMatrix
+from ..matrix.base import PayoffMatrix
+from ..matrix.general import GeneralPayoffMatrix
+from ..matrix.monocycle import MonocyclePayoffMatrix
 from .nashpy_solver import NashpySolver
 from .isopower_solver import IsopowerSolver
 

@@ -1,9 +1,9 @@
 import pytest
 import numpy as np
-from solver.isopower_solver import IsopowerSolver
-from matrix.monocycle import MonocyclePayoffMatrix
-from matrix.general import GeneralPayoffMatrix
-from rule.character import Character, MatchupVector
+from monocycle_nash.solver.isopower_solver import IsopowerSolver
+from monocycle_nash.matrix.monocycle import MonocyclePayoffMatrix
+from monocycle_nash.matrix.general import GeneralPayoffMatrix
+from monocycle_nash.character.domain import Character, MatchupVector
 
 
 ROOT3 = 1.7320508075688772
@@ -106,7 +106,7 @@ class TestIsopowerSolver:
         
         result = solver.solve(matrix)
         
-        from equilibrium.domain import MixedStrategy
+        from monocycle_nash.equilibrium.domain import MixedStrategy
         assert isinstance(result, MixedStrategy)
     
     def test_result_probabilities_sum_to_one(self):
