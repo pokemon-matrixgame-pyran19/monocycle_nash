@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING
 
 from .general import GeneralPayoffMatrix
 from .monocycle import MonocyclePayoffMatrix
-from rule.character import Character
+from ..character.domain import Character
 
 if TYPE_CHECKING:
     pass  # Team関連は後で実装

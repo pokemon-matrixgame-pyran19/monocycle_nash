@@ -2,7 +2,7 @@ import numpy as np
 from typing import TYPE_CHECKING
 
 from .base import PayoffMatrix
-from character.domain import Character, MatchupVector
+from ..character.domain import Character, MatchupVector
 
 if TYPE_CHECKING:
     from ..equilibrium.domain import MixedStrategy
@@ -53,7 +53,7 @@ class MonocyclePayoffMatrix(PayoffMatrix):
     
     def solve_equilibrium(self) -> "MixedStrategy":
         """等パワー座標による高速解法で均衡解を計算"""
-        from solver.selector import SolverSelector
+        from ..solver.selector import SolverSelector
         selector = SolverSelector()
         return selector.solve(self)
     
