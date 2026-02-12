@@ -5,5 +5,6 @@
 """
 
 from .calc_a import aCalculator
+from .triangle import OptimalTriangleFinder, OptimalTriangleResult
 
-__all__ = ["aCalculator"]
+__all__ = ["aCalculator", "OptimalTriangleFinder", "OptimalTriangleResult"]
