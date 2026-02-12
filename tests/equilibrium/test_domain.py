@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from equilibrium.domain import MixedStrategy
+from monocycle_nash.equilibrium.domain import MixedStrategy
 
 
 class TestMixedStrategy:

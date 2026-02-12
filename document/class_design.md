@@ -43,52 +43,62 @@
 
 ```
 src/
-├── __init__.py
-├── main.py
-├── character/                 # キャラクター関連
+├── monocycle_nash/            # パッケージルート
 │   ├── __init__.py
-│   ├── domain.py              # Character, MatchupVector
-│   └── calculator.py          # パワー・ベクトル計算
-├── matrix/                    # 利得行列関連（コア層）
-│   ├── __init__.py
-│   ├── base.py                # PayoffMatrix抽象基底クラス
-│   ├── general.py             # 一般利得行列
-│   ├── monocycle.py           # 単相性モデル利得行列
-│   ├── pool.py                # キャラクタープール管理
-│   └── builder.py             # 利得行列ビルダー
-├── solver/                    # 均衡解ソルバー（Strategy Pattern）
-│   ├── __init__.py
-│   ├── base.py                # EquilibriumSolver抽象クラス
-│   ├── selector.py            # 行列型に応じたソルバー選択
-│   ├── nashpy_solver.py       # 一般行列用（nashpy線形最適化）
-│   └── isopower_solver.py     # 単相性モデル用（等パワー座標高速解法）
-├── isopower/                  # 等パワー座標関連（単相性モデル専用）
-│   ├── __init__.py
-│   ├── coordinate.py          # 座標変換
-│   ├── a_calculator.py        # aベクトル計算
-│   ├── triangle.py            # 最適三角形探索
-│   └── evaluator.py           # 評価
-├── equilibrium/               # 均衡解の表現
-│   ├── __init__.py
-│   ├── domain.py              # MixedStrategy
-│   └── validator.py           # 均衡解の検証
-├── strategy/                  # 戦略関連
-│   ├── __init__.py
-│   ├── epsilon.py             # ε戦略
-│   └── best_response.py       # 最適反応
-├── team/                      # チーム関連
-│   ├── __init__.py
-│   ├── domain.py              # Team
-│   ├── factory.py             # チーム生成ファクトリ
-│   └── matrix.py              # チーム利得行列
-└── visualizer/                # 可視化
-    ├── __init__.py
-    ├── character.py
-    ├── matrix.py
-    ├── equilibrium.py
-    ├── isopower.py
-    └── strategy.py
+│   ├── character/             # キャラクター関連
+│   │   ├── __init__.py
+│   │   ├── domain.py          # Character, MatchupVector
+│   │   └── calculator.py      # パワー・ベクトル計算
+│   ├── matrix/                # 利得行列関連（コア層）
+│   │   ├── __init__.py
+│   │   ├── base.py            # PayoffMatrix抽象基底クラス
+│   │   ├── general.py         # 一般利得行列
+│   │   ├── monocycle.py       # 単相性モデル利得行列
+│   │   ├── pool.py            # キャラクタープール管理
+│   │   └── builder.py         # 利得行列ビルダー
+│   ├── solver/                # 均衡解ソルバー（Strategy Pattern）
+│   │   ├── __init__.py
+│   │   ├── base.py            # EquilibriumSolver抽象クラス
+│   │   ├── selector.py        # 行列型に応じたソルバー選択
+│   │   ├── nashpy_solver.py   # 一般行列用（nashpy線形最適化）
+│   │   └── isopower_solver.py # 単相性モデル用（等パワー座標高速解法）
+│   ├── isopower/              # 等パワー座標関連（単相性モデル専用）
+│   │   ├── __init__.py
+│   │   ├── coordinate.py      # 座標変換
+│   │   ├── a_calculator.py    # aベクトル計算
+│   │   ├── triangle.py        # 最適三角形探索
+│   │   └── evaluator.py       # 評価
+│   ├── equilibrium/           # 均衡解の表現
+│   │   ├── __init__.py
+│   │   ├── domain.py          # MixedStrategy
+│   │   └── validator.py       # 均衡解の検証
+│   ├── strategy/              # 戦略関連
+│   │   ├── __init__.py
+│   │   ├── epsilon.py         # ε戦略
+│   │   └── best_response.py   # 最適反応
+│   ├── team/                  # チーム関連
+│   │   ├── __init__.py
+│   │   ├── domain.py          # Team
+│   │   ├── factory.py         # チーム生成ファクトリ
+│   │   └── matrix.py          # チーム利得行列
+│   └── visualizer/            # 可視化
+│       ├── __init__.py
+│       ├── character.py
+│       ├── matrix.py
+│       ├── equilibrium.py
+│       ├── isopower.py
+│       └── strategy.py
+├── main.py                    # アプリケーションエントリーポイント
+└── example.py                 # 使用例
 ```
+
+**インポート例:**
+```python
+from monocycle_nash.character.domain import Character, MatchupVector
+from monocycle_nash.matrix.monocycle import MonocyclePayoffMatrix
+from monocycle_nash.solver.selector import SolverSelector
+```
+
 
 ---
 

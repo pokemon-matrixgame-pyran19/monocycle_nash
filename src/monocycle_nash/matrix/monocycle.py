@@ -2,7 +2,7 @@ import numpy as np
 from typing import TYPE_CHECKING
 
 from .base import PayoffMatrix
-from rule.character import Character, MatchupVector
+from character.domain import Character, MatchupVector
 
 if TYPE_CHECKING:
     from ..equilibrium.domain import MixedStrategy

@@ -1,9 +1,9 @@
 import pytest
 import numpy as np
-from matrix.builder import PayoffMatrixBuilder
-from matrix.general import GeneralPayoffMatrix
-from matrix.monocycle import MonocyclePayoffMatrix
-from rule.character import Character, MatchupVector
+from monocycle_nash.matrix.builder import PayoffMatrixBuilder
+from monocycle_nash.matrix.general import GeneralPayoffMatrix
+from monocycle_nash.matrix.monocycle import MonocyclePayoffMatrix
+from monocycle_nash.character.domain import Character, MatchupVector
 
 
 class TestPayoffMatrixBuilder:

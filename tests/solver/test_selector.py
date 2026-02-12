@@ -1,11 +1,11 @@
 import pytest
 import numpy as np
-from solver.selector import SolverSelector
-from solver.nashpy_solver import NashpySolver
-from solver.isopower_solver import IsopowerSolver
-from matrix.general import GeneralPayoffMatrix
-from matrix.monocycle import MonocyclePayoffMatrix
-from rule.character import Character, MatchupVector
+from monocycle_nash.solver.selector import SolverSelector
+from monocycle_nash.solver.nashpy_solver import NashpySolver
+from monocycle_nash.solver.isopower_solver import IsopowerSolver
+from monocycle_nash.matrix.general import GeneralPayoffMatrix
+from monocycle_nash.matrix.monocycle import MonocyclePayoffMatrix
+from monocycle_nash.character.domain import Character, MatchupVector
 
 
 ROOT3 = 1.7320508075688772
@@ -84,7 +84,7 @@ class TestSolverSelector:
         gen_matrix = GeneralPayoffMatrix(np.array([[0, 1], [-1, 0]], dtype=float))
         gen_result = selector.solve(gen_matrix)
         
-        from equilibrium.domain import MixedStrategy
+        from monocycle_nash.equilibrium.domain import MixedStrategy
         assert isinstance(mono_result, MixedStrategy)
         assert isinstance(gen_result, MixedStrategy)
     
@@ -92,7 +92,7 @@ class TestSolverSelector:
         """selectメソッドがソルバーを返す"""
         selector = SolverSelector()
         
-        from solver.base import EquilibriumSolver
+        from monocycle_nash.solver.base import EquilibriumSolver
         
         characters = [Character(1.0, MatchupVector(1, 0))]
         mono_matrix = MonocyclePayoffMatrix(characters)
