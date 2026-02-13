@@ -31,9 +31,12 @@ class NashpySolver(EquilibriumSolver):
         if not equilibria:
             # 均衡が見つからない場合は均等分布を返す
             probs = np.ones(matrix.size) / matrix.size
-            return MixedStrategy(probs, matrix.labels)
+            return MixedStrategy(probs, matrix.row_strategies.ids)
         
         # 最初の均衡を使用（行プレイヤーの戦略）
-        # nashpy.linear_program()はnumpy配列を直接返す
-        sigma_r = equilibria[0]
-        return MixedStrategy(sigma_r, matrix.labels)
+        first = equilibria[0]
+        if isinstance(first, tuple):
+            sigma_r = first[0]
+        else:
+            sigma_r = first
+        return MixedStrategy(np.asarray(sigma_r, dtype=float), matrix.row_strategies.ids)

@@ -30,9 +30,17 @@ class TestIsopowerCoordinate:
         全テストケースの全variantで等パワー座標を検証
         
         TheoryTestBuilder.get_all_cases()の各ケースについて、
-        各variantのisopower_aで原点移動したときに等パワーになることを検証。
+        各variantのisopower_aで原点移動したとき、
+        equilibriumの成分に基づいて以下を検証する:
+        - 両方非ゼロ: パワーが等しい
+        - 片方のみ非ゼロ: 非ゼロ側のパワーが大きい
+        - 両方ゼロ: 判定スキップ
         """
+        support_threshold = 1e-8
         for case in TheoryTestBuilder.get_all_cases():
+            if case.equilibrium is None:
+                continue
+
             for variant in case.variants:
                 if variant.isopower_a is None:
                     continue
@@ -47,11 +55,22 @@ class TestIsopowerCoordinate:
                 
                 # 移動後のパワーが等しくなることを検証
                 shifted_powers = shifted.get_power_vector()
-                
-                # 全てのパワーが等しいことを検証
-                for i in range(1, len(shifted_powers)):
-                    assert shifted_powers[i] == pytest.approx(shifted_powers[0], abs=1e-6), \
-                        f"{case.name}/{variant.name}: 原点移動後のパワーが等しくない"
+                n = len(shifted_powers)
+
+                for i in range(n - 1):
+                    for j in range(i + 1, n):
+                        i_active = case.equilibrium[i] > support_threshold
+                        j_active = case.equilibrium[j] > support_threshold
+
+                        if i_active and j_active:
+                            assert shifted_powers[i] == pytest.approx(shifted_powers[j], abs=1e-6), \
+                                f"{case.name}/{variant.name}: support同士({i},{j})のパワーが一致しない"
+                        elif i_active and not j_active:
+                            assert shifted_powers[i] > shifted_powers[j], \
+                                f"{case.name}/{variant.name}: support({i})が非support({j})より大きくない"
+                        elif not i_active and j_active:
+                            assert shifted_powers[j] > shifted_powers[i], \
+                                f"{case.name}/{variant.name}: support({j})が非support({i})より大きくない"
     
     def test_all_cases_all_variants_isopower_preserves_matrix(self):
         """
@@ -86,13 +105,17 @@ class TestIsopowerCoordinate:
         """
         全variantの等パワー化が同じパワー値を生成することを検証
         
-        同じ利得行列なので、等パワー化後のパワー値も同じはず。
+        同じ利得行列なので、equilibriumで非ゼロ成分含めてパワーと相性ベクトルも同じはず。
         """
+        support_threshold = 1e-8
         for case in TheoryTestBuilder.get_all_cases():
-            if len(case.variants) <= 1:
+            if case.equilibrium is None or len(case.variants) <= 1:
                 continue
             
-            isopower_values = []
+            isopower_values = [] # 平行移動後のパワーと相性を格納
+            support_indices = [i for i, p in enumerate(case.equilibrium) if p > support_threshold]
+            if not support_indices:
+                continue
             
             for variant in case.variants:
                 if variant.isopower_a is None:
@@ -105,16 +128,16 @@ class TestIsopowerCoordinate:
                 a = MatchupVector(variant.isopower_a[0], variant.isopower_a[1])
                 shifted = payoff.shift_origin(a)
                 
-                # 等パワー化後のパワー値を記録
+                # 等パワー化後のパワーと相性ベクトルを記録
                 shifted_powers = shifted.get_power_vector()
-                isopower_values.append((variant.name, shifted_powers[0]))
+                isopower_values.append((variant.name, shifted_powers[support_indices[0]]))
             
             # 少なくとも2つのvariantが検証できた場合
             if len(isopower_values) >= 2:
                 first_value = isopower_values[0][1]
                 for name, value in isopower_values[1:]:
                     assert value == pytest.approx(first_value, abs=1e-6), \
-                        f"{case.name}: {isopower_values[0][0]}と{name}で等パワー値が一致しない"
+                        f"{case.name}: {isopower_values[0][0]}と{name}でパワーが一致しない"
 
 
 class TestVariantTransformations:

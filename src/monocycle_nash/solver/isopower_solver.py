@@ -43,7 +43,7 @@ class IsopowerSolver(EquilibriumSolver):
     def _fallback_solve(self, matrix: MonocyclePayoffMatrix) -> MixedStrategy:
         """フォールバック: 均等分布を返す"""
         probs = np.ones(matrix.size) / matrix.size
-        return MixedStrategy(probs, matrix.labels)
+        return MixedStrategy(probs, matrix.row_strategies.ids)
     
     def _calculate_shifted_equilibrium(
         self, 
@@ -83,4 +83,4 @@ class IsopowerSolver(EquilibriumSolver):
         probs[j] = prob_j
         probs[k] = prob_k
         
-        return MixedStrategy(probs, shifted.labels)
+        return MixedStrategy(probs, shifted.row_strategies.ids)
