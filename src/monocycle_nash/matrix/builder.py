@@ -5,7 +5,7 @@ from .general import GeneralPayoffMatrix
 from .monocycle import MonocyclePayoffMatrix
 from ..character.domain import Character
 from ..strategy.domain import PureStrategySet
-from ..team.matrix_approx import TwoPlayerTeamMatrixApproximator
+from ..team.matrix_approx import TwoPlayerTeamMatrixCalculator
 
 if TYPE_CHECKING:
     from ..matrix.base import PayoffMatrix
@@ -53,11 +53,11 @@ class PayoffMatrixBuilder:
     def from_team_matchups(
         teams: list["Team"],
         character_matrix: "PayoffMatrix",
-        use_monocycle_approx: bool = True,
+        use_monocycle_formula: bool = True,
     ) -> GeneralPayoffMatrix:
-        """Character利得行列からTeam利得行列を近似生成。"""
-        approximator = TwoPlayerTeamMatrixApproximator(
+        """Character利得行列からTeam利得行列を生成。"""
+        matrix_calculator = TwoPlayerTeamMatrixCalculator(
             character_matrix=character_matrix,
-            use_monocycle_approx=use_monocycle_approx,
+            use_monocycle_formula=use_monocycle_formula,
         )
-        return approximator.generate_approx_matrix(teams)
+        return matrix_calculator.generate_matrix(teams)
