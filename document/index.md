@@ -1,6 +1,7 @@
 # ドキュメント
 
 class_design  : クラス設計など
+input_loader/ : 入力ファイル読み込み機能のクラス設計
 test/         : テスト設計
 theory/       : プログラムの実装や使用目的に関わる理論
 usecase.md    : プログラムの使用例
