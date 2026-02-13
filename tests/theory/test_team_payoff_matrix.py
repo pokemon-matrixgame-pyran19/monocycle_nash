@@ -8,8 +8,8 @@ from monocycle_nash.matrix.builder import PayoffMatrixBuilder
 from monocycle_nash.team.domain import Team
 from monocycle_nash.team.matrix_approx import (
     ExactTeamPayoffCalculator,
-    MonocycleApproximateCalculator,
-    TwoByTwoApproximateCalculator,
+    MonocycleFormulaCalculator,
+    TwoByTwoFormulaCalculator,
 )
 
 from theory import TeamTheoryTestCase, TheoryTestBuilder
@@ -38,7 +38,7 @@ class TestTeamPayoffMatrixTheory:
             team_matrix = PayoffMatrixBuilder.from_team_matchups(
                 teams=teams,
                 character_matrix=character_matrix,
-                use_monocycle_approx=False,
+                use_monocycle_formula=False,
             )
 
             np.testing.assert_array_almost_equal(
@@ -56,7 +56,7 @@ class TestTeamPayoffMatrixTheory:
             team_matrix = PayoffMatrixBuilder.from_team_matchups(
                 teams=teams,
                 character_matrix=character_matrix,
-                use_monocycle_approx=False,
+                use_monocycle_formula=False,
             )
 
             matrix = team_matrix.matrix
@@ -74,7 +74,7 @@ class TestTeamPayoffMatrixTheory:
             team_matrix = PayoffMatrixBuilder.from_team_matchups(
                 teams=teams,
                 character_matrix=character_matrix,
-                use_monocycle_approx=False,
+                use_monocycle_formula=False,
             )
 
             assert team_matrix.labels == case.team_labels
@@ -99,10 +99,10 @@ class TestTeamPayoffMatrixTheory:
                 teams, character_matrix, ExactTeamPayoffCalculator()
             )
             twobytwo_matrix = self._calculate_matrix_with_calculator(
-                teams, character_matrix, TwoByTwoApproximateCalculator()
+                teams, character_matrix, TwoByTwoFormulaCalculator()
             )
             monocycle_matrix = self._calculate_matrix_with_calculator(
-                teams, character_matrix, MonocycleApproximateCalculator()
+                teams, character_matrix, MonocycleFormulaCalculator()
             )
 
             np.testing.assert_array_almost_equal(
@@ -145,7 +145,7 @@ class TestTeamPayoffMatrixTheory:
             team_matrix = PayoffMatrixBuilder.from_team_matchups(
                 teams=teams,
                 character_matrix=character_matrix,
-                use_monocycle_approx=True,
+                use_monocycle_formula=True,
             )
 
             np.testing.assert_array_almost_equal(

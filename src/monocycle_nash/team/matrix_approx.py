@@ -41,7 +41,7 @@ class TwoByTwoGameValueCalculator:
         return float(maximin), float(minimax)
 
 
-class MonocycleTwoByTwoApproximator:
+class MonocycleTwoByTwoValueCalculator:
     def __init__(self, c1: Character, c2: Character, c3: Character, c4: Character):
         self.c1, self.c2, self.c3, self.c4 = c1, c2, c3, c4
 
@@ -93,43 +93,43 @@ class ExactTeamPayoffCalculator(TeamPayoffCalculator):
         return float(np.asarray(sigma_row) @ sub @ np.asarray(sigma_col))
 
 
-class TwoByTwoApproximateCalculator(TeamPayoffCalculator):
+class TwoByTwoFormulaCalculator(TeamPayoffCalculator):
     def calculate(self, team1: Team, team2: Team, char_matrix: PayoffMatrix) -> float:
         rows = team1.resolve_member_indices(char_matrix.row_strategies)
         cols = team2.resolve_member_indices(char_matrix.col_strategies)
         if len(rows) != 2 or len(cols) != 2:
-            raise ValueError("TwoByTwoApproximateCalculator requires 2x2 team matchup")
+            raise ValueError("TwoByTwoFormulaCalculator requires 2x2 team matchup")
         sub = char_matrix.matrix[np.ix_(rows, cols)]
         return TwoByTwoGameValueCalculator.calculate(sub)
 
 
-class MonocycleApproximateCalculator(TeamPayoffCalculator):
+class MonocycleFormulaCalculator(TeamPayoffCalculator):
     def calculate(self, team1: Team, team2: Team, char_matrix: PayoffMatrix) -> float:
         if not isinstance(char_matrix, MonocyclePayoffMatrix):
             raise TypeError("MonocyclePayoffMatrix is required")
         rows = team1.resolve_member_indices(char_matrix.row_strategies)
         cols = team2.resolve_member_indices(char_matrix.col_strategies)
         if len(rows) != 2 or len(cols) != 2:
-            raise ValueError("MonocycleApproximateCalculator requires 2x2 team matchup")
+            raise ValueError("MonocycleFormulaCalculator requires 2x2 team matchup")
 
         c1 = char_matrix.row_strategies[rows[0]].entity
         c2 = char_matrix.row_strategies[rows[1]].entity
         c3 = char_matrix.col_strategies[cols[0]].entity
         c4 = char_matrix.col_strategies[cols[1]].entity
-        return MonocycleTwoByTwoApproximator(c1, c2, c3, c4).calculate_game_value()
+        return MonocycleTwoByTwoValueCalculator(c1, c2, c3, c4).calculate_game_value()
 
 
-class TeamPayoffFormulaSelector:
-    def __init__(self, use_monocycle_approx: bool = True):
-        self.use_monocycle_approx = use_monocycle_approx
+class TeamPayoffCalculatorSelector:
+    def __init__(self, use_monocycle_formula: bool = True):
+        self.use_monocycle_formula = use_monocycle_formula
 
     def select_calculator(self, team1: Team, team2: Team, char_matrix: PayoffMatrix) -> TeamPayoffCalculator:
         row_n = len(team1.member_ids)
         col_n = len(team2.member_ids)
         if row_n == 2 and col_n == 2:
-            if self.use_monocycle_approx and isinstance(char_matrix, MonocyclePayoffMatrix):
-                return MonocycleApproximateCalculator()
-            return TwoByTwoApproximateCalculator()
+            if self.use_monocycle_formula and isinstance(char_matrix, MonocyclePayoffMatrix):
+                return MonocycleFormulaCalculator()
+            return TwoByTwoFormulaCalculator()
         return ExactTeamPayoffCalculator()
 
     def calculate(self, team1: Team, team2: Team, char_matrix: PayoffMatrix) -> float:
@@ -137,15 +137,15 @@ class TeamPayoffFormulaSelector:
         return calculator.calculate(team1, team2, char_matrix)
 
 
-class TwoPlayerTeamMatrixApproximator:
-    def __init__(self, character_matrix: PayoffMatrix, use_monocycle_approx: bool = True):
+class TwoPlayerTeamMatrixCalculator:
+    def __init__(self, character_matrix: PayoffMatrix, use_monocycle_formula: bool = True):
         self.character_matrix = character_matrix
-        self.selector = TeamPayoffFormulaSelector(use_monocycle_approx=use_monocycle_approx)
+        self.selector = TeamPayoffCalculatorSelector(use_monocycle_formula=use_monocycle_formula)
 
     def calculate_team_value(self, team1: Team, team2: Team) -> float:
         return self.selector.calculate(team1, team2, self.character_matrix)
 
-    def generate_approx_matrix(self, teams: list[Team]) -> GeneralPayoffMatrix:
+    def generate_matrix(self, teams: list[Team]) -> GeneralPayoffMatrix:
         n = len(teams)
         matrix = np.zeros((n, n), dtype=float)
         for i in range(n):

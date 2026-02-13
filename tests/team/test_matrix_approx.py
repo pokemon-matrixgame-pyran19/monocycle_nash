@@ -5,7 +5,7 @@ from monocycle_nash.matrix.builder import PayoffMatrixBuilder
 from monocycle_nash.team.domain import Team
 from monocycle_nash.team.matrix_approx import (
     TwoByTwoGameValueCalculator,
-    TwoPlayerTeamMatrixApproximator,
+    TwoPlayerTeamMatrixCalculator,
 )
 
 
@@ -30,8 +30,8 @@ def test_generate_team_matrix_from_character_matrix():
         Team(label="T2", member_ids=("c2", "c3")),
     ]
 
-    approximator = TwoPlayerTeamMatrixApproximator(char_matrix, use_monocycle_approx=False)
-    matrix = approximator.generate_approx_matrix(teams)
+    matrix_calculator = TwoPlayerTeamMatrixCalculator(char_matrix, use_monocycle_formula=False)
+    matrix = matrix_calculator.generate_matrix(teams)
 
     sub = char_matrix.matrix[np.ix_([0, 1], [2, 3])]
     expected = TwoByTwoGameValueCalculator.calculate(sub)
@@ -58,7 +58,7 @@ def test_builder_from_team_matchups_shortcut():
     team_matrix = PayoffMatrixBuilder.from_team_matchups(
         teams=teams,
         character_matrix=char_matrix,
-        use_monocycle_approx=False,
+        use_monocycle_formula=False,
     )
 
     assert team_matrix.size == 2
