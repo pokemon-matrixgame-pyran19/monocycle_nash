@@ -2,7 +2,7 @@
 キャラクターのドメインモデル
 
 MatchupVector: 2次元相性ベクトル
-Character: 単相性モデル用キャラクター（power, vector）
+Character: 単相性モデル用キャラクター（power, vector, label）
 """
 
 from __future__ import annotations
@@ -18,23 +18,12 @@ class MatchupVector:
     外積計算（times）が単相性モデルの核心です。
     """
     
-    def __new__(cls, data, *arg, **kwarg):
-        """
-        入力が既にMatchupVectorの場合はそのまま返す。
-        これにより、v = MatchupVector(v) と書いても安全。
-        """
-        return data if isinstance(data, cls) else super().__new__(cls)
-    
     def __init__(self, x: float | np.ndarray | list | MatchupVector, y: float | None = None):
         """
         Args:
             x: x座標、または[x, y]の配列、またはMatchupVector
             y: y座標（xが配列の場合は不要）
         """
-        # 既に初期化済み（__new__で返された既存インスタンス）の場合は何もしない
-        if hasattr(self, '_data'):
-            return
-        
         if isinstance(x, MatchupVector):
             # 既にMatchupVectorならコピー
             self._data = x._data.copy()
@@ -132,19 +121,22 @@ class Character:
     Attributes:
         p: パワー値（power）
         v: 相性ベクトル（MatchupVector）
+        label: 表示用ラベル
     
     単相性モデルでは、利得行列の要素は以下で計算されます：
         Aij = pi - pj + vi × vj
     """
     
-    def __init__(self, power: float, vector: MatchupVector):
+    def __init__(self, power: float, vector: MatchupVector, label: str = ""):
         """
         Args:
             power: パワー値
             vector: 相性ベクトル（MatchupVector）
+            label: 表示用ラベル（例: "ピカチュウ"）。省略時は空文字列。
         """
         self.p = float(power)
         self.v = MatchupVector(vector)
+        self.label = label
     
     def tolist(self, order: list[Literal["p", "x", "y"]] = []) -> list[float]:
         """
@@ -189,38 +181,44 @@ class Character:
         a = MatchupVector(action_vector)
         new_power = self.p + self.v.times(a)
         new_vector = MatchupVector(self.v.x - a.x, self.v.y - a.y)
-        return Character(new_power, new_vector)
+        return Character(new_power, new_vector, self.label)
     
     def __str__(self) -> str:
-        return f"Character(power={self.p}, vector={self.v})"
+        return f"Character(power={self.p}, vector={self.v}, label={self.label!r})"
     
     def __repr__(self) -> str:
-        return f"Character({self.p}, {self.v})"
+        if self.label:
+            return f"Character({self.p}, {self.v}, {self.label!r})"
+        return f"Character({self.p}, {self.v!r})"
     
     def __eq__(self, other: object) -> bool:
         """
         キャラクターの等価判定
         
-        powerとvectorの両方が等しい場合に等価とみなします。
+        powerとvector、labelの全てが等しい場合に等価とみなします。
         """
         if not isinstance(other, Character):
             return False
         return (abs(self.p - other.p) < 1e-9 and 
-                self.v == other.v)
+                self.v == other.v and
+                self.label == other.label)
 
 
-def get_characters(data: list[list[float]] | np.ndarray) -> list[Character]:
+def get_characters(data: list[list[float]] | np.ndarray, labels: list[str] | None = None) -> list[Character]:
     """
     [p, x, y]の形式のデータからCharacterリストを生成
     
     Args:
         data: [[p1, x1, y1], [p2, x2, y2], ...] の形式のデータ
+        labels: 各キャラクターのラベルリスト（省略時は連番）
     
     Returns:
         Characterオブジェクトのリスト
     
     Example:
         >>> data = [[1.0, 1.0, 0.0], [0.5, -0.5, 0.5]]
-        >>> chars = get_characters(data)
+        >>> chars = get_characters(data, ["ピカチュウ", "カメックス"])
     """
-    return [Character(d[0], MatchupVector(d[1], d[2])) for d in data]
+    if labels is None:
+        labels = [f"c{i}" for i in range(len(data))]
+    return [Character(d[0], MatchupVector(d[1], d[2]), labels[i]) for i, d in enumerate(data)]

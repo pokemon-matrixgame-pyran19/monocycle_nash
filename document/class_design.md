@@ -1,4 +1,4 @@
-# クラス設計ドキュメント v2
+# クラス設計ドキュメント v3
 
 ## 前提と設計方針
 
@@ -32,10 +32,10 @@
 
 ### 設計方針
 
-1. **戦略の抽象化**: 利得行列は「戦略」に対応、戦略の実体はキャラクターまたはチーム
+1. **戦略の抽象化**: 利得行列は Character/Team ではなく PureStrategy を扱う
 2. **利得行列を型で区別**: 2種類の利得行列を別クラスとして定義
 3. **Solverは行列型に応じて自動選択**: Strategy Pattern
-4. **単相性モデル専用の最適化**: MonocycleCharacter情報を活かした高速計算
+4. **単相性モデル専用の最適化**: MonocyclePureStrategy のパラメータを活かした高速計算
 
 ---
 
@@ -72,10 +72,9 @@ src/
 │   │   ├── __init__.py
 │   │   ├── domain.py          # MixedStrategy
 │   │   └── validator.py       # 均衡解の検証
-│   ├── strategy/              # 戦略関連
+│   ├── strategy/              # 純粋戦略関連
 │   │   ├── __init__.py
-│   │   ├── epsilon.py         # ε戦略
-│   │   └── best_response.py   # 最適反応
+│   │   └── domain.py          # PureStrategy, PureStrategySet
 │   ├── team/                  # チーム関連
 │   │   ├── __init__.py
 │   │   ├── domain.py          # Team
@@ -142,37 +141,56 @@ class PayoffMatrix(ABC):
 
 ```python
 import numpy as np
+from typing import TYPE_CHECKING
+
 from .base import PayoffMatrix
-from solver.nashpy_solver import NashpySolver
+from ..strategy.domain import PureStrategySet
+
+if TYPE_CHECKING:
+    from ..equilibrium.domain import MixedStrategy
+
 
 class GeneralPayoffMatrix(PayoffMatrix):
     """
     一般の利得行列
     - 任意の行列要素を持つ
-    - nashpyによる線形最適化で均衡解を計算
+    - 行/列は labels ではなく PureStrategySet で管理
     """
-    
-    def __init__(self, matrix: np.ndarray, labels: list[str] | None = None):
-        self._matrix = matrix
-        self._size = matrix.shape[0]
-        self._labels = labels or [f"s{i}" for i in range(self._size)]
-        self._solver = NashpySolver()
-    
+
+    def __init__(
+        self,
+        matrix: np.ndarray,
+        row_strategies: PureStrategySet,
+        col_strategies: PureStrategySet | None = None,
+    ):
+        self._matrix = np.array(matrix, dtype=float)
+        self._row_strategies = row_strategies
+        self._col_strategies = col_strategies or row_strategies
+
+        if self._matrix.shape != (len(self._row_strategies), len(self._col_strategies)):
+            raise ValueError("行列サイズと戦略数が一致しません")
+
     @property
     def matrix(self) -> np.ndarray:
         return self._matrix
-    
+
     @property
     def size(self) -> int:
-        return self._size
-    
+        # 対称ゲームでは row size == col size
+        return len(self._row_strategies)
+
     @property
-    def labels(self) -> list[str]:
-        return self._labels
-    
+    def row_strategies(self) -> PureStrategySet:
+        return self._row_strategies
+
+    @property
+    def col_strategies(self) -> PureStrategySet:
+        return self._col_strategies
+
     def solve_equilibrium(self) -> "MixedStrategy":
-        """nashpyによる線形最適化で均衡解を計算"""
-        return self._solver.solve(self)
+        from ..solver.selector import SolverSelector
+        selector = SolverSelector()
+        return selector.solve(self)
 ```
 
 ### matrix/monocycle.py
@@ -180,77 +198,75 @@ class GeneralPayoffMatrix(PayoffMatrix):
 ```python
 import numpy as np
 from typing import TYPE_CHECKING
+
 from .base import PayoffMatrix
-from character.domain import Character
-from solver.isopower_solver import IsopowerSolver
+from ..character.domain import MatchupVector
+from ..strategy.domain import MonocyclePureStrategy, PureStrategySet
 
 if TYPE_CHECKING:
-    from equilibrium.domain import MixedStrategy
+    from ..character.domain import Character
+    from ..equilibrium.domain import MixedStrategy
+
 
 class MonocyclePayoffMatrix(PayoffMatrix):
     """
     単相性モデルの利得行列
-    - Character(p, v)から生成: Aij = pi - pj + vi×vj
-    - 等パワー座標による高速解法を使用可能
-    - 元のCharacter情報を保持
+    - Aij = pi - pj + vi×vj
+    - 行/列は MonocyclePureStrategy で保持
+    - 行列操作は Matrix x PureStrategy で完結
     """
-    
-    def __init__(self, characters: list[Character], labels: list[str] | None = None):
-        self._characters = characters
-        self._size = len(characters)
-        self._labels = labels or [f"c{i}" for i in range(self._size)]
+
+    def __init__(
+        self,
+        row_strategies: PureStrategySet,
+        col_strategies: PureStrategySet | None = None,
+    ):
+        self._row_strategies = row_strategies
+        self._col_strategies = col_strategies or row_strategies
         self._matrix = self._calculate_matrix()
-        self._solver = IsopowerSolver()
-    
+
+    @classmethod
+    def from_characters(cls, characters: list["Character"]) -> "MonocyclePayoffMatrix":
+        rows = PureStrategySet.from_characters(characters, player_name="row")
+        return cls(row_strategies=rows, col_strategies=rows)
+
     @property
     def matrix(self) -> np.ndarray:
         return self._matrix
-    
+
     @property
     def size(self) -> int:
-        return self._size
-    
+        return len(self._row_strategies)
+
     @property
-    def labels(self) -> list[str]:
-        return self._labels
-    
+    def row_strategies(self) -> PureStrategySet:
+        return self._row_strategies
+
     @property
-    def characters(self) -> list[Character]:
-        """元のCharacterリスト（等パワー座標計算に使用）"""
-        return self._characters
-    
+    def col_strategies(self) -> PureStrategySet:
+        return self._col_strategies
+
     def _calculate_matrix(self) -> np.ndarray:
-        """Aij = pi - pj + vi×vj を計算"""
-        n = self._size
-        A = np.zeros((n, n))
-        for i in range(n):
-            for j in range(n):
-                A[i, j] = (
-                    self._characters[i].p - self._characters[j].p +
-                    self._characters[i].v.times(self._characters[j].v)
-                )
+        n_row = len(self._row_strategies)
+        n_col = len(self._col_strategies)
+        A = np.zeros((n_row, n_col))
+
+        for i, row in enumerate(self._row_strategies):
+            for j, col in enumerate(self._col_strategies):
+                r = MonocyclePureStrategy.cast(row)
+                c = MonocyclePureStrategy.cast(col)
+                A[i, j] = r.power - c.power + r.vector.times(c.vector)
         return A
-    
+
+    def shift_origin(self, a_vector: MatchupVector) -> "MonocyclePayoffMatrix":
+        shifted_rows = self._row_strategies.shift_origin(a_vector)
+        shifted_cols = self._col_strategies.shift_origin(a_vector)
+        return MonocyclePayoffMatrix(shifted_rows, shifted_cols)
+
     def solve_equilibrium(self) -> "MixedStrategy":
-        """等パワー座標による高速解法で均衡解を計算"""
-        return self._solver.solve(self)
-    
-    def shift_origin(self, a_vector: "MatchupVector") -> "MonocyclePayoffMatrix":
-        """
-        等パワー座標aで原点移動
-        p' = p + v × a
-        v' = v - a
-        """
-        new_characters = [c.convert(a_vector) for c in self._characters]
-        return MonocyclePayoffMatrix(new_characters, self._labels)
-    
-    def get_power_vector(self) -> np.ndarray:
-        """パワーベクトルを取得"""
-        return np.array([c.p for c in self._characters])
-    
-    def get_matchup_vectors(self) -> np.ndarray:
-        """相性ベクトルを取得 (N×2)"""
-        return np.array([[c.v.x, c.v.y] for c in self._characters])
+        from ..solver.selector import SolverSelector
+        selector = SolverSelector()
+        return selector.solve(self)
 ```
 
 ### matrix/builder.py
@@ -258,46 +274,39 @@ class MonocyclePayoffMatrix(PayoffMatrix):
 ```python
 import numpy as np
 from typing import TYPE_CHECKING
+
 from .general import GeneralPayoffMatrix
 from .monocycle import MonocyclePayoffMatrix
-from character.domain import Character
+from ..strategy.domain import PureStrategySet
 
 if TYPE_CHECKING:
-    from team.domain import Team
+    from ..character.domain import Character
+    from ..team.domain import Team
+
 
 class PayoffMatrixBuilder:
     """
     利得行列ビルダー
-    - CharacterからMonocyclePayoffMatrixを生成
-    - Teamからチーム利得行列を生成
+    - Character/Team を直接行列へ渡さず、PureStrategySetへ正規化してから構築
     """
-    
+
     @staticmethod
-    def from_characters(characters: list[Character], labels: list[str] | None = None) -> MonocyclePayoffMatrix:
-        """Characterリストから単相性モデル利得行列を生成"""
-        return MonocyclePayoffMatrix(characters, labels)
-    
+    def from_characters(characters: list["Character"]) -> MonocyclePayoffMatrix:
+        rows = PureStrategySet.from_characters(characters, player_name="row")
+        return MonocyclePayoffMatrix(rows)
+
     @staticmethod
-    def from_general_matrix(matrix: np.ndarray, labels: list[str] | None = None) -> GeneralPayoffMatrix:
-        """任意の行列から一般利得行列を生成"""
-        return GeneralPayoffMatrix(matrix, labels)
-    
+    def from_general_matrix(
+        matrix: np.ndarray,
+        row_strategies: PureStrategySet,
+        col_strategies: PureStrategySet | None = None,
+    ) -> GeneralPayoffMatrix:
+        return GeneralPayoffMatrix(matrix, row_strategies, col_strategies)
+
     @staticmethod
-    def from_teams(teams: list["Team"], character_matrix: MonocyclePayoffMatrix) -> GeneralPayoffMatrix:
-        """
-        チームリストからチーム利得行列を生成
-        - チームは一般行列（Monocycleの構造を持たない）
-        """
-        n = len(teams)
-        matrix = np.zeros((n, n))
-        
-        for i, team_i in enumerate(teams):
-            for j, team_j in enumerate(teams):
-                # チーム同士の利得を計算
-                matrix[i, j] = team_i.calculate_payoff(team_j, character_matrix)
-        
-        labels = [t.name for t in teams]
-        return GeneralPayoffMatrix(matrix, labels)
+    def from_teams(team_payoff: np.ndarray, teams: list["Team"]) -> GeneralPayoffMatrix:
+        rows = PureStrategySet.from_teams(teams, player_name="row")
+        return GeneralPayoffMatrix(team_payoff, rows, rows)
 ```
 
 ### solver/base.py
@@ -358,11 +367,11 @@ class NashpySolver(EquilibriumSolver):
         if not equilibria:
             # 均衡が見つからない場合は均等分布を返す
             probs = np.ones(matrix.size) / matrix.size
-            return MixedStrategy(probs, matrix.labels)
+            return MixedStrategy(probs, matrix.row_strategies.ids)
         
         # 最初の均衡を使用（行プレイヤーの戦略）
         sigma_r, _ = equilibria[0]
-        return MixedStrategy(sigma_r, matrix.labels)
+        return MixedStrategy(sigma_r, matrix.row_strategies.ids)
 ```
 
 ### solver/isopower_solver.py
@@ -412,7 +421,7 @@ class IsopowerSolver(EquilibriumSolver):
     def _fallback_solve(self, matrix: MonocyclePayoffMatrix) -> MixedStrategy:
         """フォールバック: 均等分布を返す"""
         probs = np.ones(matrix.size) / matrix.size
-        return MixedStrategy(probs, matrix.labels)
+        return MixedStrategy(probs, matrix.row_strategies.ids)
     
     def _calculate_shifted_equilibrium(
         self, 
@@ -448,7 +457,7 @@ class IsopowerSolver(EquilibriumSolver):
         probs[j] = prob_j
         probs[k] = prob_k
         
-        return MixedStrategy(probs, shifted.labels)
+        return MixedStrategy(probs, shifted.row_strategies.ids)
 ```
 
 ### solver/selector.py
@@ -587,104 +596,154 @@ class MixedStrategy:
 
 ---
 
-## キャラクターと戦略の設計
+## 純粋戦略中心の設計（再整理）
 
-### character/domain.py
+### この章の結論
+
+- **利得行列は PureStrategy しか知らない**: Character/Team は直接参照しない
+- **PureStrategy 側で entity を取り込む**: `PureStrategy.from_character(...)` / `PureStrategy.from_team(...)`
+- **利得行列初期化で戦略を生成する**: builder/constructor 内で row/col の戦略集合を確定
+- **isopower も PureStrategy 操作へ寄せる**: Monocycle 固有処理は MonocyclePureStrategy に閉じる
+- **Team拡張は初期化経路の差し替えだけ**: 行列アルゴリズムは再利用可能
+
+### 責務分離
+
+```text
+Character / Team
+    └─ ドメイン情報（label, p, v, team構成など）
+        ↓ 変換
+PureStrategy / MonocyclePureStrategy
+    └─ 利得行列の行・列の意味を担保
+        ↓ 参照
+PayoffMatrix
+    └─ 数値行列 + row/col戦略集合
+```
+
+### strategy/domain.py（再設計）
 
 ```python
-from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
+from __future__ import annotations
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Protocol
+
+from ..character.domain import Character, MatchupVector
 
 if TYPE_CHECKING:
-    from strategy.domain import PureStrategy
+    from ..team.domain import Team
 
-class MatchupVector:
-    """相性ベクトル（2次元ベクトル）- 値オブジェクト"""
-    - x: float
-    - y: float
-    - times(other): float  # 外積計算
-    - 演算子オーバーロード（+, -, *, /, -v）
 
-class Character(ABC):
-    """キャラクターの抽象基底クラス"""
-    
+class StrategyEntity(Protocol):
     @property
-    @abstractmethod
+    def label(self) -> str: ...
+
+
+@dataclass(frozen=True)
+class PureStrategy:
+    id: str
+    entity: StrategyEntity
+
+    @classmethod
+    def from_character(cls, index: int, character: Character) -> "MonocyclePureStrategy":
+        return MonocyclePureStrategy(id=f"c{index}", entity=character)
+
+    @classmethod
+    def from_team(cls, index: int, team: Team) -> "PureStrategy":
+        return cls(id=f"t{index}", entity=team)
+
+    @property
     def label(self) -> str:
-        """表示用ラベル"""
-        pass
-    
-    @abstractmethod
-    def to_strategy(self) -> "PureStrategy":
-        """純粋戦略に変換"""
-        pass
+        return self.entity.label
 
-class MonocycleCharacter(Character):
-    """
-    単相性モデル用キャラクター
-    - power: パワー値
-    - vector: 相性ベクトル(vx, vy)
-    - 等パワー座標計算に使用
-    """
-    - power: float
-    - vector: MatchupVector
-    - _label: str
-    
-    - __init__(power, vector, label)
-    - convert(action_vector): MonocycleCharacter  # 等パワー座標で平行移動
-    - tolist(order): list[float]
-    - to_strategy(): PureStrategy
 
-class GenericCharacter(Character):
-    """
-    一般・表示用キャラクター
-    - パラメータを持たない軽量なキャラクター
-    - グラフ出力時のラベル表示用
-    """
-    - _label: str
-    
-    - __init__(label)
-    - to_strategy(): PureStrategy
+@dataclass(frozen=True)
+class MonocyclePureStrategy(PureStrategy):
+    entity: Character
+
+    @staticmethod
+    def cast(strategy: PureStrategy) -> "MonocyclePureStrategy":
+        if not isinstance(strategy, MonocyclePureStrategy):
+            raise TypeError("MonocyclePureStrategy が必要です")
+        return strategy
+
+    @property
+    def power(self) -> float:
+        return self.entity.p
+
+    @property
+    def vector(self) -> MatchupVector:
+        return self.entity.v
+
+    def shift_origin(self, a: MatchupVector) -> "MonocyclePureStrategy":
+        shifted = self.entity.convert(a)
+        return MonocyclePureStrategy(id=self.id, entity=shifted)
+
+
+@dataclass
+class PureStrategySet:
+    strategies: list[PureStrategy]
+    player_name: str = ""
+
+    @classmethod
+    def from_characters(cls, characters: list[Character], player_name: str = "") -> "PureStrategySet":
+        return cls([PureStrategy.from_character(i, c) for i, c in enumerate(characters)], player_name)
+
+    @classmethod
+    def from_teams(cls, teams: list[Team], player_name: str = "") -> "PureStrategySet":
+        return cls([PureStrategy.from_team(i, t) for i, t in enumerate(teams)], player_name)
+
+    def shift_origin(self, a: MatchupVector) -> "PureStrategySet":
+        shifted = [MonocyclePureStrategy.cast(s).shift_origin(a) for s in self.strategies]
+        return PureStrategySet(shifted, player_name=self.player_name)
 ```
 
-### strategy/domain.py
+### 利得行列の初期化フロー
 
 ```python
-from typing import Protocol, TYPE_CHECKING, Union
-from abc import ABC, abstractmethod
+# 1) Character/Team はドメインとして準備
+characters = [
+    Character(power=1.0, vector=MatchupVector(1.0, 0.0), label="ピカチュウ"),
+    Character(power=0.5, vector=MatchupVector(-0.5, 0.5), label="カメックス"),
+]
 
-if TYPE_CHECKING:
-    from character.domain import Character
-    from team.domain import Team
+# 2) 行列生成時に PureStrategySet を作る（Character側メソッドは使わない）
+payoff = PayoffMatrixBuilder.from_characters(characters)
 
-class Strategy(Protocol):
-    """戦略のプロトコル"""
-    id: str
-    label: str
-
-class PureStrategy:
-    """
-    純粋戦略（利得行列の行/列に対応）
-    - 実体はキャラクターまたはチーム
-    """
-    id: str
-    label: str
-    _entity: Character | Team
-    
-    - __init__(entity: Character | Team)
-    - @property entity: Character | Team
-    - is_character(): bool
-    - is_team(): bool
-
-class MixedStrategy:
-    """混合戦略（ナッシュ均衡解）- ε戦略と区別"""
-    probabilities: np.ndarray
-    strategies: list[PureStrategy]
-    
-    - validate(): bool
-    - get_probability(strategy_id): float
-    - get_support(): list[PureStrategy]
+# 3) 行列操作は strategy 経由で解釈可能
+s0 = payoff.row_strategies[0]
+print(s0.id, s0.label)  # c0, ピカチュウ
 ```
+
+### 行列と純粋戦略の関係
+
+```text
+PayoffMatrix
+  - matrix: np.ndarray
+  - row_strategies: PureStrategySet
+  - col_strategies: PureStrategySet
+
+A[i, j] の意味
+  i -> row_strategies[i]
+  j -> col_strategies[j]
+```
+
+### isopower 設計への反映
+
+- `isopower` モジュールの入力は `Character` 直列ではなく `MonocyclePureStrategy` 列に統一する
+- `shift_origin` は `MonocyclePureStrategy.shift_origin()` を使って strategy set 全体へ適用する
+- これにより、`MonocyclePayoffMatrix` は「数値 + 戦略対応」のみ保持し、理論操作を分離できる
+
+### Team 利得行列への拡張
+
+- Team対応で変わるのは `PureStrategySet.from_teams()` の初期化経路のみ
+- `GeneralPayoffMatrix` / `MixedStrategy` / `SolverSelector` は同一インターフェースで再利用可能
+- つまり `Character行列` と `Team行列` を同じ「行列 x 純粋戦略」の枠で扱える
+
+### 既存実装からの移行ポイント（ドキュメント方針）
+
+1. `labels: list[str]` を行列コンストラクタの主入力にしない
+2. `Character.to_pure_strategy()` 方向は採用せず、`PureStrategy.from_*` で生成する
+3. `MixedStrategy.strategy_ids` は `row_strategies.ids` から作る
+4. 単相性モデル固有アクセス（power/vector）は `MonocyclePureStrategy` に閉じる
 
 ---
 
@@ -703,14 +762,14 @@ PayoffMatrix (抽象基底)
 
 ### 利得行列と戦略の関係
 
-```
+```text
 利得行列 (PayoffMatrix)
-    ├── 行: PureStrategy[0], PureStrategy[1], ...
-    └── 列: PureStrategy[0], PureStrategy[1], ...
+    ├── 行: row_strategies[i] = PureStrategy
+    └── 列: col_strategies[j] = PureStrategy
 
 PureStrategy
-    ├── CharacterStrategy → Character（MonocycleCharacter or GenericCharacter）
-    └── TeamStrategy → Team（複数キャラクターのチーム）
+    ├── MonocyclePureStrategy -> Character(label, p, v)
+    └── PureStrategy -> Team(label, members)
 ```
 
 ---
@@ -718,31 +777,22 @@ PureStrategy
 ## 使用例
 
 ```python
-from matrix.builder import PayoffMatrixBuilder
-from solver.selector import SolverSelector
-from character.domain import Character, MatchupVector
+from monocycle_nash.matrix.builder import PayoffMatrixBuilder
+from monocycle_nash.solver.selector import SolverSelector
+from monocycle_nash.character.domain import Character, MatchupVector
 
-# Character定義
 characters = [
-    Character(1.0, MatchupVector(1, 0)),
-    Character(0.5, MatchupVector(-0.5, 0.5)),
-    Character(0.5, MatchupVector(-0.5, -0.5)),
+    Character(1.0, MatchupVector(1, 0), label="A"),
+    Character(0.5, MatchupVector(-0.5, 0.5), label="B"),
+    Character(0.5, MatchupVector(-0.5, -0.5), label="C"),
 ]
 
-# 単相性モデル利得行列を生成
 matrix = PayoffMatrixBuilder.from_characters(characters)
-
-# 型に応じた自動選択で均衡解を計算
 selector = SolverSelector()
 equilibrium = selector.solve(matrix)
-# → MonocyclePayoffMatrixなのでIsopowerSolverが使用される
 
-# 一般の利得行列の場合
-import numpy as np
-A = np.array([[0, 1, -1], [-1, 0, 1], [1, -1, 0]])
-general_matrix = PayoffMatrixBuilder.from_general_matrix(A)
-equilibrium2 = selector.solve(general_matrix)
-# → GeneralPayoffMatrixなのでNashpySolverが使用される
+# strategy id は row_strategies に紐づく
+print(matrix.row_strategies.ids)
 ```
 
 ---
@@ -851,3 +901,5 @@ TwoPlayerTeamMatrixApproximator
 5. **チーム利得行列の高速化**: 
    - 二人チームでは2×2公式でO(1)計算
    - 単相性モデル仮定でさらに効率化
+
+

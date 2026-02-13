@@ -43,7 +43,9 @@ class PowerVectorCalculator:
         Returns:
             相性ベクトルのnumpy配列 (N×2) [[x1, y1], [x2, y2], ...]
         """
-        return np.array([[c.v.x, c.v.y] for c in characters])
+        if not characters:
+            return np.empty((0, 2), dtype=float)
+        return np.array([[c.v.x, c.v.y] for c in characters], dtype=float)
     
     @staticmethod
     def calculate_power_stats(characters: list[Character]) -> dict[str, float]:
@@ -62,6 +64,8 @@ class PowerVectorCalculator:
             }
         """
         powers = PowerVectorCalculator.get_power_vector(characters)
+        if powers.size == 0:
+            raise ZeroDivisionError("空リストの統計は計算できません")
         return {
             "mean": float(np.mean(powers)),
             "std": float(np.std(powers)),
@@ -131,6 +135,9 @@ class PowerVectorCalculator:
             原点移動後のCharacterリスト
         """
         from .domain import MatchupVector
+        
+        if not characters:
+            return []
         
         if origin is None:
             origin = PowerVectorCalculator.calculate_centroid(characters)

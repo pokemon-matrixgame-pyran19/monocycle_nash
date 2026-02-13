@@ -112,7 +112,7 @@ class TheoryTestBuilder:
             name="original",
             powers=[-2.0, 1.0+ROOT3, 1.0-ROOT3],
             vectors=[(3.0, 1.0), (0.0, 1.+ROOT3), (0.0, 1.-ROOT3)],
-            isopower_a=(1.0, 1.0)  # (1,1)平行移動で等パワー化
+            isopower_a=(1.0, 1.0),  # (1,1)平行移動で等パワー化
         )
         
         # variant 2: shifted（originalを(-1, -1)平行移動）
@@ -120,7 +120,7 @@ class TheoryTestBuilder:
             name="shifted",
             powers=[0.0, 0.0, 0.0],
             vectors=[(2.0, 0.0), (-1.0, ROOT3), (-1.0, -ROOT3)],
-            isopower_a=(0.0, 0.0)  # 既に等パワー
+            isopower_a=(0.0, 0.0),  # 既に等パワー
         )
         
         # 変換関係: original(0)を(1, 1)移動するとshifted(1)になる (v' = v - a, a = (1,1))
@@ -174,7 +174,7 @@ class TheoryTestBuilder:
             name="document",
             powers=[0.0, 0.0, 0.0, -0.1],
             vectors=[(2.0, 0.0), (-1.0, ROOT3), (-1.0, -ROOT3), (0.0, 1.0)],
-            isopower_a=(0.0, 0.0)
+            isopower_a=(0.0, 0.0),
         )
         
         # variant 2: ドキュメント記載の別の等価な表現
@@ -182,7 +182,7 @@ class TheoryTestBuilder:
             name="alternative",
             powers=[-2.0, 1.0 + ROOT3, 1.0 - ROOT3,  0.9],
             vectors=[(3.0, 1.0), (0.0, 1.0 + ROOT3), (0.0, 1.0 - ROOT3), (1.0, 2.0)],
-            isopower_a=(1.0, 1.0)
+            isopower_a=(1.0, 1.0),
         )
         
         return TheoryTestCase(

@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 
 from .calc_a import aCalculator
 from ..character.domain import Character, MatchupVector
+from ..strategy.domain import MonocyclePureStrategy
 
 if TYPE_CHECKING:
     from ..matrix.monocycle import MonocyclePayoffMatrix
@@ -47,7 +48,11 @@ class OptimalTriangleFinder:
             matrix: 単相性モデルの利得行列
         """
         self._matrix = matrix
-        self._characters = matrix.characters
+        self._strategies = [
+            MonocyclePureStrategy.cast(strategy)
+            for strategy in matrix.row_strategies
+        ]
+        self._characters = [strategy.entity for strategy in self._strategies]
         # 凸包計算用の点群 [p, x, y]
         self._points = np.array([
             [c.p, c.v.x, c.v.y] for c in self._characters
