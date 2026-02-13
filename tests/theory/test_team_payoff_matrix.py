@@ -6,6 +6,11 @@ import pytest
 from monocycle_nash.character.domain import Character, MatchupVector
 from monocycle_nash.matrix.builder import PayoffMatrixBuilder
 from monocycle_nash.team.domain import Team
+from monocycle_nash.team.matrix_approx import (
+    ExactTeamPayoffCalculator,
+    MonocycleApproximateCalculator,
+    TwoByTwoApproximateCalculator,
+)
 
 from theory import TeamTheoryTestCase, TheoryTestBuilder
 
@@ -73,3 +78,79 @@ class TestTeamPayoffMatrixTheory:
             )
 
             assert team_matrix.labels == case.team_labels
+
+    def _calculate_matrix_with_calculator(self, teams: list[Team], char_matrix, calculator) -> np.ndarray:
+        n = len(teams)
+        matrix = np.zeros((n, n), dtype=float)
+        for i in range(n):
+            for j in range(i + 1, n):
+                value = calculator.calculate(teams[i], teams[j], char_matrix)
+                matrix[i, j] = value
+                matrix[j, i] = -value
+        return matrix
+
+    def test_all_three_methods_match_theory_and_each_other(self):
+        for case in TheoryTestBuilder.get_all_team_cases():
+            characters = self._build_characters(case)
+            teams = self._build_teams(case)
+            character_matrix = PayoffMatrixBuilder.from_characters(characters)
+
+            exact_matrix = self._calculate_matrix_with_calculator(
+                teams, character_matrix, ExactTeamPayoffCalculator()
+            )
+            twobytwo_matrix = self._calculate_matrix_with_calculator(
+                teams, character_matrix, TwoByTwoApproximateCalculator()
+            )
+            monocycle_matrix = self._calculate_matrix_with_calculator(
+                teams, character_matrix, MonocycleApproximateCalculator()
+            )
+
+            np.testing.assert_array_almost_equal(
+                exact_matrix,
+                case.matrix,
+                decimal=10,
+                err_msg=f"{case.name}: Exact解法が理論値と一致しない",
+            )
+            np.testing.assert_array_almost_equal(
+                twobytwo_matrix,
+                case.matrix,
+                decimal=10,
+                err_msg=f"{case.name}: 2x2公式解法が理論値と一致しない",
+            )
+            np.testing.assert_array_almost_equal(
+                monocycle_matrix,
+                case.matrix,
+                decimal=10,
+                err_msg=f"{case.name}: 単相性直計算が理論値と一致しない",
+            )
+
+            np.testing.assert_array_almost_equal(
+                exact_matrix,
+                twobytwo_matrix,
+                decimal=10,
+                err_msg=f"{case.name}: Exact と 2x2公式が一致しない",
+            )
+            np.testing.assert_array_almost_equal(
+                exact_matrix,
+                monocycle_matrix,
+                decimal=10,
+                err_msg=f"{case.name}: Exact と 単相性直計算が一致しない",
+            )
+
+    def test_builder_monocycle_path_matches_theory(self):
+        for case in TheoryTestBuilder.get_all_team_cases():
+            characters = self._build_characters(case)
+            teams = self._build_teams(case)
+            character_matrix = PayoffMatrixBuilder.from_characters(characters)
+            team_matrix = PayoffMatrixBuilder.from_team_matchups(
+                teams=teams,
+                character_matrix=character_matrix,
+                use_monocycle_approx=True,
+            )
+
+            np.testing.assert_array_almost_equal(
+                team_matrix.matrix,
+                case.matrix,
+                decimal=10,
+                err_msg=f"{case.name}: Builder(monocycle path)が理論値と一致しない",
+            )
