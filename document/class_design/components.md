@@ -174,10 +174,12 @@ from typing import TYPE_CHECKING
 
 from .general import GeneralPayoffMatrix
 from .monocycle import MonocyclePayoffMatrix
+from ..team.matrix_approx import TwoPlayerTeamMatrixCalculator
 from ..strategy.domain import PureStrategySet
 
 if TYPE_CHECKING:
     from ..character.domain import Character
+    from ..matrix.base import PayoffMatrix
     from ..team.domain import Team
 
 
@@ -188,22 +190,39 @@ class PayoffMatrixBuilder:
     """
 
     @staticmethod
-    def from_characters(characters: list["Character"]) -> MonocyclePayoffMatrix:
-        rows = PureStrategySet.from_characters(characters, player_name="row")
-        return MonocyclePayoffMatrix(rows)
+    def from_characters(
+        characters: list["Character"],
+        labels: list[str] | None = None,
+    ) -> MonocyclePayoffMatrix:
+        return MonocyclePayoffMatrix(characters, labels=labels)
 
     @staticmethod
     def from_general_matrix(
         matrix: np.ndarray,
-        row_strategies: PureStrategySet,
+        labels: list[str] | None = None,
+        row_strategies: PureStrategySet | None = None,
         col_strategies: PureStrategySet | None = None,
     ) -> GeneralPayoffMatrix:
-        return GeneralPayoffMatrix(matrix, row_strategies, col_strategies)
+        if row_strategies is not None:
+            return GeneralPayoffMatrix(matrix, row_strategies, col_strategies)
+        return GeneralPayoffMatrix(matrix, labels, col_strategies)
 
     @staticmethod
     def from_teams(team_payoff: np.ndarray, teams: list["Team"]) -> GeneralPayoffMatrix:
         rows = PureStrategySet.from_teams(teams, player_name="row")
         return GeneralPayoffMatrix(team_payoff, rows, rows)
+
+    @staticmethod
+    def from_team_matchups(
+        teams: list["Team"],
+        character_matrix: "PayoffMatrix",
+        use_monocycle_formula: bool = True,
+    ) -> GeneralPayoffMatrix:
+        matrix_calculator = TwoPlayerTeamMatrixCalculator(
+            character_matrix=character_matrix,
+            use_monocycle_formula=use_monocycle_formula,
+        )
+        return matrix_calculator.generate_matrix(teams)
 ```
 
 ### solver/base.py

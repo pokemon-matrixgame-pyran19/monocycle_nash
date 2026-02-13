@@ -1,21 +1,23 @@
-## チーム利得行列の近似計算（追加設計）
+## チーム利得行列の計算（追加設計）
 
 ### 概要
 
-チーム利得行列の作成において、通常はキャラクター対戦のゲームを解いて値を設定するが、**二人チーム（2×2利得行列）**の場合は公式を用いて高速に計算可能。さらに**単相性モデルの仮定**を追加すると、より簡潔な計算が可能になる。
+チーム利得行列の作成において、通常はキャラクター対戦のゲームを解いて値を設定するが、**二人チーム（2×2利得行列）**の場合は公式を適用できる。さらに**単相性モデルの仮定**を置くと、キャラクター利得行列を経由せず理論式で直接ゲーム値を計算できる。
+
+ここでの 2×2 公式計算・単相性理論式は、適用条件が満たされる場合の**厳密計算**であり、近似ではない。
 
 ### team/matrix_approx.py
 
 ```python
-class TwoPlayerTeamMatrixApproximator:
+class TwoPlayerTeamMatrixCalculator:
     """
-    二人チーム利得行列の近似計算
-    - 2×2利得行列のゲーム値公式を使用して高速化
-    - 単相性モデル仮定でさらに最適化
+    二人チーム利得行列の計算
+    - 2×2利得行列ではゲーム値公式を適用
+    - 単相性モデル仮定では理論式を適用
     """
-    - __init__(character_matrix: PayoffMatrix)
+    - __init__(character_matrix: PayoffMatrix, use_monocycle_formula: bool = True)
     - calculate_team_value(team1: Team, team2: Team): float
-    - generate_approx_matrix(teams: list[Team]): PayoffMatrix
+    - generate_matrix(teams: list[Team]): PayoffMatrix
 
 class TwoByTwoGameValueCalculator:
     """
@@ -25,7 +27,7 @@ class TwoByTwoGameValueCalculator:
     - calculate(matrix: np.ndarray) -> float
     - calculate_saddle_point(matrix: np.ndarray) -> tuple[float, float] | None
 
-class MonocycleTwoByTwoApproximator:
+class MonocycleTwoByTwoValueCalculator:
     """
     単相性モデル仮定下的2×2ゲーム値計算
     - パラメータ: p1, p2, p3, p4, v1, v2, v3, v4
@@ -40,12 +42,12 @@ class MonocycleTwoByTwoApproximator:
     - calculate_f_parameter(): float
     - calculate_m_determinant(): float
 
-class TeamPayoffFormulaSelector:
+class TeamPayoffCalculatorSelector:
     """
     チーム利得行列生成時の計算方法選択
-    - Strategy Patternで厳密解/近似解を自動選択
+    - Strategy Patternで厳密解/公式解を自動選択
     """
-    - __init__(use_monocycle_approx: bool = True)
+    - __init__(use_monocycle_formula: bool = True)
     - select_calculator(team1: Team, team2: Team, 
                         char_matrix: PayoffMatrix) -> TeamPayoffCalculator
     - calculate(team1: Team, team2: Team, char_matrix: PayoffMatrix): float
@@ -60,30 +62,30 @@ class ExactTeamPayoffCalculator(TeamPayoffCalculator):
     - calculate(team1: Team, team2: Team, 
                 char_matrix: PayoffMatrix): float
 
-class TwoByTwoApproximateCalculator(TeamPayoffCalculator):
-    """2×2ゲーム値公式による近似計算"""
+class TwoByTwoFormulaCalculator(TeamPayoffCalculator):
+    """2×2ゲーム値公式による計算"""
     - calculate(team1: Team, team2: Team, 
                 char_matrix: PayoffMatrix): float
 
-class MonocycleApproximateCalculator(TeamPayoffCalculator):
-    """単相性モデル仮定による最速近似計算"""
+class MonocycleFormulaCalculator(TeamPayoffCalculator):
+    """単相性モデル仮定による理論式計算"""
     - calculate(team1: Team, team2: Team, 
                 char_matrix: MonocyclePayoffMatrix): float
 ```
 
-### 利得行列近似計算のクラス階層
+### 利得行列計算のクラス階層
 
 ```
 TeamPayoffCalculator (抽象基底)
     ├── ExactTeamPayoffCalculator          # 厳密解（全対戦解く）
-    ├── TwoByTwoApproximateCalculator      # 2×2公式による近似
+    ├── TwoByTwoFormulaCalculator          # 2×2公式
     │   └── TwoByTwoGameValueCalculator    # g = (ad-bc)/(a+d-b-c)
-    └── MonocycleApproximateCalculator     # 単相性モデル仮定による最速近似
-        └── MonocycleTwoByTwoApproximator  # g = (ef+M)/((v1-v2)×(v3-v4))
+    └── MonocycleFormulaCalculator         # 単相性モデル仮定の理論式
+        └── MonocycleTwoByTwoValueCalculator  # g = (ef+M)/((v1-v2)×(v3-v4))
 
-TwoPlayerTeamMatrixApproximator
-    └── TeamPayoffFormulaSelector          # 計算方法の自動選択
+TwoPlayerTeamMatrixCalculator
+    └── TeamPayoffCalculatorSelector       # 計算方法の自動選択
         ├── ExactTeamPayoffCalculator      # フォールバック用
-        ├── TwoByTwoApproximateCalculator  # 一般2×2行列用
-        └── MonocycleApproximateCalculator # 単相性モデル用
+        ├── TwoByTwoFormulaCalculator      # 一般2×2行列用
+        └── MonocycleFormulaCalculator     # 単相性モデル用
 ```
