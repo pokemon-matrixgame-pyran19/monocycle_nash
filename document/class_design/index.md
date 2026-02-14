@@ -5,5 +5,5 @@
 - `preamble.md`: 前提・設計方針・ディレクトリ構造
 - `components.md`: モジュールごとのクラス詳細と使用例
 - `pure_strategy.md`: 純粋戦略中心の設計再整理とドメイン
-- `team_payoff.md`: チーム利得行列近似計算の追加設計
+- `team_payoff.md`: チーム利得行列計算（厳密解・公式解）の追加設計
 - `merits.md`: 設計方針のメリットまとめ

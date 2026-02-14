@@ -5,8 +5,10 @@ from .general import GeneralPayoffMatrix
 from .monocycle import MonocyclePayoffMatrix
 from ..character.domain import Character
 from ..strategy.domain import PureStrategySet
+from ..team.matrix_approx import TwoPlayerTeamMatrixCalculator
 
 if TYPE_CHECKING:
+    from ..matrix.base import PayoffMatrix
     from ..team.domain import Team
 
 
@@ -43,6 +45,19 @@ class PayoffMatrixBuilder:
 
     @staticmethod
     def from_teams(team_payoff: np.ndarray, teams: list["Team"]) -> GeneralPayoffMatrix:
-        """Teamリストから一般利得行列を生成。"""
+        """既に計算済みのTeam利得行列から一般利得行列を生成。"""
         row_strategies = PureStrategySet.from_teams(teams, player_name="row")
         return GeneralPayoffMatrix(team_payoff, row_strategies, row_strategies)
+
+    @staticmethod
+    def from_team_matchups(
+        teams: list["Team"],
+        character_matrix: "PayoffMatrix",
+        use_monocycle_formula: bool = True,
+    ) -> GeneralPayoffMatrix:
+        """Character利得行列からTeam利得行列を生成。"""
+        matrix_calculator = TwoPlayerTeamMatrixCalculator(
+            character_matrix=character_matrix,
+            use_monocycle_formula=use_monocycle_formula,
+        )
+        return matrix_calculator.generate_matrix(teams)
