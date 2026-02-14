@@ -7,3 +7,4 @@
 - `pure_strategy.md`: 純粋戦略中心の設計再整理とドメイン
 - `team_payoff.md`: チーム利得行列計算（厳密解・公式解）の追加設計
 - `merits.md`: 設計方針のメリットまとめ
+- `infra_output.md`: run_result_management_specに対応するインフラ層（DB/ファイル出力）設計
