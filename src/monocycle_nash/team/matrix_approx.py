@@ -86,10 +86,7 @@ class ExactTeamPayoffCalculator(TeamPayoffCalculator):
         sub = char_matrix.matrix[np.ix_(rows, cols)]
 
         game = nash.Game(sub)
-        equilibria = list(game.linear_program())
-        if not equilibria:
-            return float(np.mean(sub))
-        sigma_row, sigma_col = equilibria[0]
+        sigma_row, sigma_col = game.linear_program()
         return float(np.asarray(sigma_row) @ sub @ np.asarray(sigma_col))
 
 
@@ -111,6 +108,15 @@ class MonocycleFormulaCalculator(TeamPayoffCalculator):
         cols = team2.resolve_member_indices(char_matrix.col_strategies)
         if len(rows) != 2 or len(cols) != 2:
             raise ValueError("MonocycleFormulaCalculator requires 2x2 team matchup")
+
+        sub = char_matrix.matrix[np.ix_(rows, cols)]
+
+        # 理論式は4キャラが互いに異なり、かつ純粋戦略均衡を持たないケースで導出される。
+        # 条件外では一般2x2公式（サドル判定込み）へフォールバックする。
+        if set(team1.member_ids) & set(team2.member_ids):
+            return TwoByTwoGameValueCalculator.calculate(sub)
+        if TwoByTwoGameValueCalculator.calculate_saddle_point(sub) is not None:
+            return TwoByTwoGameValueCalculator.calculate(sub)
 
         c1 = char_matrix.row_strategies[rows[0]].entity
         c2 = char_matrix.row_strategies[rows[1]].entity

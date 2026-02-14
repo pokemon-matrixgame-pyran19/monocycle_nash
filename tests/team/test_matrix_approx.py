@@ -10,9 +10,9 @@ from monocycle_nash.team.matrix_approx import (
 
 
 def test_two_by_two_formula_matches_known_value():
-    matrix = np.array([[1.0, -2.0], [3.0, 0.0]])
+    matrix = np.array([[3.0, 0.0], [1.0, 2.0]])
     value = TwoByTwoGameValueCalculator.calculate(matrix)
-    expected = (1.0 * 0.0 - (-2.0) * 3.0) / (1.0 + 0.0 - (-2.0) - 3.0)
+    expected = (3.0 * 2.0 - 0.0 * 1.0) / (3.0 + 2.0 - 0.0 - 1.0)
     assert value == expected
 
 
