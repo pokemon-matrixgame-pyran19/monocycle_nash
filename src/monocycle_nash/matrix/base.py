@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..equilibrium.domain import MixedStrategy
+    from ..strategy.domain import PureStrategySet
 
 
 class PayoffMatrix(ABC):
@@ -20,6 +21,23 @@ class PayoffMatrix(ABC):
     def size(self) -> int:
         """行列のサイズ"""
         pass
+
+    @property
+    @abstractmethod
+    def row_strategies(self) -> "PureStrategySet":
+        """行プレイヤー側の純粋戦略集合"""
+        pass
+
+    @property
+    @abstractmethod
+    def col_strategies(self) -> "PureStrategySet":
+        """列プレイヤー側の純粋戦略集合"""
+        pass
+
+    @property
+    def labels(self) -> list[str]:
+        """後方互換: 行プレイヤー側ラベル。"""
+        return self.row_strategies.labels
     
     @abstractmethod
     def solve_equilibrium(self) -> "MixedStrategy":
