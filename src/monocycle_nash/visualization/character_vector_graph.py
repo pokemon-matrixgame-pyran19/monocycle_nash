@@ -80,8 +80,16 @@ class CharacterVectorGraphPlotter:
         svg_parts.append(
             f'<circle cx="{zero_x:.2f}" cy="{zero_y:.2f}" r="5.50" fill="#ef4444" stroke="white" stroke-width="1.5" />'
         )
+        label_offset = 10.0
+        if zero_x > width - margin - 80.0:
+            label_x = zero_x - label_offset
+            label_anchor = "end"
+        else:
+            label_x = zero_x + label_offset
+            label_anchor = "start"
+
         svg_parts.append(
-            f'<text x="{zero_x + 10:.2f}" y="{zero_y - 10:.2f}" text-anchor="start" dominant-baseline="baseline" '
+            f'<text x="{label_x:.2f}" y="{zero_y - 10:.2f}" text-anchor="{label_anchor}" dominant-baseline="baseline" '
             f'font-size="14" fill="#991b1b">原点 (0, 0)</text>'
         )
 
