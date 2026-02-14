@@ -5,11 +5,10 @@ from abc import ABC, abstractmethod
 import nashpy as nash
 import numpy as np
 
-from ..character.domain import Character
 from ..matrix.base import PayoffMatrix
 from ..matrix.general import GeneralPayoffMatrix
 from ..matrix.monocycle import MonocyclePayoffMatrix
-from ..strategy.domain import PureStrategySet
+from ..strategy.domain import MonocyclePureStrategy, PureStrategySet
 from .domain import Team
 
 
@@ -42,22 +41,30 @@ class TwoByTwoGameValueCalculator:
 
 
 class MonocycleTwoByTwoValueCalculator:
-    def __init__(self, c1: Character, c2: Character, c3: Character, c4: Character):
-        self.c1, self.c2, self.c3, self.c4 = c1, c2, c3, c4
+    """MonocyclePureStrategy を入力に取る単相性2x2理論値計算。"""
+
+    def __init__(
+        self,
+        s1: MonocyclePureStrategy,
+        s2: MonocyclePureStrategy,
+        s3: MonocyclePureStrategy,
+        s4: MonocyclePureStrategy,
+    ):
+        self.s1, self.s2, self.s3, self.s4 = s1, s2, s3, s4
 
     def calculate_e_parameter(self) -> float:
-        return self.c1.p - self.c2.p + self.c1.v.times(self.c2.v)
+        return self.s1.power - self.s2.power + self.s1.vector.times(self.s2.vector)
 
     def calculate_f_parameter(self) -> float:
-        return self.c3.p - self.c4.p + self.c3.v.times(self.c4.v)
+        return self.s3.power - self.s4.power + self.s3.vector.times(self.s4.vector)
 
     def calculate_m_determinant(self) -> float:
         mat = np.array(
             [
                 [1.0, 1.0, 1.0, 1.0],
-                [self.c1.p, self.c2.p, self.c3.p, self.c4.p],
-                [self.c1.v.x, self.c2.v.x, self.c3.v.x, self.c4.v.x],
-                [self.c1.v.y, self.c2.v.y, self.c3.v.y, self.c4.v.y],
+                [self.s1.power, self.s2.power, self.s3.power, self.s4.power],
+                [self.s1.vector.x, self.s2.vector.x, self.s3.vector.x, self.s4.vector.x],
+                [self.s1.vector.y, self.s2.vector.y, self.s3.vector.y, self.s4.vector.y],
             ],
             dtype=float,
         )
@@ -67,7 +74,7 @@ class MonocycleTwoByTwoValueCalculator:
         e = self.calculate_e_parameter()
         f = self.calculate_f_parameter()
         m = self.calculate_m_determinant()
-        denom = (self.c1.v - self.c2.v).times(self.c3.v - self.c4.v)
+        denom = (self.s1.vector - self.s2.vector).times(self.s3.vector - self.s4.vector)
         if abs(denom) < 1e-12:
             return float((e + f) / 2.0)
         return float((e * f + m) / denom)
@@ -118,11 +125,11 @@ class MonocycleFormulaCalculator(TeamPayoffCalculator):
         if TwoByTwoGameValueCalculator.calculate_saddle_point(sub) is not None:
             return TwoByTwoGameValueCalculator.calculate(sub)
 
-        c1 = char_matrix.row_strategies[rows[0]].entity
-        c2 = char_matrix.row_strategies[rows[1]].entity
-        c3 = char_matrix.col_strategies[cols[0]].entity
-        c4 = char_matrix.col_strategies[cols[1]].entity
-        return MonocycleTwoByTwoValueCalculator(c1, c2, c3, c4).calculate_game_value()
+        s1 = MonocyclePureStrategy.cast(char_matrix.row_strategies[rows[0]])
+        s2 = MonocyclePureStrategy.cast(char_matrix.row_strategies[rows[1]])
+        s3 = MonocyclePureStrategy.cast(char_matrix.col_strategies[cols[0]])
+        s4 = MonocyclePureStrategy.cast(char_matrix.col_strategies[cols[1]])
+        return MonocycleTwoByTwoValueCalculator(s1, s2, s3, s4).calculate_game_value()
 
 
 class TeamPayoffCalculatorSelector:

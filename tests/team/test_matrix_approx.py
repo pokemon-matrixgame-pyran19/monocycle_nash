@@ -2,8 +2,11 @@ import numpy as np
 
 from monocycle_nash.character.domain import Character, MatchupVector
 from monocycle_nash.matrix.builder import PayoffMatrixBuilder
+from monocycle_nash.matrix.monocycle import MonocyclePayoffMatrix
+from monocycle_nash.strategy.domain import PureStrategySet
 from monocycle_nash.team.domain import Team
 from monocycle_nash.team.matrix_approx import (
+    MonocycleFormulaCalculator,
     TwoByTwoGameValueCalculator,
     TwoPlayerTeamMatrixCalculator,
 )
@@ -63,3 +66,26 @@ def test_builder_from_team_matchups_shortcut():
 
     assert team_matrix.size == 2
     assert team_matrix.labels == ["Left", "Right"]
+
+
+def test_monocycle_formula_uses_pure_strategy_ids_for_member_resolution():
+    characters = [
+        Character(1.0, MatchupVector(1.0, 0.0), label="A"),
+        Character(0.2, MatchupVector(0.0, 1.0), label="B"),
+        Character(0.8, MatchupVector(-1.0, 0.0), label="C"),
+        Character(0.3, MatchupVector(0.0, -1.0), label="D"),
+    ]
+    row_strategies = PureStrategySet.from_characters(
+        characters,
+        player_name="row",
+        ids=["alpha", "beta", "gamma", "delta"],
+    )
+    char_matrix = MonocyclePayoffMatrix(row_strategies)
+
+    team1 = Team(label="T1", member_ids=("alpha", "beta"))
+    team2 = Team(label="T2", member_ids=("gamma", "delta"))
+
+    value = MonocycleFormulaCalculator().calculate(team1, team2, char_matrix)
+    sub = char_matrix.matrix[np.ix_([0, 1], [2, 3])]
+    expected = TwoByTwoGameValueCalculator.calculate(sub)
+    assert value == expected
