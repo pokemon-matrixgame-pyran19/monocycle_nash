@@ -28,7 +28,7 @@
   result/
     <run_id>/
       input/
-        merged_input.<ext>
+        ... 各種入力結果 ...
       output/
         ... 各種実行結果 ...
       logs/
@@ -41,9 +41,9 @@
 
 ### 3.1 `result/<run_id>/` の必須要素
 
-- `input/merged_input.<ext>`
-  - 実行に使用した入力の固定コピー。
-  - 入力分割設定がある場合は、**実行時に統合した1ファイル**を保存する。
+- `input/`
+  - 実行に使用した入力の固定コピー群。
+  - 入力分割設定がある場合は、**実行時に統合した1ファイル**もここに保存する。
 - `output/`
   - 実行結果ファイル群。
 - `logs/`
@@ -74,6 +74,14 @@
 ## 5. SQLiteスキーマ
 
 時刻はすべて **日本時間（UTC+9）** のISO-8601文字列で保持する。
+
+### 5.0 SQLite設定（必須）
+
+SQLiteはデフォルトで外部キー制約が無効のため、接続ごとに以下を実行して有効化する。
+
+```sql
+PRAGMA foreign_keys = ON;
+```
 
 ### 5.1 projectsテーブル
 
@@ -149,7 +157,7 @@ CREATE INDEX IF NOT EXISTS idx_runs_project_id ON runs(project_id);
 1. `.runmeta/run_history.db` を開く。
 2. `runs` に `status='running'` でINSERTし、`run_id` を採番。
 3. `result/<run_id>/` を作成。
-4. 入力を読み込み、分割設定がある場合は統合し `input/merged_input.<ext>` を保存。
+4. 入力を読み込み、`input/` に実行時入力の固定コピーを保存（分割設定がある場合は統合後ファイルも保存）。
 5. `meta.json` 初期生成。
 6. 実処理実行、`output/` と `logs/` を書き込み。
 7. 終了時に `status` を `success/fail/killed` へ更新。
@@ -195,7 +203,6 @@ ORDER BY created_at DESC;
 
 ### 9.1 CLI運用ルール
 
-- 削除操作は `--yes` などの明示フラグを推奨。
 - `run_id` / `project_id` 未存在時は非0終了。
 
 ---
@@ -227,7 +234,7 @@ Windows想定のため以下順で試行する。
 
 ## 11. 受け入れ基準
 
-- 実行ごとに `result/<run_id>/` が作成され、入力統合ファイルが保存される。
+- 実行ごとに `result/<run_id>/` が作成され、`input/` に実行時入力の固定コピーが保存される。
 - `runs` に自動登録され、終了時に `status` が確定する。
 - `project_id` 指定でrun検索できる。
 - `runmeta delete-run --with-files` でDB/フォルダ両方が削除される。
