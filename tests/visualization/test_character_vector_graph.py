@@ -30,3 +30,18 @@ def test_plotter_requires_non_empty_characters() -> None:
         assert False, "ValueError が発生するべき"
     except ValueError as exc:
         assert "1件以上" in str(exc)
+
+
+def test_draw_always_marks_origin(tmp_path) -> None:
+    characters = [
+        Character(2.0, MatchupVector(3.0, 2.5), "キャラD"),
+        Character(5.0, MatchupVector(4.2, 6.0), "キャラE"),
+    ]
+    plotter = CharacterVectorGraphPlotter(characters)
+
+    output = tmp_path / "character_vectors_origin.svg"
+    saved = plotter.draw(output)
+
+    content = saved.read_text(encoding="utf-8")
+    assert "原点 (0, 0)" in content
+    assert 'fill="#ef4444"' in content

@@ -30,6 +30,12 @@ class CharacterVectorGraphPlotter:
         world_min_x, world_max_x = min_x - pad_x, max_x + pad_x
         world_min_y, world_max_y = min_y - pad_y, max_y + pad_y
 
+        # 原点(0, 0)は相性ベクトル解釈で重要なので、必ず表示範囲に含める
+        world_min_x = min(world_min_x, 0.0)
+        world_max_x = max(world_max_x, 0.0)
+        world_min_y = min(world_min_y, 0.0)
+        world_max_y = max(world_max_y, 0.0)
+
         width = canvas_size
         height = canvas_size
         inner_w = width - margin * 2
@@ -55,8 +61,8 @@ class CharacterVectorGraphPlotter:
         axis_x1 = sx(world_max_x)
         axis_y0 = sy(world_min_y)
         axis_y1 = sy(world_max_y)
-        zero_x = sx(0.0) if world_min_x <= 0.0 <= world_max_x else None
-        zero_y = sy(0.0) if world_min_y <= 0.0 <= world_max_y else None
+        zero_x = sx(0.0)
+        zero_y = sy(0.0)
 
         svg_parts: list[str] = [
             f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}">',
@@ -65,14 +71,19 @@ class CharacterVectorGraphPlotter:
             f'<line x1="{axis_x0:.2f}" y1="{axis_y1:.2f}" x2="{axis_x0:.2f}" y2="{axis_y0:.2f}" stroke="#d1d5db" stroke-width="1" />',
         ]
 
-        if zero_y is not None:
-            svg_parts.append(
-                f'<line x1="{axis_x0:.2f}" y1="{zero_y:.2f}" x2="{axis_x1:.2f}" y2="{zero_y:.2f}" stroke="#6b7280" stroke-width="1.5" />'
-            )
-        if zero_x is not None:
-            svg_parts.append(
-                f'<line x1="{zero_x:.2f}" y1="{axis_y1:.2f}" x2="{zero_x:.2f}" y2="{axis_y0:.2f}" stroke="#6b7280" stroke-width="1.5" />'
-            )
+        svg_parts.append(
+            f'<line x1="{axis_x0:.2f}" y1="{zero_y:.2f}" x2="{axis_x1:.2f}" y2="{zero_y:.2f}" stroke="#6b7280" stroke-width="1.5" />'
+        )
+        svg_parts.append(
+            f'<line x1="{zero_x:.2f}" y1="{axis_y1:.2f}" x2="{zero_x:.2f}" y2="{axis_y0:.2f}" stroke="#6b7280" stroke-width="1.5" />'
+        )
+        svg_parts.append(
+            f'<circle cx="{zero_x:.2f}" cy="{zero_y:.2f}" r="5.50" fill="#ef4444" stroke="white" stroke-width="1.5" />'
+        )
+        svg_parts.append(
+            f'<text x="{zero_x + 10:.2f}" y="{zero_y - 10:.2f}" text-anchor="start" dominant-baseline="baseline" '
+            f'font-size="14" fill="#991b1b">原点 (0, 0)</text>'
+        )
 
         for c in self._characters:
             x = sx(float(c.v.x))
