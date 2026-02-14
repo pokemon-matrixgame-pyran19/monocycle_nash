@@ -203,21 +203,21 @@ class TheoryTestBuilder:
 
     @staticmethod
     def team_janken() -> TeamTheoryTestCase:
-        """じゃんけんの構築ゲーム理論値。戦略順は 12,23,13。"""
+        """じゃんけんの構築ゲーム理論値。戦略順は 12,13,23。"""
         character_case = TheoryTestBuilder.janken()
         root3 = 1.7320508075688772
-        matrix = 2 * root3 * np.array(
+        matrix = (2 * root3 / 3) * np.array(
             [
-                [0.0, 1.0, -1.0],
-                [-1.0, 0.0, 1.0],
-                [1.0, -1.0, 0.0],
+                [0.0, -1.0, 1.0],
+                [1.0, 0.0, -1.0],
+                [-1.0, 1.0, 0.0],
             ]
         )
         return TeamTheoryTestCase(
             name="team_janken",
             character_case=character_case,
-            team_labels=["12", "23", "13"],
-            team_members=[(0, 1), (1, 2), (0, 2)],
+            team_labels=["12", "13", "23"],
+            team_members=[(0, 1), (0, 2), (1, 2)],
             matrix=matrix,
             equilibrium=np.array([1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0]),
             description="じゃんけん3キャラから作る2人構築ゲーム。",
@@ -228,14 +228,18 @@ class TheoryTestBuilder:
         """拡張じゃんけんの構築ゲーム理論値。戦略順は 12,13,14,23,24,34。"""
         character_case = TheoryTestBuilder.extended_janken()
         root3 = 1.7320508075688772
+        r0 = 2.0 / root3
+        val1 = 1.2 * r0 / (1.0 + 2.0 * r0)
+        val2 = 0.9 * r0 / (1.0 + r0)
+        val3 = 2.1 * 0.9 / (3.0 * (1.0 + r0))
         matrix = np.array(
             [
-                [0.0, 2 * root3, -0.9, -2 * root3, 2.1, 1.2],
-                [-2 * root3, 0.0, -0.9, 2 * root3, 1.2, 2.1],
-                [0.9, 0.9, 0.0, 1.8, 2 * root3, -2 * root3],
-                [2 * root3, -2 * root3, -1.8, 0.0, -0.9, -0.9],
-                [-2.1, -1.2, -2 * root3, 0.9, 0.0, 2 * root3],
-                [-1.2, -2.1, 2 * root3, 0.9, -2 * root3, 0.0],
+                [0.0, -r0, 0.0, r0, 3 * r0, val1],
+                [r0, 0.0, 0.0, -r0, 3 * r0, -val2],
+                [0.0, 0.0, 0.0, 0.9, 3 * r0, val3],
+                [-r0, r0, -0.9, 0.0, -0.9, -0.9],
+                [-3 * r0, -3 * r0, -3 * r0, 0.9, 0.0, 0.0],
+                [-val1, val2, val3, 0.9, 0.0, 0.0],
             ]
         )
         return TeamTheoryTestCase(
