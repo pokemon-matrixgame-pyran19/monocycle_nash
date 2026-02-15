@@ -217,7 +217,7 @@ def prepare_run_session(setting: dict[str, Any], command: str) -> tuple[RunSessi
     project = setting.get("analysis_project", {}) if isinstance(setting.get("analysis_project"), dict) else {}
 
     db_path = str(runmeta.get("sqlite_path", ".runmeta/run_history.db"))
-    output_root = Path(str(output.get("base_dir", "result")))
+    output_root = Path(str(output.get("base_dir", "results")))
 
     conn = SQLiteConnectionFactory(db_path).connect()
     migrate(conn)

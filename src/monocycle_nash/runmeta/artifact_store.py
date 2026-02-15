@@ -14,7 +14,7 @@ from .models import InputSnapshotInfo
 
 @dataclass
 class RunArtifactStore:
-    result_root: Path | str = Path("result")
+    result_root: Path = Path("results")
 
     def __post_init__(self) -> None:
         self.result_root = Path(self.result_root)

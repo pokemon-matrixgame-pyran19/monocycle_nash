@@ -2,4 +2,4 @@
 sqlite_path = ".runmeta/run_history.db"
 
 [output]
-base_dir = "result"
+base_dir = "results"
