@@ -5,22 +5,15 @@ from .cli import build_default_service
 from .clock import now_jst_iso
 from .db import SQLiteConnectionFactory, migrate
 from .models import ProjectRecord, RunRecord, RunStatus
-from .repositories import (
-    ProjectRepository,
-    ProjectsRepository,
-    RunRepository,
-    RunsRepository,
-)
+from .repositories import ProjectsRepository, RunsRepository
 from .service import RunMetaService
 
 __all__ = [
     "ArtifactStore",
     "ProjectRecord",
-    "ProjectRepository",
     "ProjectsRepository",
     "RunMetaService",
     "RunRecord",
-    "RunRepository",
     "RunsRepository",
     "RunStatus",
     "SQLiteConnectionFactory",

@@ -63,25 +63,6 @@ class ProjectsRepository:
         self.conn.execute("DELETE FROM projects WHERE id = ?", (project_id,))
         self.conn.commit()
 
-    # Compatibility methods for older service wiring.
-    def save(self, project_id: int, name: str) -> dict[str, object] | None:
-        timestamp = now_jst_iso()
-        self.conn.execute(
-            """
-            INSERT INTO projects(id, name, created_at, updated_at)
-            VALUES(?, ?, ?, ?)
-            ON CONFLICT(id) DO UPDATE SET
-                name = excluded.name,
-                updated_at = excluded.updated_at
-            """,
-            (project_id, name, timestamp, timestamp),
-        )
-        self.conn.commit()
-        return self.find(project_id)
-
-    def get(self, project_id: int) -> dict[str, object] | None:
-        return self.find(project_id)
-
 
 @dataclass
 class RunsRepository:
@@ -169,27 +150,6 @@ class RunsRepository:
         ).fetchone()
         return _as_dict(row)
 
-
-    # Compatibility methods for older service wiring.
-    def create(self, run_id: int, project_id: int) -> dict[str, object] | None:
-        timestamp = now_jst_iso()
-        self.conn.execute(
-            """
-            INSERT INTO runs(id, project_id, status, created_at, ended_at, updated_at)
-            VALUES(?, ?, 'running', ?, NULL, ?)
-            """,
-            (run_id, project_id, timestamp, timestamp),
-        )
-        self.conn.commit()
-        return self.find_by_id(run_id)
-
-    def update_status(self, run_id: int, status: RunStatus) -> dict[str, object] | None:
-        self.finish(run_id=run_id, status=status)
-        return self.find_by_id(run_id)
-
-    def get(self, run_id: int) -> dict[str, object] | None:
-        return self.find_by_id(run_id)
-
     def list_runs(
         self,
         *,
@@ -223,8 +183,3 @@ class RunsRepository:
 
         rows = self.conn.execute(query, tuple(params)).fetchall()
         return [dict(row) for row in rows]
-
-
-# Backward-compatible aliases.
-ProjectRepository = ProjectsRepository
-RunRepository = RunsRepository

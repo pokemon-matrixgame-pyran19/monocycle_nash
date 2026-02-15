@@ -6,32 +6,32 @@ from dataclasses import dataclass
 
 from .artifact_store import ArtifactStore
 from .clock import now_jst_iso
-from .models import ProjectRecord, RunRecord, RunStatus
-from .repositories import ProjectRepository, RunRepository
+from .models import RunStatus
+from .repositories import ProjectsRepository, RunsRepository
 
 
 @dataclass
 class RunMetaService:
     """Coordinates project/run repositories and artifact storage."""
 
-    project_repository: ProjectRepository
-    run_repository: RunRepository
+    project_repository: ProjectsRepository
+    run_repository: RunsRepository
     artifact_store: ArtifactStore
 
-    def register_project(self, project_id: str, name: str) -> ProjectRecord:
-        """Create or update a project."""
+    def register_project(self, name: str) -> int:
+        """Create a project and return its id."""
 
-        return self.project_repository.save(project_id=project_id, name=name)
+        return self.project_repository.add(name=name)
 
-    def start_run(self, run_id: str, project_id: str) -> RunRecord:
-        """Start a run for a project."""
+    def start_run(self, project_id: int) -> int:
+        """Start a run for a project and return run id."""
 
-        return self.run_repository.create(run_id=run_id, project_id=project_id)
+        return self.run_repository.create_running(project_id=project_id)
 
-    def finish_run(self, run_id: str, status: RunStatus) -> RunRecord:
+    def finish_run(self, run_id: int, status: RunStatus) -> None:
         """Finish a run with a terminal status."""
 
-        return self.run_repository.update_status(run_id=run_id, status=status)
+        self.run_repository.finish(run_id=run_id, status=status)
 
     def attach_artifact(self, run_id: str, artifact_uri: str) -> None:
         """Attach an artifact URI to a run."""
