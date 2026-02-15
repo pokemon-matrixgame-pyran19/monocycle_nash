@@ -35,6 +35,9 @@ def load_inputs(run_config: str, data_dir: str | Path = "data", *, require_graph
     matrix_data = exp_loader.load("matrix", refs.matrix)
     graph_data = exp_loader.load("graph", refs.graph) if refs.graph is not None else None
     setting = SettingDataLoader(base_dir=data_root / "setting").load(refs.setting)
+    validate_matrix_input(matrix_data)
+    validate_graph_input(graph_data)
+    validate_setting_input(setting)
     return matrix_data, graph_data, setting, _run_config_path(run_config, data_root)
 
 
@@ -73,6 +76,39 @@ def _optional_run_config_str(cfg: dict[str, Any], *, key: str) -> str | None:
 
 
 def build_matrix(matrix_data: dict[str, Any]) -> PayoffMatrix:
+    validate_matrix_input(matrix_data)
+
+    labels = matrix_data.get("labels")
+    if has_matrix_input(matrix_data):
+        matrix = np.asarray(matrix_data["matrix"], dtype=float)
+        return PayoffMatrixBuilder.from_general_matrix(matrix, labels=labels)
+
+    return PayoffMatrixBuilder.from_characters(build_characters(matrix_data), labels=labels)
+
+
+def has_matrix_input(matrix_data: dict[str, Any]) -> bool:
+    return "matrix" in matrix_data
+
+
+def build_characters(matrix_data: dict[str, Any]) -> list[Character]:
+    validate_matrix_input(matrix_data)
+    if "characters" not in matrix_data:
+        raise ValueError("characters 入力が必要です")
+
+    chars_raw = matrix_data["characters"]
+    characters: list[Character] = []
+    for item in chars_raw:
+        characters.append(
+            Character(
+                float(item["p"]),
+                MatchupVector(float(item["v"][0]), float(item["v"][1])),
+                label=item["label"],
+            )
+        )
+    return characters
+
+
+def validate_matrix_input(matrix_data: dict[str, Any]) -> None:
     has_matrix = "matrix" in matrix_data
     has_characters = "characters" in matrix_data
     if has_matrix == has_characters:
@@ -88,7 +124,7 @@ def build_matrix(matrix_data: dict[str, Any]) -> PayoffMatrix:
             raise ValueError("matrix は正方2次元配列である必要があります")
         if labels is not None and len(labels) != matrix.shape[0]:
             raise ValueError("labels 数と matrix サイズが一致しません")
-        return PayoffMatrixBuilder.from_general_matrix(matrix, labels=labels)
+        return
 
     chars_raw = matrix_data["characters"]
     if not isinstance(chars_raw, list) or not chars_raw:
@@ -110,10 +146,66 @@ def build_matrix(matrix_data: dict[str, Any]) -> PayoffMatrix:
             raise ValueError(f"characters[{idx}].p は数値で指定してください")
         if not isinstance(vector, list) or len(vector) != 2:
             raise ValueError(f"characters[{idx}].v は長さ2の配列で指定してください")
+        if any(not isinstance(value, (int, float)) for value in vector):
+            raise ValueError(f"characters[{idx}].v は数値配列で指定してください")
         characters.append(Character(float(power), MatchupVector(float(vector[0]), float(vector[1])), label=label))
         seen_labels.add(label)
 
-    return PayoffMatrixBuilder.from_characters(characters, labels=labels)
+
+def validate_graph_input(graph_data: dict[str, Any] | None) -> None:
+    if graph_data is None:
+        return
+    _optional_number(graph_data, key="threshold")
+    _optional_int(graph_data, key="canvas_size")
+    _optional_int(graph_data, key="margin")
+
+
+def validate_setting_input(setting_data: dict[str, Any]) -> None:
+    runmeta = setting_data.get("runmeta")
+    output = setting_data.get("output")
+    analysis_project = setting_data.get("analysis_project")
+
+    if runmeta is not None and not isinstance(runmeta, dict):
+        raise ValueError("setting.runmeta はテーブルで指定してください")
+    if output is not None and not isinstance(output, dict):
+        raise ValueError("setting.output はテーブルで指定してください")
+    if analysis_project is not None and not isinstance(analysis_project, dict):
+        raise ValueError("setting.analysis_project はテーブルで指定してください")
+
+    if isinstance(runmeta, dict):
+        _optional_non_empty_string(runmeta, key="sqlite_path", name="setting.runmeta.sqlite_path")
+    if isinstance(output, dict):
+        _optional_non_empty_string(output, key="base_dir", name="setting.output.base_dir")
+    if isinstance(analysis_project, dict):
+        _optional_non_empty_string(analysis_project, key="project_id", name="setting.analysis_project.project_id")
+        _optional_non_empty_string(analysis_project, key="project_path", name="setting.analysis_project.project_path")
+
+
+def _optional_non_empty_string(container: dict[str, Any], *, key: str, name: str) -> str | None:
+    value = container.get(key)
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value:
+        raise ValueError(f"{name} は空でない文字列で指定してください")
+    return value
+
+
+def _optional_number(container: dict[str, Any], *, key: str) -> float | None:
+    value = container.get(key)
+    if value is None:
+        return None
+    if not isinstance(value, (int, float)):
+        raise ValueError(f"graph.{key} は数値で指定してください")
+    return float(value)
+
+
+def _optional_int(container: dict[str, Any], *, key: str) -> int | None:
+    value = container.get(key)
+    if value is None:
+        return None
+    if not isinstance(value, int):
+        raise ValueError(f"graph.{key} は整数で指定してください")
+    return value
 
 
 def prepare_run_session(setting: dict[str, Any], command: str) -> tuple[RunSessionService, Any, sqlite3.Connection]:
