@@ -4,7 +4,13 @@ from pathlib import Path
 
 import pytest
 
-from monocycle_nash.entrypoints.common import build_characters, build_matrix, load_inputs, prepare_run_session
+from monocycle_nash.entrypoints.common import (
+    build_characters,
+    build_matrix,
+    load_inputs,
+    prepare_run_session,
+    write_input_snapshots,
+)
 
 
 def _write(path: Path, text: str) -> None:
@@ -162,3 +168,68 @@ def test_prepare_run_session_creates_output_base_dir_run_folder(tmp_path: Path) 
     assert (run_dir / "input").is_dir()
     assert (run_dir / "output").is_dir()
     assert (run_dir / "logs").is_dir()
+
+
+def test_write_input_snapshots_saves_resolved_split_toml_files(tmp_path: Path) -> None:
+    output_base = tmp_path / "result"
+    setting = {
+        "runmeta": {"sqlite_path": str(tmp_path / ".runmeta" / "run_history.db")},
+        "output": {"base_dir": str(output_base)},
+    }
+    matrix_data = {
+        "matrix": [[0.0, 1.0], [-1.0, 0.0]],
+        "labels": ["rock", "paper"],
+    }
+    graph_data = {"threshold": 0.1, "canvas_size": 900}
+    setting_data = {
+        "runmeta": {"sqlite_path": "db.sqlite"},
+        "output": {"base_dir": "result"},
+    }
+
+    service, ctx, conn = prepare_run_session(setting, "python -m monocycle_nash.entrypoints.graph_payoff --run-config x")
+    try:
+        write_input_snapshots(
+            service,
+            ctx.run_id,
+            matrix_data=matrix_data,
+            graph_data=graph_data,
+            setting_data=setting_data,
+        )
+    finally:
+        conn.close()
+
+    input_dir = output_base / str(ctx.run_id) / "input"
+    assert (input_dir / "matrix.toml").read_text(encoding="utf-8") == (
+        'matrix = [[0.0, 1.0], [-1.0, 0.0]]\nlabels = ["rock", "paper"]\n'
+    )
+    assert (input_dir / "graph.toml").read_text(encoding="utf-8") == (
+        "threshold = 0.1\ncanvas_size = 900\n"
+    )
+    assert (input_dir / "setting.toml").read_text(encoding="utf-8") == (
+        '[runmeta]\nsqlite_path = "db.sqlite"\n\n[output]\nbase_dir = "result"\n'
+    )
+
+
+def test_write_input_snapshots_skips_graph_file_when_not_provided(tmp_path: Path) -> None:
+    output_base = tmp_path / "result"
+    setting = {
+        "runmeta": {"sqlite_path": str(tmp_path / ".runmeta" / "run_history.db")},
+        "output": {"base_dir": str(output_base)},
+    }
+
+    service, ctx, conn = prepare_run_session(setting, "python -m monocycle_nash.entrypoints.solve_payoff --run-config x")
+    try:
+        write_input_snapshots(
+            service,
+            ctx.run_id,
+            matrix_data={"matrix": [[0.0]]},
+            graph_data=None,
+            setting_data={"output": {"base_dir": "result"}},
+        )
+    finally:
+        conn.close()
+
+    input_dir = output_base / str(ctx.run_id) / "input"
+    assert (input_dir / "matrix.toml").exists()
+    assert not (input_dir / "graph.toml").exists()
+    assert (input_dir / "setting.toml").exists()
