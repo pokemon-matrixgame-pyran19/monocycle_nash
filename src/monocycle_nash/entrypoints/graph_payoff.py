@@ -25,7 +25,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     threshold = float(graph_data.get("threshold", 0.0))
     canvas_size = int(graph_data.get("canvas_size", 840))
 
-    command = f"python -m monocycle_nash.entrypoints.graph_payoff --run-config {args.run_config}"
+    command = (
+        "python -m monocycle_nash.entrypoints.graph_payoff "
+        f"--run-config {args.run_config} --data-dir {args.data_dir}"
+    )
     service, ctx, conn = prepare_run_session(setting, command)
 
     try:
