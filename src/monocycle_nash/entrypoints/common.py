@@ -29,27 +29,47 @@ def build_parser(prog: str) -> argparse.ArgumentParser:
 def load_inputs(run_config: str, data_dir: str | Path = "data", *, require_graph: bool) -> tuple[dict[str, Any], dict[str, Any] | None, dict[str, Any], Path]:
     data_root = Path(data_dir)
     cfg = _load_run_config(run_config, data_root)
+    refs = _resolve_run_config_refs(cfg, require_graph=require_graph)
 
-    matrix_name = cfg.get("matrix")
-    if not isinstance(matrix_name, str) or not matrix_name:
-        raise ValueError("run_config.matrix は必須の文字列です")
+    exp_loader = ExperimentDataLoader(base_dir=data_root)
+    matrix_data = exp_loader.load("matrix", refs.matrix)
+    graph_data = exp_loader.load("graph", refs.graph) if refs.graph is not None else None
+    setting = SettingDataLoader(base_dir=data_root / "setting").load(refs.setting)
+    return matrix_data, graph_data, setting, _run_config_path(run_config, data_root)
 
-    setting_name = cfg.get("setting")
-    if not isinstance(setting_name, str) or not setting_name:
-        raise ValueError("run_config.setting は必須の文字列です")
 
-    graph_name = cfg.get("graph")
-    if require_graph and (not isinstance(graph_name, str) or not graph_name):
+class _RunConfigRefs:
+    def __init__(self, *, matrix: str, setting: str, graph: str | None):
+        self.matrix = matrix
+        self.setting = setting
+        self.graph = graph
+
+
+def _resolve_run_config_refs(cfg: dict[str, Any], *, require_graph: bool) -> _RunConfigRefs:
+    matrix_name = _require_run_config_str(cfg, key="matrix")
+    setting_name = _require_run_config_str(cfg, key="setting")
+    graph_name = _optional_run_config_str(cfg, key="graph")
+
+    if require_graph and graph_name is None:
         raise ValueError("このエントリーポイントでは run_config.graph が必須です")
 
-    matrix_data = ExperimentDataLoader(base_dir=data_root).load_from_path(Path("matrix") / matrix_name)
-    graph_data = (
-        ExperimentDataLoader(base_dir=data_root).load_from_path(Path("graph") / graph_name)
-        if isinstance(graph_name, str) and graph_name
-        else None
-    )
-    setting = SettingDataLoader(base_dir=data_root / "setting").load(setting_name)
-    return matrix_data, graph_data, setting, _run_config_path(run_config, data_root)
+    return _RunConfigRefs(matrix=matrix_name, setting=setting_name, graph=graph_name)
+
+
+def _require_run_config_str(cfg: dict[str, Any], *, key: str) -> str:
+    value = _optional_run_config_str(cfg, key=key)
+    if value is None:
+        raise ValueError(f"run_config.{key} は必須の文字列です")
+    return value
+
+
+def _optional_run_config_str(cfg: dict[str, Any], *, key: str) -> str | None:
+    value = cfg.get(key)
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value:
+        raise ValueError(f"run_config.{key} は空でない文字列で指定してください")
+    return value
 
 
 def build_matrix(matrix_data: dict[str, Any]) -> PayoffMatrix:

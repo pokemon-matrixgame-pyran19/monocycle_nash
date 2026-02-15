@@ -69,3 +69,42 @@ def test_build_matrix_from_characters_rejects_duplicate_labels() -> None:
                 ]
             }
         )
+
+
+def test_load_inputs_requires_graph_when_entrypoint_needs_it(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "data" / "run_config" / "baseline" / "rps3_solve.toml",
+        '''
+        matrix = "rps3"
+        setting = "local"
+        ''',
+    )
+    _write(
+        tmp_path / "data" / "matrix" / "rps3" / "data.toml",
+        '''
+        matrix = [[0, 1, -1], [-1, 0, 1], [1, -1, 0]]
+        ''',
+    )
+    _write(
+        tmp_path / "data" / "setting" / "local.toml",
+        '''
+        [output]
+        base_dir = "result"
+        ''',
+    )
+
+    with pytest.raises(ValueError, match="run_config.graph"):
+        load_inputs("baseline/rps3_solve", tmp_path / "data", require_graph=True)
+
+
+def test_load_inputs_rejects_empty_run_config_reference(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "data" / "run_config" / "baseline" / "invalid.toml",
+        '''
+        matrix = ""
+        setting = "local"
+        ''',
+    )
+
+    with pytest.raises(ValueError, match="空でない文字列"):
+        load_inputs("baseline/invalid", tmp_path / "data", require_graph=False)
