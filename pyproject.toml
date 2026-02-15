@@ -1,24 +1,32 @@
 [project]
-name = "1cycle-python"
+name = "monocycle-nash"
 version = "0.1.0"
-description = "Add your description here"
+description = "Monocycle Nash equilibrium solver"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "nashpy>=0.0.43",
     "numpy>=2.3.5",
+    "pytest>=9.0.1",
     "scipy>=1.16.3",
 ]
 
-# ビルド用の設定でサンプルコードにはよく書かれてる
-# 本プロジェクトで使っていないっぽいのにコピペで有効にしておくのは危険
-# 一旦コメントにして問題起きたら疑う
-# [build-system]
-# requires = ["hatchling"]
-# build-backend = "hatchling.build"
+
+[project.scripts]
+runmeta = "monocycle_nash.runmeta.cli:main"
+solve_payoff = "monocycle_nash.entrypoints.solve_payoff:main"
+graph_payoff = "monocycle_nash.entrypoints.graph_payoff:main"
+plot_characters = "monocycle_nash.entrypoints.plot_characters:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath= ["src"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/monocycle_nash"]
 
 [dependency-groups]
 dev = [

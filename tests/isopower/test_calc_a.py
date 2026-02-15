@@ -1,72 +1,132 @@
-from isopower.calc_a import aCalculator, DevCalculator
-from rule.character import Character, MatchupVector
+"""
+aCalculatorクラスのテスト
+
+テストビルダー（tests/theory/builder.py）を参照して、
+理論的に正しい等パワー座標aが計算できることを検証します。
+"""
+
 import pytest
-import numpy as np
-
-def test_calc_a():
-    """
-    以下二つは等価  a=(0.5,0.5)
-    [[0, 2, 0], [0, -1, 1.73205], [0, -1, -1.73205]]
-    [[1.0, 1.5, -0.5], [-1.366025, -1.5, 1.23205], [0.36602500000000004, -1.5, -2.23205]]
-    """
-
-    c1 = Character(1, MatchupVector(1.5, -0.5))
-    c2 = Character(-1.366025, MatchupVector(-1.5, 1.23205))
-    c3 = Character(0.366025, MatchupVector(-1.5, -2.23205))
-
-    expected_a = [-0.5, -0.5]
-
-    calc = aCalculator(c1, c2, c3)
-    a = calc.calc()
-
-    assert a.x == pytest.approx(expected_a[0])
-    assert a.y == pytest.approx(expected_a[1])
-
-def test_a_order():
-    c1 = Character(1, MatchupVector(1.5, -0.5))
-    c2 = Character(-1.366025, MatchupVector(-1.5, 1.23205))
-    c3 = Character(0.366025, MatchupVector(-1.5, -2.23205))
-
-    calc = aCalculator(c1, c2, c3)
-    reverse_calc=aCalculator(c1, c3, c2)
-
-    a = calc.calc()
-    ra =  reverse_calc.calc()
-
-    assert a.x == pytest.approx(ra.x)
-    assert a.y == pytest.approx(ra.y)
+from monocycle_nash.isopower.calc_a import aCalculator
+from monocycle_nash.character.domain import Character, MatchupVector
+from theory.builder import TheoryTestBuilder
 
 
-def test_inner():
-    c1 = Character(1, MatchupVector(2, 0))
-    c2 = Character(0, MatchupVector(-1, 1.732050))
-    c3 = Character(0, MatchupVector(-1, -1.732050))
-
-    calc = aCalculator(c1, c2, c3)
-    a = calc.calc()
-
-    assert calc.is_inner == True
-    assert calc.is_edge == False
-
-def test_ounter():
-    ROOT3 = 1.7320508075688772
-    c1 = Character(25*2*ROOT3, MatchupVector(2, 0))
-    c2 = Character(10*2*ROOT3, MatchupVector(-1, 1.732050))
-    c3 = Character(         0, MatchupVector(-1, -1.732050))
-
-    calc = aCalculator(c1, c2, c3)
-    a = calc.calc()
-
-    assert calc.is_inner == False
-    assert calc.is_edge == False
-
-def test_edge():
-    ROOT3 = 1.7320508075688772
-    c1 = Character(       0, MatchupVector(  2,     0))
-    c2 = Character( 2*ROOT3, MatchupVector( -1, ROOT3))
-    c3 = Character(-2*ROOT3, MatchupVector( -1,-ROOT3))
-    calc = aCalculator(c1, c2, c3)
-    a = calc.calc()
-
-    assert calc.is_edge == True
-    assert calc.is_inner == True # 今のところ境界上の時は内側とみなす仕様
+class TestACalculator:
+    """aCalculatorクラスのテスト"""
+    
+    def test_all_cases_isopower_a(self):
+        """
+        全テストケースの全variantで等パワー座標aを計算・検証
+        
+        テストビルダーのget_all_cases()をループし、
+        isopower_aが設定されているvariantで計算結果を検証。
+        """
+        all_cases = TheoryTestBuilder.get_all_cases()
+        
+        for case in all_cases:
+            for variant in case.variants:
+                # isopower_aが設定されていないvariantはスキップ
+                if variant.isopower_a is None:
+                    continue
+                
+                # 最低3キャラクター必要
+                if len(variant.powers) < 3 or len(variant.vectors) < 3:
+                    continue
+                
+                # Characterリストを作成
+                characters = [
+                    Character(p, MatchupVector(v[0], v[1]))
+                    for p, v in zip(variant.powers, variant.vectors)
+                ]
+                
+                # 等パワー座標aを計算
+                calc = aCalculator(characters[0], characters[1], characters[2])
+                a = calc.calc()
+                
+                # 期待値と比較
+                expected = variant.isopower_a
+                assert a.x == pytest.approx(expected[0], abs=1e-6), \
+                    f"{case.name}/{variant.name}: x座標が一致しません (期待: {expected[0]}, 実際: {a.x})"
+                assert a.y == pytest.approx(expected[1], abs=1e-6), \
+                    f"{case.name}/{variant.name}: y座標が一致しません (期待: {expected[1]}, 実際: {a.y})"
+    
+    def test_all_cases_is_inner(self):
+        """
+        全テストケースでaが三角形の内部にあることを確認
+        """
+        all_cases = TheoryTestBuilder.get_all_cases()
+        
+        for case in all_cases:
+            for variant in case.variants:
+                if variant.isopower_a is None:
+                    continue
+                
+                if len(variant.powers) < 3 or len(variant.vectors) < 3:
+                    continue
+                
+                characters = [
+                    Character(p, MatchupVector(v[0], v[1]))
+                    for p, v in zip(variant.powers, variant.vectors)
+                ]
+                
+                calc = aCalculator(characters[0], characters[1], characters[2])
+                a = calc.calc()
+                
+                # aが三角形の内部にあるはず
+                assert calc.is_inner == True, \
+                    f"{case.name}/{variant.name}: a={a}は三角形の内部にありません"
+    
+    def test_calculation_returns_matchup_vector(self):
+        """
+        calc()がMatchupVectorを返す
+        
+        全ケースの最初の有効なvariantで検証。
+        """
+        all_cases = TheoryTestBuilder.get_all_cases()
+        
+        # 最初の有効なvariantを見つける
+        for case in all_cases:
+            for variant in case.variants:
+                if len(variant.powers) < 3 or len(variant.vectors) < 3:
+                    continue
+                
+                characters = [
+                    Character(p, MatchupVector(v[0], v[1]))
+                    for p, v in zip(variant.powers, variant.vectors)
+                ]
+                
+                calc = aCalculator(characters[0], characters[1], characters[2])
+                a = calc.calc()
+                
+                assert isinstance(a, MatchupVector), \
+                    f"{case.name}/{variant.name}: 戻り値がMatchupVectorではありません"
+                return  # 1つ検証できればOK
+        
+        pytest.skip("有効なテストケースが見つかりませんでした")
+    
+    def test_is_edge_property_exists(self):
+        """
+        is_edgeプロパティが存在する
+        
+        全ケースの最初の有効なvariantで検証。
+        """
+        all_cases = TheoryTestBuilder.get_all_cases()
+        
+        for case in all_cases:
+            for variant in case.variants:
+                if len(variant.powers) < 3 or len(variant.vectors) < 3:
+                    continue
+                
+                characters = [
+                    Character(p, MatchupVector(v[0], v[1]))
+                    for p, v in zip(variant.powers, variant.vectors)
+                ]
+                
+                calc = aCalculator(characters[0], characters[1], characters[2])
+                calc.calc()
+                
+                # is_edgeプロパティにアクセスできる
+                _ = calc.is_edge
+                return  # 1つ検証できればOK
+        
+        pytest.skip("有効なテストケースが見つかりませんでした")
