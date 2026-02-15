@@ -27,6 +27,7 @@ class RunRecord:
     git_commit: str | None
     note: str
     project_id: str | None
+    project_path: str | None
     updated_at: str
 
 

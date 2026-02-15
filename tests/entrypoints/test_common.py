@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+import monocycle_nash.entrypoints.common as common_mod
 
 from monocycle_nash.entrypoints.common import (
     build_characters,
@@ -233,3 +234,111 @@ def test_write_input_snapshots_skips_graph_file_when_not_provided(tmp_path: Path
     assert (input_dir / "matrix.toml").exists()
     assert not (input_dir / "graph.toml").exists()
     assert (input_dir / "setting.toml").exists()
+
+
+def test_prepare_run_session_uses_analysis_project_for_runmeta_linkage(tmp_path: Path) -> None:
+    output_base = tmp_path / "result"
+    project_root = tmp_path / "analysis-main"
+    setting = {
+        "runmeta": {"sqlite_path": str(tmp_path / ".runmeta" / "run_history.db")},
+        "output": {"base_dir": str(output_base)},
+        "analysis_project": {
+            "project_id": "analysis-main",
+            "project_path": str(project_root),
+        },
+    }
+
+    service, ctx, conn = prepare_run_session(setting, "python -m monocycle_nash.entrypoints.solve_payoff --run-config x")
+    try:
+        run = service.runs_repository.find_by_id(ctx.run_id)
+    finally:
+        conn.close()
+
+    assert run is not None
+    assert run.project_id == "analysis-main"
+    assert run.project_path == str(project_root)
+
+    refs_dir = project_root / "experiment_refs"
+    symlink_path = refs_dir / str(ctx.run_id)
+    txt_path = refs_dir / f"{ctx.run_id}.txt"
+    assert symlink_path.exists() or txt_path.exists()
+
+
+def test_prepare_run_session_updates_existing_project_path(tmp_path: Path) -> None:
+    output_base = tmp_path / "result"
+    old_project_root = tmp_path / "old-analysis"
+    new_project_root = tmp_path / "new-analysis"
+    db_path = tmp_path / ".runmeta" / "run_history.db"
+
+    first_setting = {
+        "runmeta": {"sqlite_path": str(db_path)},
+        "output": {"base_dir": str(output_base)},
+        "analysis_project": {
+            "project_id": "analysis-main",
+            "project_path": str(old_project_root),
+        },
+    }
+    second_setting = {
+        "runmeta": {"sqlite_path": str(db_path)},
+        "output": {"base_dir": str(output_base)},
+        "analysis_project": {
+            "project_id": "analysis-main",
+            "project_path": str(new_project_root),
+        },
+    }
+
+    _, first_ctx, first_conn = prepare_run_session(
+        first_setting,
+        "python -m monocycle_nash.entrypoints.solve_payoff --run-config first",
+    )
+    first_conn.close()
+
+    service, second_ctx, second_conn = prepare_run_session(
+        second_setting,
+        "python -m monocycle_nash.entrypoints.solve_payoff --run-config second",
+    )
+    try:
+        project = service.runs_repository.conn.execute(
+            "SELECT project_path FROM projects WHERE project_id = ?",
+            ("analysis-main",),
+        ).fetchone()
+        run = service.runs_repository.find_by_id(second_ctx.run_id)
+    finally:
+        second_conn.close()
+
+    assert project is not None
+    assert project["project_path"] == str(new_project_root)
+    assert run is not None
+    assert run.project_path == str(new_project_root)
+
+    assert (new_project_root / "experiment_refs" / str(second_ctx.run_id)).exists() or (
+        new_project_root / "experiment_refs" / f"{second_ctx.run_id}.txt"
+    ).exists()
+
+
+def test_prepare_run_session_writes_txt_when_symlink_and_junction_fail(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    output_base = tmp_path / "result"
+    project_root = tmp_path / "analysis-main"
+    setting = {
+        "runmeta": {"sqlite_path": str(tmp_path / ".runmeta" / "run_history.db")},
+        "output": {"base_dir": str(output_base)},
+        "analysis_project": {
+            "project_id": "analysis-main",
+            "project_path": str(project_root),
+        },
+    }
+
+    def _raise_symlink(self: Path, target: Path, target_is_directory: bool = False) -> None:
+        raise OSError("symlink disabled")
+
+    monkeypatch.setattr(Path, "symlink_to", _raise_symlink)
+    monkeypatch.setattr(common_mod, "_try_create_windows_junction", lambda **_: False)
+
+    _, ctx, conn = prepare_run_session(setting, "python -m monocycle_nash.entrypoints.solve_payoff --run-config txt")
+    conn.close()
+
+    txt_path = project_root / "experiment_refs" / f"{ctx.run_id}.txt"
+    assert txt_path.exists()
+    body = txt_path.read_text(encoding="utf-8")
+    assert "result_path=" in body
+    assert "status=running" in body

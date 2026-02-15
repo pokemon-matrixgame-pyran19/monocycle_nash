@@ -75,7 +75,15 @@ class RunsRepository:
         self.conn.commit()
 
     def find_by_id(self, run_id: int) -> RunRecord | None:
-        row = self.conn.execute("SELECT * FROM runs WHERE run_id = ?", (run_id,)).fetchone()
+        row = self.conn.execute(
+            """
+            SELECT runs.*, projects.project_path AS project_path
+            FROM runs
+            LEFT JOIN projects ON projects.project_id = runs.project_id
+            WHERE runs.run_id = ?
+            """,
+            (run_id,),
+        ).fetchone()
         if row is None:
             return None
         return RunRecord(**dict(row))
@@ -88,24 +96,28 @@ class RunsRepository:
         status: RunStatus | None = None,
         project_id: str | None = None,
     ) -> list[RunRecord]:
-        query = "SELECT * FROM runs"
+        query = """
+            SELECT runs.*, projects.project_path AS project_path
+            FROM runs
+            LEFT JOIN projects ON projects.project_id = runs.project_id
+        """
         clauses: list[str] = []
         params: list[object] = []
         if from_at is not None:
-            clauses.append("created_at >= ?")
+            clauses.append("runs.created_at >= ?")
             params.append(from_at)
         if to_at is not None:
-            clauses.append("created_at <= ?")
+            clauses.append("runs.created_at <= ?")
             params.append(to_at)
         if status is not None:
-            clauses.append("status = ?")
+            clauses.append("runs.status = ?")
             params.append(status)
         if project_id is not None:
-            clauses.append("project_id = ?")
+            clauses.append("runs.project_id = ?")
             params.append(project_id)
         if clauses:
             query += " WHERE " + " AND ".join(clauses)
-        query += " ORDER BY created_at DESC"
+        query += " ORDER BY runs.created_at DESC"
         rows = self.conn.execute(query, tuple(params)).fetchall()
         return [RunRecord(**dict(r)) for r in rows]
 
