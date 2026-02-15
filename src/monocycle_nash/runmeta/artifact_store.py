@@ -120,6 +120,3 @@ class RunArtifactStore:
                 return renamed
             index += 1
 
-
-# Backward compatibility alias.
-ArtifactStore = RunArtifactStore
