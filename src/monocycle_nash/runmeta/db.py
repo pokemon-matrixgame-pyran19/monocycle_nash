@@ -1,4 +1,4 @@
-"""SQLite primitives for run metadata persistence."""
+"""SQLite connection and migration for run metadata."""
 
 from __future__ import annotations
 
@@ -9,39 +9,40 @@ from pathlib import Path
 
 @dataclass(frozen=True)
 class SQLiteConnectionFactory:
-    """Factory for SQLite connections with foreign key checks enabled."""
-
     db_path: str | Path
 
     def connect(self) -> sqlite3.Connection:
-        """Open a connection and enable FK constraints for the session."""
-
-        connection = sqlite3.connect(str(self.db_path))
-        connection.row_factory = sqlite3.Row
-        connection.execute("PRAGMA foreign_keys = ON;")
-        return connection
+        db_path = Path(self.db_path)
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+        conn = sqlite3.connect(str(db_path))
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA foreign_keys = ON;")
+        return conn
 
 
 def migrate(conn: sqlite3.Connection) -> None:
-    """Create tables and indexes required by the run metadata store."""
-
     conn.executescript(
         """
         CREATE TABLE IF NOT EXISTS projects (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL
+          project_id TEXT PRIMARY KEY,
+          project_path TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          note TEXT DEFAULT ''
         );
 
         CREATE TABLE IF NOT EXISTS runs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            project_id INTEGER NOT NULL,
-            status TEXT NOT NULL,
-            created_at TEXT NOT NULL,
-            ended_at TEXT,
-            updated_at TEXT NOT NULL,
-            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+          run_id INTEGER PRIMARY KEY AUTOINCREMENT,
+          created_at TEXT NOT NULL,
+          started_at TEXT NOT NULL,
+          ended_at TEXT,
+          status TEXT NOT NULL CHECK(status IN ('running','success','fail','killed')),
+          command TEXT NOT NULL,
+          git_commit TEXT,
+          note TEXT DEFAULT '',
+          project_id TEXT,
+          updated_at TEXT NOT NULL,
+          FOREIGN KEY(project_id) REFERENCES projects(project_id)
+            ON UPDATE CASCADE ON DELETE SET NULL
         );
 
         CREATE INDEX IF NOT EXISTS idx_runs_created_at ON runs(created_at);
