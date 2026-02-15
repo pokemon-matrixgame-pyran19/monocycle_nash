@@ -1,0 +1,3 @@
+matrix = "janken_characters"
+graph = "character/default"
+setting = "local"
