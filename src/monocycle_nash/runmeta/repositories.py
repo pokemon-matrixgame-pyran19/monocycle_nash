@@ -1,100 +1,46 @@
-"""Repository layer for run metadata records backed by SQLite."""
+"""Repository layer for projects/runs persistence."""
 
 from __future__ import annotations
 
 import sqlite3
 from dataclasses import dataclass
 
-from .clock import now_jst_iso
-from .models import RunStatus
-
-
-def _as_dict(row: sqlite3.Row | None) -> dict[str, object] | None:
-    if row is None:
-        return None
-    return dict(row)
-
-
-@dataclass
-class ProjectsRepository:
-    """Access and manage project records."""
-
-    conn: sqlite3.Connection
-
-    def add(self, name: str) -> int:
-        """Create a project and return its id."""
-
-        timestamp = now_jst_iso()
-        cursor = self.conn.execute(
-            """
-            INSERT INTO projects(name, created_at, updated_at)
-            VALUES(?, ?, ?)
-            """,
-            (name, timestamp, timestamp),
-        )
-        self.conn.commit()
-        return int(cursor.lastrowid)
-
-    def find(self, project_id: int) -> dict[str, object] | None:
-        """Fetch a project by id."""
-
-        row = self.conn.execute(
-            "SELECT id, name, created_at, updated_at FROM projects WHERE id = ?",
-            (project_id,),
-        ).fetchone()
-        return _as_dict(row)
-
-    def update(self, project_id: int, *, name: str) -> None:
-        """Update project fields."""
-
-        self.conn.execute(
-            """
-            UPDATE projects
-            SET name = ?, updated_at = ?
-            WHERE id = ?
-            """,
-            (name, now_jst_iso(), project_id),
-        )
-        self.conn.commit()
-
-    def delete(self, project_id: int) -> None:
-        """Delete a project."""
-
-        self.conn.execute("DELETE FROM projects WHERE id = ?", (project_id,))
-        self.conn.commit()
+from .models import ProjectRecord, RunRecord, RunStatus
 
 
 @dataclass
 class RunsRepository:
-    """Access and manage run records."""
-
     conn: sqlite3.Connection
 
-    def create_running(self, project_id: int) -> int:
-        """Create a running run and return last inserted run id."""
-
-        timestamp = now_jst_iso()
-        cursor = self.conn.execute(
+    def create_running(
+        self,
+        *,
+        command: str,
+        git_commit: str | None,
+        note: str,
+        project_id: str | None,
+        started_at: str,
+        created_at: str,
+        updated_at: str,
+    ) -> int:
+        cur = self.conn.execute(
             """
-            INSERT INTO runs(project_id, status, created_at, ended_at, updated_at)
-            VALUES(?, 'running', ?, NULL, ?)
+            INSERT INTO runs(created_at, started_at, ended_at, status, command, git_commit, note, project_id, updated_at)
+            VALUES(?, ?, NULL, 'running', ?, ?, ?, ?, ?)
             """,
-            (project_id, timestamp, timestamp),
+            (created_at, started_at, command, git_commit, note, project_id, updated_at),
         )
         self.conn.commit()
-        return int(cursor.lastrowid)
+        return int(cur.lastrowid)
 
-    def finish(self, run_id: int, status: RunStatus) -> None:
-        """Set terminal status, ended_at and updated_at for a run."""
-
-        timestamp = now_jst_iso()
+    def finish(self, *, run_id: int, status: RunStatus, ended_at: str, updated_at: str) -> None:
         self.conn.execute(
             """
             UPDATE runs
             SET status = ?, ended_at = ?, updated_at = ?
-            WHERE id = ?
+            WHERE run_id = ?
             """,
-            (status, timestamp, timestamp, run_id),
+            (status, ended_at, updated_at, run_id),
         )
         self.conn.commit()
 
@@ -103,52 +49,36 @@ class RunsRepository:
         run_id: int,
         *,
         status: RunStatus | None = None,
-        ended_at: str | None = None,
-        project_id: int | None = None,
+        note: str | None = None,
+        project_id: str | None = None,
+        updated_at: str,
     ) -> None:
-        """Update mutable run fields and always refresh updated_at."""
-
         fields: list[str] = []
         values: list[object] = []
-
         if status is not None:
             fields.append("status = ?")
             values.append(status)
-        if ended_at is not None:
-            fields.append("ended_at = ?")
-            values.append(ended_at)
+        if note is not None:
+            fields.append("note = ?")
+            values.append(note)
         if project_id is not None:
             fields.append("project_id = ?")
             values.append(project_id)
-
         fields.append("updated_at = ?")
-        values.append(now_jst_iso())
+        values.append(updated_at)
         values.append(run_id)
-
-        self.conn.execute(
-            f"UPDATE runs SET {', '.join(fields)} WHERE id = ?",
-            tuple(values),
-        )
+        self.conn.execute(f"UPDATE runs SET {', '.join(fields)} WHERE run_id = ?", tuple(values))
         self.conn.commit()
 
     def delete(self, run_id: int) -> None:
-        """Delete a run by id."""
-
-        self.conn.execute("DELETE FROM runs WHERE id = ?", (run_id,))
+        self.conn.execute("DELETE FROM runs WHERE run_id = ?", (run_id,))
         self.conn.commit()
 
-    def find_by_id(self, run_id: int) -> dict[str, object] | None:
-        """Fetch a run by id."""
-
-        row = self.conn.execute(
-            """
-            SELECT id, project_id, status, created_at, ended_at, updated_at
-            FROM runs
-            WHERE id = ?
-            """,
-            (run_id,),
-        ).fetchone()
-        return _as_dict(row)
+    def find_by_id(self, run_id: int) -> RunRecord | None:
+        row = self.conn.execute("SELECT * FROM runs WHERE run_id = ?", (run_id,)).fetchone()
+        if row is None:
+            return None
+        return RunRecord(**dict(row))
 
     def list_runs(
         self,
@@ -156,14 +86,11 @@ class RunsRepository:
         from_at: str | None = None,
         to_at: str | None = None,
         status: RunStatus | None = None,
-        project_id: int | None = None,
-    ) -> list[dict[str, object]]:
-        """List runs with optional dynamic filters."""
-
-        query = "SELECT id, project_id, status, created_at, ended_at, updated_at FROM runs"
+        project_id: str | None = None,
+    ) -> list[RunRecord]:
+        query = "SELECT * FROM runs"
         clauses: list[str] = []
         params: list[object] = []
-
         if from_at is not None:
             clauses.append("created_at >= ?")
             params.append(from_at)
@@ -176,10 +103,45 @@ class RunsRepository:
         if project_id is not None:
             clauses.append("project_id = ?")
             params.append(project_id)
-
         if clauses:
             query += " WHERE " + " AND ".join(clauses)
-        query += " ORDER BY created_at DESC, id DESC"
-
+        query += " ORDER BY created_at DESC"
         rows = self.conn.execute(query, tuple(params)).fetchall()
-        return [dict(row) for row in rows]
+        return [RunRecord(**dict(r)) for r in rows]
+
+
+@dataclass
+class ProjectsRepository:
+    conn: sqlite3.Connection
+
+    def add(self, *, project_id: str, project_path: str, created_at: str, note: str = "") -> None:
+        self.conn.execute(
+            "INSERT INTO projects(project_id, project_path, created_at, note) VALUES(?, ?, ?, ?)",
+            (project_id, project_path, created_at, note),
+        )
+        self.conn.commit()
+
+    def update(self, project_id: str, *, project_path: str | None = None, note: str | None = None) -> None:
+        fields: list[str] = []
+        values: list[object] = []
+        if project_path is not None:
+            fields.append("project_path = ?")
+            values.append(project_path)
+        if note is not None:
+            fields.append("note = ?")
+            values.append(note)
+        if not fields:
+            return
+        values.append(project_id)
+        self.conn.execute(f"UPDATE projects SET {', '.join(fields)} WHERE project_id = ?", tuple(values))
+        self.conn.commit()
+
+    def delete(self, project_id: str) -> None:
+        self.conn.execute("DELETE FROM projects WHERE project_id = ?", (project_id,))
+        self.conn.commit()
+
+    def find(self, project_id: str) -> ProjectRecord | None:
+        row = self.conn.execute("SELECT * FROM projects WHERE project_id = ?", (project_id,)).fetchone()
+        if row is None:
+            return None
+        return ProjectRecord(**dict(row))

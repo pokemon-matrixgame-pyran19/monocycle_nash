@@ -1,70 +1,60 @@
-"""Argparse based CLI for run metadata management."""
+"""CLI for run metadata maintenance operations."""
 
 from __future__ import annotations
 
 import argparse
-import sqlite3
 from pathlib import Path
+import sqlite3
 from typing import Sequence, cast
 
 from .artifact_store import RunArtifactStore
+from .clock import now_jst_iso
 from .db import SQLiteConnectionFactory, migrate
 from .models import RunStatus
 from .repositories import ProjectsRepository, RunsRepository
-from .service import RunMetaService
 
 DEFAULT_DB_PATH = Path(".runmeta/run_history.db")
 
 
-def build_default_service() -> RunMetaService:
-    """Create a default in-memory SQLite-backed RunMetaService instance."""
-
-    conn = SQLiteConnectionFactory(":memory:").connect()
-    migrate(conn)
-    return RunMetaService(
-        project_repository=ProjectsRepository(conn=conn),
-        run_repository=RunsRepository(conn=conn),
-        artifact_store=RunArtifactStore(),
-    )
-
-
 def _open_repositories(db_path: str | Path) -> tuple[sqlite3.Connection, ProjectsRepository, RunsRepository]:
-    path = Path(db_path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    conn = SQLiteConnectionFactory(path).connect()
+    conn = SQLiteConnectionFactory(db_path).connect()
     migrate(conn)
     return conn, ProjectsRepository(conn), RunsRepository(conn)
 
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="runmeta")
-    parser.add_argument("--db-path", default=str(DEFAULT_DB_PATH), help="Path to SQLite DB")
-    subparsers = parser.add_subparsers(dest="command", required=True)
+    parser.add_argument("--db-path", default=str(DEFAULT_DB_PATH))
+    sub = parser.add_subparsers(dest="command", required=True)
 
-    update_run = subparsers.add_parser("update-run", help="Update an existing run")
-    update_run.add_argument("--run-id", type=int, required=True)
-    update_run.add_argument("--status", choices=["running", "success", "fail", "killed"])
-    update_run.add_argument("--ended-at")
-    update_run.add_argument("--project-id", type=int)
+    u = sub.add_parser("update-run")
+    u.add_argument("--run-id", type=int, required=True)
+    u.add_argument("--status", choices=["running", "success", "fail", "killed"])
+    u.add_argument("--note")
+    u.add_argument("--project-id")
 
-    delete_run = subparsers.add_parser("delete-run", help="Delete an existing run")
-    delete_run.add_argument("--run-id", type=int, required=True)
+    d = sub.add_parser("delete-run")
+    d.add_argument("--run-id", type=int, required=True)
+    d.add_argument("--with-files", action="store_true")
 
-    add_project = subparsers.add_parser("add-project", help="Add a project")
-    add_project.add_argument("--name", required=True)
+    ap = sub.add_parser("add-project")
+    ap.add_argument("--project-id", required=True)
+    ap.add_argument("--project-path", required=True)
+    ap.add_argument("--note", default="")
 
-    update_project = subparsers.add_parser("update-project", help="Update an existing project")
-    update_project.add_argument("--project-id", type=int, required=True)
-    update_project.add_argument("--name", required=True)
+    up = sub.add_parser("update-project")
+    up.add_argument("--project-id", required=True)
+    up.add_argument("--project-path")
+    up.add_argument("--note")
 
-    delete_project = subparsers.add_parser("delete-project", help="Delete an existing project")
-    delete_project.add_argument("--project-id", type=int, required=True)
+    dp = sub.add_parser("delete-project")
+    dp.add_argument("--project-id", required=True)
 
-    list_runs = subparsers.add_parser("list-runs", help="List runs with optional filters")
-    list_runs.add_argument("--from", dest="from_at")
-    list_runs.add_argument("--to", dest="to_at")
-    list_runs.add_argument("--status", choices=["running", "success", "fail", "killed"])
-    list_runs.add_argument("--project-id", type=int)
+    l = sub.add_parser("list-runs")
+    l.add_argument("--from", dest="from_at")
+    l.add_argument("--to", dest="to_at")
+    l.add_argument("--status", choices=["running", "success", "fail", "killed"])
+    l.add_argument("--project-id")
 
     return parser
 
@@ -72,23 +62,27 @@ def _build_parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
-
     conn, projects, runs = _open_repositories(args.db_path)
+    artifact_store = RunArtifactStore()
+
     try:
+
         if args.command == "update-run":
-            if args.status is None and args.ended_at is None and args.project_id is None:
-                parser.error("update-run requires at least one of --status, --ended-at, --project-id")
             if runs.find_by_id(args.run_id) is None:
                 print(f"run id {args.run_id} not found")
                 return 1
             if args.project_id is not None and projects.find(args.project_id) is None:
                 print(f"project id {args.project_id} not found")
                 return 1
+            if args.status is None and args.note is None and args.project_id is None:
+                print("update-run requires at least one of --status --note --project-id")
+                return 1
             runs.update(
                 args.run_id,
                 status=cast(RunStatus | None, args.status),
-                ended_at=args.ended_at,
+                note=args.note,
                 project_id=args.project_id,
+                updated_at=now_jst_iso(),
             )
             print(f"updated run {args.run_id}")
             return 0
@@ -98,19 +92,32 @@ def main(argv: Sequence[str] | None = None) -> int:
                 print(f"run id {args.run_id} not found")
                 return 1
             runs.delete(args.run_id)
+            if args.with_files:
+                artifact_store.delete_run_dir(args.run_id)
             print(f"deleted run {args.run_id}")
             return 0
 
         if args.command == "add-project":
-            project_id = projects.add(args.name)
-            print(project_id)
+            if projects.find(args.project_id) is not None:
+                print(f"project id {args.project_id} already exists")
+                return 1
+            projects.add(
+                project_id=args.project_id,
+                project_path=args.project_path,
+                created_at=now_jst_iso(),
+                note=args.note,
+            )
+            print(f"added project {args.project_id}")
             return 0
 
         if args.command == "update-project":
             if projects.find(args.project_id) is None:
                 print(f"project id {args.project_id} not found")
                 return 1
-            projects.update(args.project_id, name=args.name)
+            if args.project_path is None and args.note is None:
+                print("update-project requires --project-path or --note")
+                return 1
+            projects.update(args.project_id, project_path=args.project_path, note=args.note)
             print(f"updated project {args.project_id}")
             return 0
 
@@ -123,28 +130,20 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0
 
         if args.command == "list-runs":
-            if args.project_id is not None and projects.find(args.project_id) is None:
-                print(f"project id {args.project_id} not found")
-                return 1
             rows = runs.list_runs(
                 from_at=args.from_at,
                 to_at=args.to_at,
-                status=args.status,
+                status=cast(RunStatus | None, args.status),
                 project_id=args.project_id,
             )
-            print("id\tproject_id\tstatus\tcreated_at\tended_at\tupdated_at")
+            print("run_id\tproject_id\tstatus\tcreated_at")
             for row in rows:
-                print(
-                    f"{row['id']}\t{row['project_id']}\t{row['status']}\t"
-                    f"{row['created_at']}\t{row['ended_at'] or ''}\t{row['updated_at']}"
-                )
+                print(f"{row.run_id}\t{row.project_id or ''}\t{row.status}\t{row.created_at}")
             return 0
 
-        parser.error(f"unknown command: {args.command}")
+        return 1
     finally:
         conn.close()
-
-    return 2
 
 
 if __name__ == "__main__":
