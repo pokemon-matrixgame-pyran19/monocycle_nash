@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from monocycle_nash.entrypoints.common import build_characters, build_matrix, load_inputs
+from monocycle_nash.entrypoints.common import build_characters, build_matrix, load_inputs, prepare_run_session
 
 
 def _write(path: Path, text: str) -> None:
@@ -145,3 +145,20 @@ def test_load_inputs_rejects_invalid_setting_type(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="setting.output.base_dir"):
         load_inputs("baseline/invalid_setting", tmp_path / "data", require_graph=False)
+
+
+def test_prepare_run_session_creates_output_base_dir_run_folder(tmp_path: Path) -> None:
+    output_base = tmp_path / "custom_result"
+    setting = {
+        "runmeta": {"sqlite_path": str(tmp_path / ".runmeta" / "run_history.db")},
+        "output": {"base_dir": str(output_base)},
+    }
+
+    service, ctx, conn = prepare_run_session(setting, "python -m monocycle_nash.entrypoints.solve_payoff --run-config x")
+    conn.close()
+
+    run_dir = output_base / str(ctx.run_id)
+    assert run_dir.exists()
+    assert (run_dir / "input").is_dir()
+    assert (run_dir / "output").is_dir()
+    assert (run_dir / "logs").is_dir()

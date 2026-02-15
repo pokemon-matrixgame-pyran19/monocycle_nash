@@ -229,6 +229,9 @@ def prepare_run_session(setting: dict[str, Any], command: str) -> tuple[RunSessi
         projects.add(project_id=project_id, project_path=project_path or "", created_at=now_jst_iso())
 
     ctx = service.start(command=command, project_id=project_id)
+    # エントリーポイント実装の責務として、
+    # output.base_dir/<run_id>/ の実行ディレクトリを明示的に確保する。
+    service.artifact_store.create_run_dir(ctx.run_id)
     return service, ctx, conn
 
 
