@@ -98,5 +98,6 @@ class RunSessionService:
             "git_commit": record.git_commit,
             "note": record.note,
             "project_id": record.project_id,
+            "project_path": record.project_path,
             "updated_at": record.updated_at,
         }
