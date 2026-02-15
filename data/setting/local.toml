@@ -3,3 +3,7 @@ sqlite_path = ".runmeta/run_history.db"
 
 [output]
 base_dir = "results"
+
+[analysis_project]
+project_id="protype"
+project_path="project_protype" # 本来は絶対パスで考察用のフォルダを指定
