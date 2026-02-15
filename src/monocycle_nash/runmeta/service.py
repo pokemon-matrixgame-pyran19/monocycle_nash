@@ -26,9 +26,21 @@ class RunSessionService:
         if record is None:
             raise RuntimeError(f"Failed to load created run record: run_id={run_id}")
 
-        self.artifact_store.create_run_dir(run_id)
-        self.artifact_store.write_meta(run_id, self._build_meta(record))
-        return run_id
+        try:
+            self.artifact_store.create_run_dir(run_id)
+            self.artifact_store.write_meta(run_id, self._build_meta(record))
+            return run_id
+        except Exception:
+            self._rollback_start(run_id)
+            raise
+
+    def _rollback_start(self, run_id: int) -> None:
+        """Rollback DB/artifact side effects when start lifecycle fails."""
+
+        try:
+            self.run_repository.delete(run_id)
+        finally:
+            self.artifact_store.delete_run_artifacts(run_id)
 
     def finish_success(self, run_id: int, details: Mapping[str, object] | None = None) -> None:
         self._finish(run_id, "success", details)

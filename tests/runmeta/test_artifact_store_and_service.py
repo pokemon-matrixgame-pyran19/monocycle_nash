@@ -67,3 +67,31 @@ def test_run_session_service_start_and_finish_updates_db_and_meta(tmp_path: Path
     finish_meta = json.loads((tmp_path / "result" / str(run_id) / "meta.json").read_text(encoding="utf-8"))
     assert finish_meta["status"] == "fail"
     assert finish_meta["details"]["error"] == "boom"
+
+
+def test_run_session_service_start_rolls_back_on_artifact_failure(tmp_path: Path) -> None:
+    class FailingArtifactStore(RunArtifactStore):
+        def write_meta(self, run_id: int | str, meta: dict[str, object]):  # type: ignore[override]
+            super().create_run_dir(run_id)
+            raise OSError("meta write failed")
+
+    conn = SQLiteConnectionFactory(":memory:").connect()
+    migrate(conn)
+
+    projects = ProjectsRepository(conn)
+    runs = RunsRepository(conn)
+    project_id = projects.add("alpha")
+
+    artifacts = FailingArtifactStore(tmp_path / "result")
+    service = RunSessionService(run_repository=runs, artifact_store=artifacts)
+
+    try:
+        service.start(project_id)
+    except OSError as exc:
+        assert str(exc) == "meta write failed"
+    else:
+        raise AssertionError("start() should raise when artifact creation fails")
+
+    assert runs.list_runs(project_id=project_id) == []
+    result_root = tmp_path / "result"
+    assert not result_root.exists() or list(result_root.iterdir()) == []
