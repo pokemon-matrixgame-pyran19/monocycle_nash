@@ -14,6 +14,9 @@ dependencies = [
 
 [project.scripts]
 runmeta = "monocycle_nash.runmeta.cli:main"
+solve_payoff = "monocycle_nash.entrypoints.solve_payoff:main"
+graph_payoff = "monocycle_nash.entrypoints.graph_payoff:main"
+plot_chrachters = "monocycle_nash.entrypoints.plot_chrachters:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

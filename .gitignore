@@ -31,3 +31,7 @@ wheels/
 *.so
 *.dylib
 *.bin
+
+# project ignore files
+results/
+*.db
