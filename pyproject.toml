@@ -12,6 +12,9 @@ dependencies = [
 ]
 
 
+[project.scripts]
+runmeta = "monocycle_nash.runmeta.cli:main"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
