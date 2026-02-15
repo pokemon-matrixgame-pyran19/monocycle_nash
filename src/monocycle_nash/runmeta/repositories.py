@@ -1,74 +1,185 @@
-"""Repository layer for run metadata records."""
+"""Repository layer for run metadata records backed by SQLite."""
 
 from __future__ import annotations
 
+import sqlite3
 from dataclasses import dataclass
 
 from .clock import now_jst_iso
-from .db import RunMetaDB
-from .models import ProjectRecord, RunRecord, RunStatus
+from .models import RunStatus
+
+
+def _as_dict(row: sqlite3.Row | None) -> dict[str, object] | None:
+    if row is None:
+        return None
+    return dict(row)
 
 
 @dataclass
-class ProjectRepository:
+class ProjectsRepository:
     """Access and manage project records."""
 
-    db: RunMetaDB
+    conn: sqlite3.Connection
 
-    def save(self, project_id: str, name: str) -> ProjectRecord:
-        """Create or update a project record."""
+    def add(self, name: str) -> int:
+        """Create a project and return its id."""
 
-        existing = self.db.projects.get(project_id)
         timestamp = now_jst_iso()
-        record = ProjectRecord(
-            project_id=project_id,
-            name=name,
-            created_at=existing.created_at if existing else timestamp,
-            updated_at=timestamp,
+        cursor = self.conn.execute(
+            """
+            INSERT INTO projects(name, created_at, updated_at)
+            VALUES(?, ?, ?)
+            """,
+            (name, timestamp, timestamp),
         )
-        self.db.projects[project_id] = record
-        return record
+        self.conn.commit()
+        return int(cursor.lastrowid)
 
-    def get(self, project_id: str) -> ProjectRecord | None:
+    def find(self, project_id: int) -> dict[str, object] | None:
         """Fetch a project by id."""
 
-        return self.db.projects.get(project_id)
+        row = self.conn.execute(
+            "SELECT id, name, created_at, updated_at FROM projects WHERE id = ?",
+            (project_id,),
+        ).fetchone()
+        return _as_dict(row)
+
+    def update(self, project_id: int, *, name: str) -> None:
+        """Update project fields."""
+
+        self.conn.execute(
+            """
+            UPDATE projects
+            SET name = ?, updated_at = ?
+            WHERE id = ?
+            """,
+            (name, now_jst_iso(), project_id),
+        )
+        self.conn.commit()
+
+    def delete(self, project_id: int) -> None:
+        """Delete a project."""
+
+        self.conn.execute("DELETE FROM projects WHERE id = ?", (project_id,))
+        self.conn.commit()
 
 
 @dataclass
-class RunRepository:
+class RunsRepository:
     """Access and manage run records."""
 
-    db: RunMetaDB
+    conn: sqlite3.Connection
 
-    def create(self, run_id: str, project_id: str) -> RunRecord:
-        """Create a running run record."""
+    def create_running(self, project_id: int) -> int:
+        """Create a running run and return last inserted run id."""
 
-        record = RunRecord(
-            run_id=run_id,
-            project_id=project_id,
-            status="running",
-            started_at=now_jst_iso(),
+        timestamp = now_jst_iso()
+        cursor = self.conn.execute(
+            """
+            INSERT INTO runs(project_id, status, created_at, ended_at, updated_at)
+            VALUES(?, 'running', ?, NULL, ?)
+            """,
+            (project_id, timestamp, timestamp),
         )
-        self.db.runs[run_id] = record
-        return record
+        self.conn.commit()
+        return int(cursor.lastrowid)
 
-    def update_status(self, run_id: str, status: RunStatus) -> RunRecord:
-        """Update status and completion timestamp for a run record."""
+    def finish(self, run_id: int, status: RunStatus) -> None:
+        """Set terminal status, ended_at and updated_at for a run."""
 
-        current = self.db.runs[run_id]
-        ended_at = now_jst_iso() if status != "running" else None
-        updated = RunRecord(
-            run_id=current.run_id,
-            project_id=current.project_id,
-            status=status,
-            started_at=current.started_at,
-            ended_at=ended_at,
+        timestamp = now_jst_iso()
+        self.conn.execute(
+            """
+            UPDATE runs
+            SET status = ?, ended_at = ?, updated_at = ?
+            WHERE id = ?
+            """,
+            (status, timestamp, timestamp, run_id),
         )
-        self.db.runs[run_id] = updated
-        return updated
+        self.conn.commit()
 
-    def get(self, run_id: str) -> RunRecord | None:
+    def update(
+        self,
+        run_id: int,
+        *,
+        status: RunStatus | None = None,
+        ended_at: str | None = None,
+        project_id: int | None = None,
+    ) -> None:
+        """Update mutable run fields and always refresh updated_at."""
+
+        fields: list[str] = []
+        values: list[object] = []
+
+        if status is not None:
+            fields.append("status = ?")
+            values.append(status)
+        if ended_at is not None:
+            fields.append("ended_at = ?")
+            values.append(ended_at)
+        if project_id is not None:
+            fields.append("project_id = ?")
+            values.append(project_id)
+
+        fields.append("updated_at = ?")
+        values.append(now_jst_iso())
+        values.append(run_id)
+
+        self.conn.execute(
+            f"UPDATE runs SET {', '.join(fields)} WHERE id = ?",
+            tuple(values),
+        )
+        self.conn.commit()
+
+    def delete(self, run_id: int) -> None:
+        """Delete a run by id."""
+
+        self.conn.execute("DELETE FROM runs WHERE id = ?", (run_id,))
+        self.conn.commit()
+
+    def find_by_id(self, run_id: int) -> dict[str, object] | None:
         """Fetch a run by id."""
 
-        return self.db.runs.get(run_id)
+        row = self.conn.execute(
+            """
+            SELECT id, project_id, status, created_at, ended_at, updated_at
+            FROM runs
+            WHERE id = ?
+            """,
+            (run_id,),
+        ).fetchone()
+        return _as_dict(row)
+
+    def list_runs(
+        self,
+        *,
+        from_at: str | None = None,
+        to_at: str | None = None,
+        status: RunStatus | None = None,
+        project_id: int | None = None,
+    ) -> list[dict[str, object]]:
+        """List runs with optional dynamic filters."""
+
+        query = "SELECT id, project_id, status, created_at, ended_at, updated_at FROM runs"
+        clauses: list[str] = []
+        params: list[object] = []
+
+        if from_at is not None:
+            clauses.append("created_at >= ?")
+            params.append(from_at)
+        if to_at is not None:
+            clauses.append("created_at <= ?")
+            params.append(to_at)
+        if status is not None:
+            clauses.append("status = ?")
+            params.append(status)
+        if project_id is not None:
+            clauses.append("project_id = ?")
+            params.append(project_id)
+
+        if clauses:
+            query += " WHERE " + " AND ".join(clauses)
+        query += " ORDER BY created_at DESC, id DESC"
+
+        rows = self.conn.execute(query, tuple(params)).fetchall()
+        return [dict(row) for row in rows]
