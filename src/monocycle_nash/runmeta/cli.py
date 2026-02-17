@@ -3,17 +3,25 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime
 from pathlib import Path
 import sqlite3
 from typing import Sequence, cast
 
 from .artifact_store import RunArtifactStore
-from .clock import now_jst_iso
+from .clock import JST, now_jst_iso
 from .db import SQLiteConnectionFactory, migrate
 from .models import RunStatus
-from .repositories import ProjectsRepository, RunsRepository
+from .project_refs import create_analysis_project_reference
+from .repositories import UNASSIGNED_PROJECT_ID, ProjectsRepository, RunsRepository
 
 DEFAULT_DB_PATH = Path(".runmeta/run_history.db")
+
+
+def _format_timestamp_for_list(value: str) -> str:
+    """Format timestamps in JST down to minute precision for list output."""
+
+    return datetime.fromisoformat(value).astimezone(JST).strftime("%Y-%m-%d %H:%M")
 
 
 def _open_repositories(db_path: str | Path) -> tuple[sqlite3.Connection, ProjectsRepository, RunsRepository]:
@@ -50,11 +58,20 @@ def _build_parser() -> argparse.ArgumentParser:
     dp = sub.add_parser("delete-project")
     dp.add_argument("--project-id", required=True)
 
+    sub.add_parser("list-projects")
+
     l = sub.add_parser("list-runs")
     l.add_argument("--from", dest="from_at")
     l.add_argument("--to", dest="to_at")
     l.add_argument("--status", choices=["running", "success", "fail", "killed"])
-    l.add_argument("--project-id")
+    l.add_argument(
+        "--project-id",
+        help=f"project id filter. use {UNASSIGNED_PROJECT_ID} for runs without a linked project",
+    )
+
+    r = sub.add_parser("regenerate-project-refs")
+    r.add_argument("--project-id", required=True)
+    r.add_argument("--result-base-dir", default="results")
 
     return parser
 
@@ -138,7 +155,41 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
             print("run_id\tproject_id\tstatus\tcreated_at")
             for row in rows:
-                print(f"{row.run_id}\t{row.project_id or ''}\t{row.status}\t{row.created_at}")
+                print(
+                    f"{row.run_id}\t{row.project_id or ''}\t{row.status}\t"
+                    f"{_format_timestamp_for_list(row.created_at)}"
+                )
+            return 0
+
+        if args.command == "list-projects":
+            rows = projects.list_projects()
+            print("project_id\tproject_path\tcreated_at\tnote")
+            for row in rows:
+                print(
+                    f"{row.project_id}\t{row.project_path}\t"
+                    f"{_format_timestamp_for_list(row.created_at)}\t{row.note}"
+                )
+            return 0
+
+        if args.command == "regenerate-project-refs":
+            project = projects.find(args.project_id)
+            if project is None:
+                print(f"project id {args.project_id} not found")
+                return 1
+            if not project.project_path:
+                print(f"project id {args.project_id} has empty project_path")
+                return 1
+
+            project_runs = runs.list_runs(project_id=args.project_id)
+            artifact_store = RunArtifactStore(Path(args.result_base_dir))
+            for run in project_runs:
+                create_analysis_project_reference(
+                    run_id=run.run_id,
+                    result_dir=artifact_store.run_dir(run.run_id),
+                    project_path=project.project_path,
+                    status=run.status,
+                )
+            print(f"regenerated {len(project_runs)} references for project {args.project_id}")
             return 0
 
         return 1

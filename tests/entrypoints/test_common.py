@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 import monocycle_nash.entrypoints.common as common_mod
+import monocycle_nash.runmeta.project_refs as project_refs_mod
 
 from monocycle_nash.entrypoints.common import (
     build_characters,
@@ -332,7 +333,7 @@ def test_prepare_run_session_writes_txt_when_symlink_and_junction_fail(tmp_path:
         raise OSError("symlink disabled")
 
     monkeypatch.setattr(Path, "symlink_to", _raise_symlink)
-    monkeypatch.setattr(common_mod, "_try_create_windows_junction", lambda **_: False)
+    monkeypatch.setattr(project_refs_mod, "_try_create_windows_junction", lambda **_: False)
 
     _, ctx, conn = prepare_run_session(setting, "python -m monocycle_nash.entrypoints.solve_payoff --run-config txt")
     conn.close()

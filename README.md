@@ -39,6 +39,18 @@ uv run plot_characters --run-config baseline/janken_char_plot
 
 あわせて実行履歴が `.runmeta/run_history.db` に記録されます（設定で変更可能）。
 
+## 管理システムCLI
+
+本体コマンド（`solve_payoff` / `graph_payoff` / `plot_characters`）を通常実行した場合でも、
+実行履歴は管理システムにより自動でDBへ保存されます（既定: `.runmeta/run_history.db`）。
+
+また、`setting.analysis_project` を設定している場合は、runと考察用ディレクトリを結びつける参照リンク生成にも対応しています。
+管理システムCLI（`runmeta`）を使うと、これらの実行履歴・project情報の一覧確認や更新、参照の再生成を行えます。
+
+詳細な使い方は次のドキュメントに分離しています。
+
+- [`document/management/runmeta_cli.md`](document/management/runmeta_cli.md)
+
 ## 入力ファイルの準備方法
 
 `--run-config` で指定する文字列は、`data/run_config/<name>.toml`（拡張子省略）を指します。  

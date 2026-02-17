@@ -3,10 +3,7 @@ from __future__ import annotations
 import argparse
 import itertools
 import json
-import os
-import shutil
 import sqlite3
-import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -19,6 +16,7 @@ from monocycle_nash.matrix.base import PayoffMatrix
 from monocycle_nash.runmeta.artifact_store import RunArtifactStore
 from monocycle_nash.runmeta.clock import now_jst_iso
 from monocycle_nash.runmeta.db import SQLiteConnectionFactory, migrate
+from monocycle_nash.runmeta.project_refs import create_analysis_project_reference
 from monocycle_nash.runmeta.repositories import ProjectsRepository, RunsRepository
 from monocycle_nash.runmeta.service import RunSessionService
 from monocycle_nash.team.domain import Team
@@ -349,7 +347,12 @@ def prepare_run_session(setting: dict[str, Any], command: str) -> tuple[RunSessi
     # エントリーポイント実装の責務として、
     # output.base_dir/<run_id>/ の実行ディレクトリを明示的に確保する。
     result_dir = service.artifact_store.create_run_dir(ctx.run_id)
-    _create_analysis_project_reference(run_id=ctx.run_id, result_dir=result_dir, project_path=effective_project_path)
+    create_analysis_project_reference(
+        run_id=ctx.run_id,
+        result_dir=result_dir,
+        project_path=effective_project_path,
+        status="running",
+    )
     return service, ctx, conn
 
 
@@ -373,66 +376,6 @@ def _ensure_project_linkage(
         return project_path
 
     return project_row.project_path
-
-
-def _create_analysis_project_reference(*, run_id: int, result_dir: Path, project_path: str | None) -> None:
-    if not project_path:
-        return
-
-    refs_dir = Path(project_path) / "experiment_refs"
-    refs_dir.mkdir(parents=True, exist_ok=True)
-
-    ref_dir = refs_dir / str(run_id)
-    _remove_existing_reference(ref_dir)
-
-    target_dir = result_dir.resolve()
-    try:
-        ref_dir.symlink_to(target_dir, target_is_directory=True)
-        _remove_existing_reference(refs_dir / f"{run_id}.txt")
-        return
-    except OSError:
-        pass
-
-    if _try_create_windows_junction(link_dir=ref_dir, target_dir=target_dir):
-        _remove_existing_reference(refs_dir / f"{run_id}.txt")
-        return
-
-    (refs_dir / f"{run_id}.txt").write_text(
-        "\n".join(
-            [
-                f"result_path={target_dir}",
-                f"created_at={now_jst_iso()}",
-                "status=running",
-            ]
-        )
-        + "\n",
-        encoding="utf-8",
-    )
-
-
-def _remove_existing_reference(path: Path) -> None:
-    if not path.exists() and not path.is_symlink():
-        return
-    if path.is_symlink() or path.is_file():
-        path.unlink()
-        return
-    shutil.rmtree(path)
-
-
-def _try_create_windows_junction(*, link_dir: Path, target_dir: Path) -> bool:
-    if os.name != "nt":
-        return False
-    try:
-        subprocess.run(
-            ["cmd", "/c", "mklink", "/J", str(link_dir), str(target_dir)],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        return True
-    except (subprocess.CalledProcessError, OSError):
-        return False
-
 
 def write_input_snapshots(
     service: RunSessionService,

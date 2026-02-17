@@ -7,6 +7,8 @@ from dataclasses import dataclass
 
 from .models import ProjectRecord, RunRecord, RunStatus
 
+UNASSIGNED_PROJECT_ID = "_null"
+
 
 @dataclass
 class RunsRepository:
@@ -113,8 +115,11 @@ class RunsRepository:
             clauses.append("runs.status = ?")
             params.append(status)
         if project_id is not None:
-            clauses.append("runs.project_id = ?")
-            params.append(project_id)
+            if project_id == UNASSIGNED_PROJECT_ID:
+                clauses.append("runs.project_id IS NULL")
+            else:
+                clauses.append("runs.project_id = ?")
+                params.append(project_id)
         if clauses:
             query += " WHERE " + " AND ".join(clauses)
         query += " ORDER BY runs.created_at DESC"
@@ -157,3 +162,7 @@ class ProjectsRepository:
         if row is None:
             return None
         return ProjectRecord(**dict(row))
+
+    def list_projects(self) -> list[ProjectRecord]:
+        rows = self.conn.execute("SELECT * FROM projects ORDER BY created_at DESC").fetchall()
+        return [ProjectRecord(**dict(r)) for r in rows]
