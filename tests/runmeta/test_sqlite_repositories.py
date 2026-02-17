@@ -1,6 +1,6 @@
 from monocycle_nash.runmeta.clock import now_jst_iso
 from monocycle_nash.runmeta.db import SQLiteConnectionFactory, migrate
-from monocycle_nash.runmeta.repositories import ProjectsRepository, RunsRepository
+from monocycle_nash.runmeta.repositories import UNASSIGNED_PROJECT_ID, ProjectsRepository, RunsRepository
 
 
 def test_connection_enables_foreign_keys() -> None:
@@ -52,3 +52,23 @@ def test_projects_repository_list_projects() -> None:
     rows = projects.list_projects()
 
     assert [row.project_id for row in rows] == ["b", "a"]
+
+
+def test_list_runs_with_unassigned_project_filter() -> None:
+    conn = SQLiteConnectionFactory(":memory:").connect()
+    migrate(conn)
+    runs = RunsRepository(conn)
+
+    now = now_jst_iso()
+    run_id = runs.create_running(
+        command="uv run python -m monocycle_nash",
+        git_commit=None,
+        note="",
+        project_id=None,
+        started_at=now,
+        created_at=now,
+        updated_at=now,
+    )
+
+    listed = runs.list_runs(project_id=UNASSIGNED_PROJECT_ID)
+    assert [r.run_id for r in listed] == [run_id]

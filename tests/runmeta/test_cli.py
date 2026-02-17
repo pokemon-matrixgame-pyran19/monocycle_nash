@@ -4,7 +4,7 @@ from monocycle_nash.runmeta.artifact_store import RunArtifactStore
 from monocycle_nash.runmeta.cli import main
 from monocycle_nash.runmeta.clock import now_jst_iso
 from monocycle_nash.runmeta.db import SQLiteConnectionFactory, migrate
-from monocycle_nash.runmeta.repositories import ProjectsRepository, RunsRepository
+from monocycle_nash.runmeta.repositories import UNASSIGNED_PROJECT_ID, ProjectsRepository, RunsRepository
 
 
 def _seed(db_path: Path) -> int:
@@ -69,3 +69,28 @@ def test_cli_list_projects(tmp_path: Path, capsys) -> None:
     out = capsys.readouterr().out
     assert "project_id" in out
     assert "a	C:/a" in out
+
+
+def test_cli_list_runs_with_unassigned_project_filter(tmp_path: Path, capsys) -> None:
+    db = tmp_path / "db.sqlite"
+    conn = SQLiteConnectionFactory(db).connect()
+    migrate(conn)
+    runs = RunsRepository(conn)
+    now = now_jst_iso()
+    runs.create_running(
+        command="cmd",
+        git_commit=None,
+        note="",
+        project_id=None,
+        started_at=now,
+        created_at=now,
+        updated_at=now,
+    )
+    conn.close()
+
+    code = main(["--db-path", str(db), "list-runs", "--project-id", UNASSIGNED_PROJECT_ID])
+
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "run_id" in out
+    assert "\trunning\t" in out
