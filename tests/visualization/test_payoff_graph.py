@@ -41,3 +41,6 @@ def test_draw_creates_svg_file(tmp_path) -> None:
     content = saved_path.read_text(encoding="utf-8")
     assert "キャラA" in content
     assert "0.80" in content
+    assert "<rect" in content
+    assert "arrow-0" in content
+    assert "#dc2626" in content

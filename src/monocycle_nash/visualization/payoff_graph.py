@@ -56,14 +56,10 @@ class PayoffDirectedGraphPlotter:
 
         max_value = max((edge.value for edge in edges), default=1.0)
 
-        svg_parts: list[str] = [
-            f'<svg xmlns="http://www.w3.org/2000/svg" width="{canvas_size}" height="{canvas_size}">',
-            '<defs><marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">'
-            '<polygon points="0 0, 10 3.5, 0 7" fill="#1d4ed8" /></marker></defs>',
-            '<rect width="100%" height="100%" fill="white" />',
-        ]
+        defs: list[str] = []
+        edge_draw_parts: list[str] = []
 
-        for edge in edges:
+        for edge_index, edge in enumerate(edges):
             start = positions[edge.source]
             end = positions[edge.target]
             dx = end[0] - start[0]
@@ -76,17 +72,37 @@ class PayoffDirectedGraphPlotter:
             norm = edge.value / max_value if max_value > 0 else 0.0
             stroke_width = 1.5 + 5.0 * norm
             opacity = 0.4 + 0.6 * norm
+            edge_color = self._interpolate_color(norm)
+            marker_id = f"arrow-{edge_index}"
 
-            svg_parts.append(
+            defs.append(
+                f'<marker id="{marker_id}" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">'
+                f'<polygon points="0 0, 10 3.5, 0 7" fill="{edge_color}" /></marker>'
+            )
+
+            edge_draw_parts.append(
                 f'<line x1="{sx:.2f}" y1="{sy:.2f}" x2="{tx:.2f}" y2="{ty:.2f}" '
-                f'stroke="#1d4ed8" stroke-width="{stroke_width:.2f}" opacity="{opacity:.3f}" marker-end="url(#arrow)" />'
+                f'stroke="{edge_color}" stroke-width="{stroke_width:.2f}" opacity="{opacity:.3f}" marker-end="url(#{marker_id})" />'
             )
 
             mx, my = (sx + tx) / 2, (sy + ty) / 2
-            svg_parts.append(
+            edge_draw_parts.append(
+                f'<rect x="{mx - 22:.2f}" y="{my - 10:.2f}" width="44" height="20" rx="4" '
+                'fill="#ffffff" stroke="#94a3b8" stroke-width="1" opacity="0.95" />'
+            )
+            edge_draw_parts.append(
                 f'<text x="{mx:.2f}" y="{my:.2f}" text-anchor="middle" dominant-baseline="middle" '
                 f'font-size="14" fill="#1e40af">{edge.value:.2f}</text>'
             )
+
+        svg_parts: list[str] = [
+            f'<svg xmlns="http://www.w3.org/2000/svg" width="{canvas_size}" height="{canvas_size}">',
+            '<defs>',
+            *defs,
+            '</defs>',
+            '<rect width="100%" height="100%" fill="white" />',
+            *edge_draw_parts,
+        ]
 
         for i, (x, y) in enumerate(positions):
             label = self._escape(self._labels[i])
@@ -99,6 +115,15 @@ class PayoffDirectedGraphPlotter:
         svg_parts.append('</svg>')
         output.write_text("\n".join(svg_parts), encoding="utf-8")
         return output
+
+    @staticmethod
+    def _interpolate_color(norm: float) -> str:
+        """エッジ強度に応じて青→赤の色グラデーションを返す。"""
+        clamped = max(0.0, min(1.0, norm))
+        low = (29, 78, 216)   # #1d4ed8
+        high = (220, 38, 38)  # #dc2626
+        rgb = tuple(int(low[i] + (high[i] - low[i]) * clamped) for i in range(3))
+        return f"#{rgb[0]:02x}{rgb[1]:02x}{rgb[2]:02x}"
 
     @staticmethod
     def _circle_layout(size: int, center: float, radius: float) -> list[tuple[float, float]]:
