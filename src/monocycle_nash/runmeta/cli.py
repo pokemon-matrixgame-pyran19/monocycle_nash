@@ -11,7 +11,7 @@ from .artifact_store import RunArtifactStore
 from .clock import now_jst_iso
 from .db import SQLiteConnectionFactory, migrate
 from .models import RunStatus
-from .repositories import ProjectsRepository, RunsRepository
+from .repositories import UNASSIGNED_PROJECT_ID, ProjectsRepository, RunsRepository
 
 DEFAULT_DB_PATH = Path(".runmeta/run_history.db")
 
@@ -56,7 +56,10 @@ def _build_parser() -> argparse.ArgumentParser:
     l.add_argument("--from", dest="from_at")
     l.add_argument("--to", dest="to_at")
     l.add_argument("--status", choices=["running", "success", "fail", "killed"])
-    l.add_argument("--project-id")
+    l.add_argument(
+        "--project-id",
+        help=f"project id filter. use {UNASSIGNED_PROJECT_ID} for runs without a linked project",
+    )
 
     return parser
 
