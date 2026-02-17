@@ -57,3 +57,15 @@ def test_cli_delete_run_with_files_removes_artifacts(tmp_path: Path, capsys, mon
     assert code == 0
     assert "deleted run" in capsys.readouterr().out
     assert not run_dir.exists()
+
+
+def test_cli_list_projects(tmp_path: Path, capsys) -> None:
+    db = tmp_path / "db.sqlite"
+    _seed(db)
+
+    code = main(["--db-path", str(db), "list-projects"])
+
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "project_id" in out
+    assert "a	C:/a" in out

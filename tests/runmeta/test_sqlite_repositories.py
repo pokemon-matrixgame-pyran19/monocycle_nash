@@ -39,3 +39,16 @@ def test_migration_and_repository_flow() -> None:
 
     listed = runs.list_runs(status="success", project_id="analysis-main")
     assert [r.run_id for r in listed] == [run_id]
+
+
+def test_projects_repository_list_projects() -> None:
+    conn = SQLiteConnectionFactory(":memory:").connect()
+    migrate(conn)
+    projects = ProjectsRepository(conn)
+
+    projects.add(project_id="a", project_path="C:/a", created_at="2024-01-01T00:00:00+09:00", note="")
+    projects.add(project_id="b", project_path="C:/b", created_at="2024-01-02T00:00:00+09:00", note="note")
+
+    rows = projects.list_projects()
+
+    assert [row.project_id for row in rows] == ["b", "a"]
