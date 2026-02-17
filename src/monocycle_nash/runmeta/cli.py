@@ -50,6 +50,8 @@ def _build_parser() -> argparse.ArgumentParser:
     dp = sub.add_parser("delete-project")
     dp.add_argument("--project-id", required=True)
 
+    sub.add_parser("list-projects")
+
     l = sub.add_parser("list-runs")
     l.add_argument("--from", dest="from_at")
     l.add_argument("--to", dest="to_at")
@@ -139,6 +141,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             print("run_id\tproject_id\tstatus\tcreated_at")
             for row in rows:
                 print(f"{row.run_id}\t{row.project_id or ''}\t{row.status}\t{row.created_at}")
+            return 0
+
+        if args.command == "list-projects":
+            rows = projects.list_projects()
+            print("project_id\tproject_path\tcreated_at\tnote")
+            for row in rows:
+                print(f"{row.project_id}\t{row.project_path}\t{row.created_at}\t{row.note}")
             return 0
 
         return 1

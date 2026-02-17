@@ -157,3 +157,7 @@ class ProjectsRepository:
         if row is None:
             return None
         return ProjectRecord(**dict(row))
+
+    def list_projects(self) -> list[ProjectRecord]:
+        rows = self.conn.execute("SELECT * FROM projects ORDER BY created_at DESC").fetchall()
+        return [ProjectRecord(**dict(r)) for r in rows]
