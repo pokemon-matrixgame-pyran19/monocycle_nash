@@ -3,17 +3,24 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime
 from pathlib import Path
 import sqlite3
 from typing import Sequence, cast
 
 from .artifact_store import RunArtifactStore
-from .clock import now_jst_iso
+from .clock import JST, now_jst_iso
 from .db import SQLiteConnectionFactory, migrate
 from .models import RunStatus
 from .repositories import UNASSIGNED_PROJECT_ID, ProjectsRepository, RunsRepository
 
 DEFAULT_DB_PATH = Path(".runmeta/run_history.db")
+
+
+def _format_timestamp_for_list(value: str) -> str:
+    """Format timestamps in JST down to minute precision for list output."""
+
+    return datetime.fromisoformat(value).astimezone(JST).strftime("%Y-%m-%d %H:%M")
 
 
 def _open_repositories(db_path: str | Path) -> tuple[sqlite3.Connection, ProjectsRepository, RunsRepository]:
@@ -143,14 +150,20 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
             print("run_id\tproject_id\tstatus\tcreated_at")
             for row in rows:
-                print(f"{row.run_id}\t{row.project_id or ''}\t{row.status}\t{row.created_at}")
+                print(
+                    f"{row.run_id}\t{row.project_id or ''}\t{row.status}\t"
+                    f"{_format_timestamp_for_list(row.created_at)}"
+                )
             return 0
 
         if args.command == "list-projects":
             rows = projects.list_projects()
             print("project_id\tproject_path\tcreated_at\tnote")
             for row in rows:
-                print(f"{row.project_id}\t{row.project_path}\t{row.created_at}\t{row.note}")
+                print(
+                    f"{row.project_id}\t{row.project_path}\t"
+                    f"{_format_timestamp_for_list(row.created_at)}\t{row.note}"
+                )
             return 0
 
         return 1
