@@ -43,6 +43,9 @@ def test_cli_list_runs(tmp_path: Path, capsys) -> None:
     out = capsys.readouterr().out
     assert "run_id" in out
     assert "\tfail\t" in out
+    created_at = out.strip().splitlines()[1].split("\t")[-1]
+    assert len(created_at) == len("2000-01-01 00:00")
+    assert "+" not in created_at
 
 
 def test_cli_delete_run_with_files_removes_artifacts(tmp_path: Path, capsys, monkeypatch) -> None:
@@ -69,6 +72,9 @@ def test_cli_list_projects(tmp_path: Path, capsys) -> None:
     out = capsys.readouterr().out
     assert "project_id" in out
     assert "a	C:/a" in out
+    created_at = out.strip().splitlines()[1].split("\t")[2]
+    assert len(created_at) == len("2000-01-01 00:00")
+    assert "+" not in created_at
 
 
 def test_cli_list_runs_with_unassigned_project_filter(tmp_path: Path, capsys) -> None:
