@@ -342,3 +342,69 @@ def test_prepare_run_session_writes_txt_when_symlink_and_junction_fail(tmp_path:
     body = txt_path.read_text(encoding="utf-8")
     assert "result_path=" in body
     assert "status=running" in body
+
+
+def test_build_matrix_team_mode_with_empty_string_uses_input_matrix_as_is() -> None:
+    matrix = build_matrix(
+        {
+            "matrix": [[0.0, 1.0], [-1.0, 0.0]],
+            "team": "",
+            "labels": ["A", "B"],
+        }
+    )
+
+    assert matrix.labels == ["A", "B"]
+    assert matrix.matrix[0, 1] == 1.0
+
+
+def test_build_matrix_team_mode_generates_default_team_payoff_matrix() -> None:
+    matrix = build_matrix(
+        {
+            "matrix": [
+                [0.0, 2.0, -1.0],
+                [-2.0, 0.0, 3.0],
+                [1.0, -3.0, 0.0],
+            ],
+            "labels": ["A", "B", "C"],
+            "team": "2by2",
+        }
+    )
+
+    assert matrix.matrix.shape == (3, 3)
+    assert matrix.labels == ["A+B", "A+C", "B+C"]
+
+
+def test_build_matrix_team_mode_accepts_explicit_teams() -> None:
+    matrix = build_matrix(
+        {
+            "matrix": [
+                [0.0, 1.0, -1.0],
+                [-1.0, 0.0, 2.0],
+                [1.0, -2.0, 0.0],
+            ],
+            "labels": ["A", "B", "C"],
+            "team": "strict",
+            "teams": [
+                {"label": "AB", "members": ["A", "B"]},
+                {"label": "AC", "members": ["A", "C"]},
+            ],
+        }
+    )
+
+    assert matrix.labels == ["AB", "AC"]
+    assert matrix.matrix.shape == (2, 2)
+
+
+def test_build_matrix_rejects_unknown_team_mode() -> None:
+    with pytest.raises(ValueError, match='team は "", "strict", "2by2", "monocycle"'):
+        build_matrix({"matrix": [[0.0, 1.0], [-1.0, 0.0]], "team": "fast"})
+
+
+def test_build_matrix_rejects_teams_without_team_mode() -> None:
+    with pytest.raises(ValueError, match="team モード"):
+        build_matrix(
+            {
+                "matrix": [[0.0, 1.0], [-1.0, 0.0]],
+                "teams": [{"label": "AB", "members": [0, 1]}],
+            }
+        )
