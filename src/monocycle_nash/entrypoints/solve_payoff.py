@@ -53,15 +53,22 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "divergence": divergence,
             },
         )
+
+        output_files = [
+            "output/equilibrium.json",
+            "output/pure_strategy.json",
+            "output/divergence.json",
+        ]
+        if matrix.is_alternating():
+            write_json(
+                out_dir / "eigenvalues.json",
+                {"eigenvalues": matrix.eigenvalues().tolist()},
+            )
+            output_files.append("output/eigenvalues.json")
+
         service.finish_success(
             ctx,
-            extra_meta={
-                "output_files": [
-                    "output/equilibrium.json",
-                    "output/pure_strategy.json",
-                    "output/divergence.json",
-                ]
-            },
+            extra_meta={"output_files": output_files},
         )
         return 0
     except Exception as exc:  # noqa: BLE001
