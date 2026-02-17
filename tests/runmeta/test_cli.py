@@ -100,3 +100,45 @@ def test_cli_list_runs_with_unassigned_project_filter(tmp_path: Path, capsys) ->
     out = capsys.readouterr().out
     assert "run_id" in out
     assert "\trunning\t" in out
+
+
+def test_cli_regenerate_project_refs(tmp_path: Path, capsys) -> None:
+    db = tmp_path / "db.sqlite"
+    project_dir = tmp_path / "project"
+    conn = SQLiteConnectionFactory(db).connect()
+    migrate(conn)
+    projects = ProjectsRepository(conn)
+    runs = RunsRepository(conn)
+
+    projects.add(project_id="a", project_path=str(project_dir), created_at=now_jst_iso())
+    now = now_jst_iso()
+    run_id = runs.create_running(
+        command="cmd",
+        git_commit=None,
+        note="",
+        project_id="a",
+        started_at=now,
+        created_at=now,
+        updated_at=now,
+    )
+    conn.close()
+
+    code = main(
+        [
+            "--db-path",
+            str(db),
+            "regenerate-project-refs",
+            "--project-id",
+            "a",
+            "--result-base-dir",
+            str(tmp_path / "results"),
+        ]
+    )
+
+    assert code == 0
+    assert "regenerated 1 references" in capsys.readouterr().out
+
+    refs_dir = project_dir / "experiment_refs"
+    ref_link = refs_dir / str(run_id)
+    ref_txt = refs_dir / f"{run_id}.txt"
+    assert ref_link.exists() or ref_link.is_symlink() or ref_txt.exists()
