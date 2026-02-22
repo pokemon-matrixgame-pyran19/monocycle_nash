@@ -30,14 +30,21 @@ def build_parser(prog: str) -> argparse.ArgumentParser:
     return p
 
 
-def load_inputs(run_config: str, data_dir: str | Path = "data", *, require_graph: bool) -> tuple[dict[str, Any], dict[str, Any] | None, dict[str, Any], Path]:
+def load_inputs(
+    run_config: str,
+    data_dir: str | Path = "data",
+    *,
+    require_graph: bool,
+    graph_section: str | None = None,
+) -> tuple[dict[str, Any], dict[str, Any] | None, dict[str, Any], Path]:
     data_root = Path(data_dir)
     cfg = _load_run_config(run_config, data_root)
     refs = _resolve_run_config_refs(cfg, require_graph=require_graph)
 
     exp_loader = ExperimentDataLoader(base_dir=data_root)
     matrix_data = exp_loader.load("matrix", refs.matrix)
-    graph_data = exp_loader.load("graph", refs.graph) if refs.graph is not None else None
+    loaded_graph_data = exp_loader.load("graph", refs.graph) if refs.graph is not None else None
+    graph_data = _select_graph_section(loaded_graph_data, graph_section=graph_section)
     setting = SettingDataLoader(base_dir=data_root / "setting").load(refs.setting)
     validate_matrix_input(matrix_data)
     validate_graph_input(graph_data)
@@ -274,6 +281,20 @@ def validate_graph_input(graph_data: dict[str, Any] | None) -> None:
     _optional_number(graph_data, key="threshold")
     _optional_int(graph_data, key="canvas_size")
     _optional_int(graph_data, key="margin")
+
+
+def _select_graph_section(graph_data: dict[str, Any] | None, *, graph_section: str | None) -> dict[str, Any] | None:
+    if graph_data is None:
+        return None
+    if graph_section is None:
+        return graph_data
+
+    section_data = graph_data.get(graph_section)
+    if section_data is None:
+        raise ValueError(f"graph.{graph_section} セクションが見つかりません")
+    if not isinstance(section_data, dict):
+        raise ValueError(f"graph.{graph_section} はテーブルで指定してください")
+    return section_data
 
 
 def validate_setting_input(setting_data: dict[str, Any]) -> None:
