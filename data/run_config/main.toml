@@ -1,4 +1,4 @@
-features = ["solve_payoff", "graph_payoff"]
+features = ["solve_payoff", "graph_payoff", "compare_approximation"]
 
 [shared]
 matrix = "janken_matrix"
@@ -8,6 +8,10 @@ setting = "local"
 
 [graph_payoff]
 graph = "default"
+
+[compare_approximation]
+approximation_setting = "default"
+reference_matrix = "janken_matrix"
 
 [plot_characters]
 matrix = "janken_characters"
