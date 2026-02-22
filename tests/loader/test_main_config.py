@@ -47,3 +47,51 @@ def test_main_config_loader_requires_declared_feature_section(tmp_path: Path) ->
     loader = MainConfigLoader(data_dir / "run_config" / "main.toml")
     with pytest.raises(ValueError, match="main_config.solve_payoff"):
         loader.load_inputs_for_feature("solve_payoff")
+
+
+def test_main_config_loader_loads_approximation_for_compare_feature(tmp_path: Path) -> None:
+    data_dir = tmp_path / "data"
+    _write(
+        data_dir / "run_config" / "main.toml",
+        '''
+        features = ["compare_approximation"]
+
+        [shared]
+        matrix = "rps3"
+        setting = "local"
+
+        [compare_approximation]
+        approximation = "default"
+        ''',
+    )
+    _write(data_dir / "matrix" / "rps3" / "data.toml", 'matrix = [[0, 1], [-1, 0]]')
+    _write(data_dir / "approximation" / "default" / "data.toml", 'alpha = 0.5')
+    _write(data_dir / "setting" / "local.toml", '[output]\nbase_dir = "result"')
+
+    loader = MainConfigLoader(data_dir / "run_config" / "main.toml")
+    loaded = loader.load_inputs_for_feature("compare_approximation")
+
+    assert loaded.approximation_data is not None
+    assert loaded.approximation_data["alpha"] == 0.5
+
+
+def test_main_config_loader_requires_approximation_for_compare_feature(tmp_path: Path) -> None:
+    data_dir = tmp_path / "data"
+    _write(
+        data_dir / "run_config" / "main.toml",
+        '''
+        features = ["compare_approximation"]
+
+        [shared]
+        matrix = "rps3"
+        setting = "local"
+
+        [compare_approximation]
+        ''',
+    )
+    _write(data_dir / "matrix" / "rps3" / "data.toml", 'matrix = [[0, 1], [-1, 0]]')
+    _write(data_dir / "setting" / "local.toml", '[output]\nbase_dir = "result"')
+
+    loader = MainConfigLoader(data_dir / "run_config" / "main.toml")
+    with pytest.raises(ValueError, match="compare_approximation.approximation"):
+        loader.load_inputs_for_feature("compare_approximation")
