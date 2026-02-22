@@ -1,45 +1,33 @@
 from __future__ import annotations
 
 import traceback
-from pathlib import Path
-from typing import Sequence
 
+from monocycle_nash.loader.main_config import MainConfigLoader
+from monocycle_nash.loader.runtime_common import build_matrix, prepare_run_session, write_input_snapshots
 from monocycle_nash.visualization import PayoffDirectedGraphPlotter
 
-from .common import (
-    build_matrix,
-    build_parser,
-    load_inputs,
-    prepare_run_session,
-    write_input_snapshots,
-)
+
+FEATURE_NAME = "graph_payoff"
 
 
-def main(argv: Sequence[str] | None = None) -> int:
-    args = build_parser("graph_payoff").parse_args(argv)
-    matrix_data, graph_data, setting, _ = load_inputs(
-        args.run_config,
-        args.data_dir,
-        require_graph=True,
-        graph_section="payoff",
-    )
-    matrix = build_matrix(matrix_data)
-
+def run(config_loader: MainConfigLoader) -> int:
+    loaded = config_loader.load_inputs_for_feature(FEATURE_NAME, graph_section="payoff")
+    matrix = build_matrix(loaded.matrix_data)
+    graph_data = loaded.graph_data
     if graph_data is None:
         raise ValueError("graph 設定が必要です")
+
     threshold = float(graph_data.get("threshold", 0.0))
     canvas_size = int(graph_data.get("canvas_size", 840))
 
-    command = f"python -m monocycle_nash.entrypoints.graph_payoff --run-config {args.run_config}"
-    service, ctx, conn = prepare_run_session(setting, command)
-
+    service, ctx, conn = prepare_run_session(loaded.setting_data, f"uv run main ({FEATURE_NAME})")
     try:
         write_input_snapshots(
             service,
             ctx.run_id,
-            matrix_data=matrix_data,
+            matrix_data=loaded.matrix_data,
             graph_data=graph_data,
-            setting_data=setting,
+            setting_data=loaded.setting_data,
         )
         out_file = service.artifact_store.run_dir(ctx.run_id) / "output" / "edge_graph.svg"
         PayoffDirectedGraphPlotter(matrix.matrix, matrix.labels, threshold=threshold).draw(out_file, canvas_size=canvas_size)
@@ -52,7 +40,3 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 1
     finally:
         conn.close()
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

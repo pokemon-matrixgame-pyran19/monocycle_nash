@@ -3,10 +3,10 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-import monocycle_nash.entrypoints.common as common_mod
+import monocycle_nash.loader.runtime_common as common_mod
 import monocycle_nash.runmeta.project_refs as project_refs_mod
 
-from monocycle_nash.entrypoints.common import (
+from monocycle_nash.loader.runtime_common import (
     build_characters,
     build_matrix,
     load_inputs,
@@ -189,7 +189,7 @@ def test_prepare_run_session_creates_output_base_dir_run_folder(tmp_path: Path) 
         "output": {"base_dir": str(output_base)},
     }
 
-    service, ctx, conn = prepare_run_session(setting, "python -m monocycle_nash.entrypoints.solve_payoff --run-config x")
+    service, ctx, conn = prepare_run_session(setting, "uv run main (solve_payoff) --run-config x")
     conn.close()
 
     run_dir = output_base / str(ctx.run_id)
@@ -215,7 +215,7 @@ def test_write_input_snapshots_saves_resolved_split_toml_files(tmp_path: Path) -
         "output": {"base_dir": "result"},
     }
 
-    service, ctx, conn = prepare_run_session(setting, "python -m monocycle_nash.entrypoints.graph_payoff --run-config x")
+    service, ctx, conn = prepare_run_session(setting, "uv run main (graph_payoff) --run-config x")
     try:
         write_input_snapshots(
             service,
@@ -246,7 +246,7 @@ def test_write_input_snapshots_skips_graph_file_when_not_provided(tmp_path: Path
         "output": {"base_dir": str(output_base)},
     }
 
-    service, ctx, conn = prepare_run_session(setting, "python -m monocycle_nash.entrypoints.solve_payoff --run-config x")
+    service, ctx, conn = prepare_run_session(setting, "uv run main (solve_payoff) --run-config x")
     try:
         write_input_snapshots(
             service,
@@ -276,7 +276,7 @@ def test_prepare_run_session_uses_analysis_project_for_runmeta_linkage(tmp_path:
         },
     }
 
-    service, ctx, conn = prepare_run_session(setting, "python -m monocycle_nash.entrypoints.solve_payoff --run-config x")
+    service, ctx, conn = prepare_run_session(setting, "uv run main (solve_payoff) --run-config x")
     try:
         run = service.runs_repository.find_by_id(ctx.run_id)
     finally:
@@ -317,13 +317,13 @@ def test_prepare_run_session_updates_existing_project_path(tmp_path: Path) -> No
 
     _, first_ctx, first_conn = prepare_run_session(
         first_setting,
-        "python -m monocycle_nash.entrypoints.solve_payoff --run-config first",
+        "uv run main (solve_payoff) --run-config first",
     )
     first_conn.close()
 
     service, second_ctx, second_conn = prepare_run_session(
         second_setting,
-        "python -m monocycle_nash.entrypoints.solve_payoff --run-config second",
+        "uv run main (solve_payoff) --run-config second",
     )
     try:
         project = service.runs_repository.conn.execute(
@@ -362,7 +362,7 @@ def test_prepare_run_session_writes_txt_when_symlink_and_junction_fail(tmp_path:
     monkeypatch.setattr(Path, "symlink_to", _raise_symlink)
     monkeypatch.setattr(project_refs_mod, "_try_create_windows_junction", lambda **_: False)
 
-    _, ctx, conn = prepare_run_session(setting, "python -m monocycle_nash.entrypoints.solve_payoff --run-config txt")
+    _, ctx, conn = prepare_run_session(setting, "uv run main (solve_payoff) --run-config txt")
     conn.close()
 
     txt_path = project_root / "experiment_refs" / f"{ctx.run_id}.txt"
