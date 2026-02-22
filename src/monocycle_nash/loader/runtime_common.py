@@ -10,7 +10,8 @@ from typing import Any
 import numpy as np
 
 from monocycle_nash.character import Character, MatchupVector
-from monocycle_nash.loader import ExperimentDataLoader, SettingDataLoader, TomlTreeLoader
+from monocycle_nash.loader.data_loader import ExperimentDataLoader, SettingDataLoader
+from monocycle_nash.loader.toml_tree import TomlTreeLoader
 from monocycle_nash.matrix import PayoffMatrixBuilder
 from monocycle_nash.matrix.base import PayoffMatrix
 from monocycle_nash.runmeta.artifact_store import RunArtifactStore

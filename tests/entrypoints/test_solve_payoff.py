@@ -3,7 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from monocycle_nash.entrypoints.solve_payoff import main
+from monocycle_nash.equilibrium.solve_payoff_app import run
+from monocycle_nash.loader.main_config import MainConfigLoader
 
 
 def _write(path: Path, text: str) -> None:
@@ -42,7 +43,8 @@ def test_solve_payoff_outputs_eigenvalues_for_alternating_matrix(tmp_path: Path)
     )
     _write_setting(data_dir, tmp_path)
 
-    code = main(["--run-config", "baseline/rps3_solve", "--data-dir", str(data_dir)])
+    (data_dir / "run_config" / "main.toml").write_text("features=[\"solve_payoff\"]\n[shared]\nmatrix=\"rps3\"\nsetting=\"local\"\n[solve_payoff]\n", encoding="utf-8")
+    code = run(MainConfigLoader(data_dir / "run_config" / "main.toml"))
 
     assert code == 0
 
@@ -78,7 +80,8 @@ def test_solve_payoff_skips_eigenvalues_for_non_alternating_matrix(tmp_path: Pat
     )
     _write_setting(data_dir, tmp_path)
 
-    code = main(["--run-config", "baseline/non_alt_solve", "--data-dir", str(data_dir)])
+    (data_dir / "run_config" / "main.toml").write_text("features=[\"solve_payoff\"]\n[shared]\nmatrix=\"non_alt\"\nsetting=\"local\"\n[solve_payoff]\n", encoding="utf-8")
+    code = run(MainConfigLoader(data_dir / "run_config" / "main.toml"))
 
     assert code == 0
 
