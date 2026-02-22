@@ -10,7 +10,12 @@ from .common import build_characters, build_parser, has_matrix_input, load_input
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser("plot_characters").parse_args(argv)
-    matrix_data, graph_data, setting, _ = load_inputs(args.run_config, args.data_dir, require_graph=True)
+    matrix_data, graph_data, setting, _ = load_inputs(
+        args.run_config,
+        args.data_dir,
+        require_graph=True,
+        graph_section="character",
+    )
 
     if has_matrix_input(matrix_data):
         raise ValueError("plot_characters は matrix ではなく characters 入力が必須です")

@@ -25,7 +25,7 @@ def test_load_inputs_from_run_config(tmp_path: Path) -> None:
         tmp_path / "data" / "run_config" / "baseline" / "rps3_graph.toml",
         '''
         matrix = "rps3"
-        graph = "payoff/default"
+        graph = "default"
         setting = "local"
         ''',
     )
@@ -36,10 +36,15 @@ def test_load_inputs_from_run_config(tmp_path: Path) -> None:
         ''',
     )
     _write(
-        tmp_path / "data" / "graph" / "payoff" / "default" / "data.toml",
+        tmp_path / "data" / "graph" / "default" / "data.toml",
         '''
+        [payoff]
         threshold = 0.0
         canvas_size = 840
+
+        [character]
+        canvas_size = 840
+        margin = 90
         ''',
     )
     _write(
@@ -53,7 +58,12 @@ def test_load_inputs_from_run_config(tmp_path: Path) -> None:
         ''',
     )
 
-    matrix, graph, setting, run_cfg = load_inputs("baseline/rps3_graph", tmp_path / "data", require_graph=True)
+    matrix, graph, setting, run_cfg = load_inputs(
+        "baseline/rps3_graph",
+        tmp_path / "data",
+        require_graph=True,
+        graph_section="payoff",
+    )
 
     assert matrix["matrix"][0] == [0, 1, -1]
     assert graph is not None
@@ -128,16 +138,33 @@ def test_load_inputs_rejects_invalid_graph_type(tmp_path: Path) -> None:
         tmp_path / "data" / "run_config" / "baseline" / "invalid_graph.toml",
         '''
         matrix = "rps3"
-        graph = "payoff/default"
+        graph = "default"
         setting = "local"
         ''',
     )
     _write(tmp_path / "data" / "matrix" / "rps3" / "data.toml", 'matrix = [[0, 1], [-1, 0]]')
-    _write(tmp_path / "data" / "graph" / "payoff" / "default" / "data.toml", 'canvas_size = "large"')
+    _write(tmp_path / "data" / "graph" / "default" / "data.toml", '[payoff]\ncanvas_size = "large"')
     _write(tmp_path / "data" / "setting" / "local.toml", '[output]\nbase_dir = "result"')
 
     with pytest.raises(ValueError, match="graph.canvas_size"):
-        load_inputs("baseline/invalid_graph", tmp_path / "data", require_graph=True)
+        load_inputs("baseline/invalid_graph", tmp_path / "data", require_graph=True, graph_section="payoff")
+
+
+def test_load_inputs_requires_requested_graph_section(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "data" / "run_config" / "baseline" / "invalid_graph_section.toml",
+        '''
+        matrix = "rps3"
+        graph = "default"
+        setting = "local"
+        ''',
+    )
+    _write(tmp_path / "data" / "matrix" / "rps3" / "data.toml", 'matrix = [[0, 1], [-1, 0]]')
+    _write(tmp_path / "data" / "graph" / "default" / "data.toml", '[payoff]\ncanvas_size = 840')
+    _write(tmp_path / "data" / "setting" / "local.toml", '[output]\nbase_dir = "result"')
+
+    with pytest.raises(ValueError, match="graph.character"):
+        load_inputs("baseline/invalid_graph_section", tmp_path / "data", require_graph=True, graph_section="character")
 
 
 def test_load_inputs_rejects_invalid_setting_type(tmp_path: Path) -> None:

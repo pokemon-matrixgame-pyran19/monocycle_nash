@@ -17,7 +17,12 @@ from .common import (
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser("graph_payoff").parse_args(argv)
-    matrix_data, graph_data, setting, _ = load_inputs(args.run_config, args.data_dir, require_graph=True)
+    matrix_data, graph_data, setting, _ = load_inputs(
+        args.run_config,
+        args.data_dir,
+        require_graph=True,
+        graph_section="payoff",
+    )
     matrix = build_matrix(matrix_data)
 
     if graph_data is None:
