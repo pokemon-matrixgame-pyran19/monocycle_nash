@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from monocycle_nash.equilibrium.compare_payoff_app import run as run_compare_payoff
 from monocycle_nash.equilibrium.solve_payoff_app import run as run_solve_payoff
 from monocycle_nash.graph.graph_payoff_app import run as run_graph_payoff
 from monocycle_nash.graph.plot_characters_app import run as run_plot_characters
@@ -12,6 +13,7 @@ def main() -> int:
 
     runners = {
         "solve_payoff": run_solve_payoff,
+        "compare_payoff": run_compare_payoff,
         "graph_payoff": run_graph_payoff,
         "plot_characters": run_plot_characters,
     }
