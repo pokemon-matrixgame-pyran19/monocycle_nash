@@ -1,0 +1,15 @@
+features = ["solve_payoff", "graph_payoff", "plot_characters"]
+
+[shared]
+matrix = "janken_matrix"
+setting = "local"
+
+[solve_payoff]
+graph = ""
+
+[graph_payoff]
+graph = "payoff/default"
+
+[plot_characters]
+matrix = "janken_characters"
+graph = "character/default"

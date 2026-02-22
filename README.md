@@ -12,19 +12,13 @@ uv sync
 
 ## 主な使い方
 
-このプロジェクトでは次の3つのエントリポイントを使います。
-
-- 均衡解の計算: `solve_payoff`
-- 利得関係の有向グラフ出力: `graph_payoff`
-- キャラクターベクトルの可視化: `plot_characters`
-
-どれも `run_config` を指定して実行します。
+実行エントリポイントは `uv run main` の1つです。
 
 ```bash
-uv run solve_payoff --run-config baseline/janken_solve
-uv run graph_payoff --run-config baseline/janken_graph
-uv run plot_characters --run-config baseline/janken_char_plot
+uv run main
 ```
+
+起動する機能は `data/run_config/main.toml` の `features` 配列で指定します。
 
 ### 実行結果
 
@@ -41,20 +35,29 @@ uv run plot_characters --run-config baseline/janken_char_plot
 
 ## 入力ファイルの準備方法
 
-`--run-config` で指定する文字列は、`data/run_config/<name>.toml`（拡張子省略）を指します。  
-例: `--run-config baseline/janken_solve` → `data/run_config/baseline/janken_solve.toml`
+`data/run_config/main.toml` を固定で読み込みます。
 
-### 1. run_config を作る
-
-最小構成は次のようになります。
+### 1. main run_config を作る
 
 ```toml
-# data/run_config/<group>/<case>.toml
-matrix = "<matrix名>"
-setting = "<setting名>"
-# graph_payoff / plot_characters を使う場合は graph が必要
-# graph = "<graph名>"
+features = ["solve_payoff", "graph_payoff", "plot_characters"]
+
+[shared]
+matrix = "janken_matrix"
+setting = "local"
+
+[solve_payoff]
+graph = ""
+
+[graph_payoff]
+graph = "payoff/default"
+
+[plot_characters]
+matrix = "janken_characters"
+graph = "character/default"
 ```
+
+`shared` と各機能のテーブルはマージされ、機能側が優先されます。`graph = ""` は「graph設定なし」を明示する指定です。
 
 - `matrix`: `data/matrix/<matrix名>/data.toml` を参照
 - `setting`: `data/setting/<setting名>.toml` を参照
@@ -143,9 +146,7 @@ project_path = "project_prototype"
 まずは次を実行すると全体像をつかみやすいです。
 
 ```bash
-uv run solve_payoff --run-config baseline/janken_solve
-uv run graph_payoff --run-config baseline/janken_graph
-uv run plot_characters --run-config baseline/janken_char_plot
+uv run main
 ```
 
 ## テスト

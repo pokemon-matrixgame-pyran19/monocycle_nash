@@ -1,29 +1,24 @@
 from __future__ import annotations
 
 import traceback
-from typing import Sequence
 
 import numpy as np
 
+from monocycle_nash.application_support import build_matrix, prepare_run_session, write_input_snapshots, write_json
 from monocycle_nash.solver.selector import SolverSelector
 
-from .common import build_matrix, build_parser, load_inputs, prepare_run_session, write_input_snapshots, write_json
 
-
-def main(argv: Sequence[str] | None = None) -> int:
-    args = build_parser("solve_payoff").parse_args(argv)
-    matrix_data, _, setting, _ = load_inputs(args.run_config, args.data_dir, require_graph=False)
+def run_solve_payoff(*, matrix_data: dict, setting_data: dict) -> int:
     matrix = build_matrix(matrix_data)
 
-    command = f"python -m monocycle_nash.entrypoints.solve_payoff --run-config {args.run_config}"
-    service, ctx, conn = prepare_run_session(setting, command)
+    service, ctx, conn = prepare_run_session(setting_data, "uv run main")
     try:
         write_input_snapshots(
             service,
             ctx.run_id,
             matrix_data=matrix_data,
             graph_data=None,
-            setting_data=setting,
+            setting_data=setting_data,
         )
 
         eq = SolverSelector().solve(matrix)
@@ -71,7 +66,3 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 1
     finally:
         conn.close()
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
