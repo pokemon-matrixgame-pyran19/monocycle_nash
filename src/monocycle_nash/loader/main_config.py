@@ -15,6 +15,7 @@ DEFAULT_MAIN_CONFIG_PATH = Path("data/run_config/main.toml")
 class LoadedFeatureInputs:
     matrix_data: dict
     graph_data: dict | None
+    approximation_data: dict | None
     setting_data: dict
 
 
@@ -37,10 +38,12 @@ class MainConfigLoader:
         matrix_name = self._require_non_empty_str(merged, key="matrix", name=f"{feature}.matrix")
         setting_name = self._require_non_empty_str(merged, key="setting", name=f"{feature}.setting")
         graph_name = self._optional_non_empty_str(merged, key="graph", name=f"{feature}.graph")
+        approximation_name = self._resolve_approximation_name(merged, feature=feature)
 
         exp_loader = ExperimentDataLoader(base_dir=self._main_config_path.parent.parent)
         matrix_data = exp_loader.load("matrix", matrix_name)
         loaded_graph = exp_loader.load("graph", graph_name) if graph_name is not None else None
+        approximation_data = exp_loader.load("approximation", approximation_name) if approximation_name is not None else None
         graph_data = loaded_graph if graph_section is None else self._select_graph_section(loaded_graph, graph_section=graph_section)
 
         setting = SettingDataLoader(base_dir=self._main_config_path.parent.parent / "setting").load(setting_name)
@@ -48,7 +51,12 @@ class MainConfigLoader:
         validate_matrix_input(matrix_data)
         validate_graph_input(graph_data)
         validate_setting_input(setting)
-        return LoadedFeatureInputs(matrix_data=matrix_data, graph_data=graph_data, setting_data=setting)
+        return LoadedFeatureInputs(
+            matrix_data=matrix_data,
+            graph_data=graph_data,
+            approximation_data=approximation_data,
+            setting_data=setting,
+        )
 
     def _load_main_config(self) -> dict:
         return self._tree_loader.load(self._main_config_path)
@@ -85,6 +93,13 @@ class MainConfigLoader:
         value = cls._optional_non_empty_str(container, key=key, name=name)
         if value is None:
             raise ValueError(f"{name} は必須です")
+        return value
+
+    @classmethod
+    def _resolve_approximation_name(cls, container: dict, *, feature: str) -> str | None:
+        value = cls._optional_non_empty_str(container, key="approximation", name=f"{feature}.approximation")
+        if value is None and feature.startswith("compare_"):
+            raise ValueError(f"{feature}.approximation は必須です")
         return value
 
     @staticmethod
