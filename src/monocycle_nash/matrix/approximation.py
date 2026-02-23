@@ -33,6 +33,54 @@ class MonocycleToGeneralApproximation(PayoffMatrixApproximation[MonocyclePayoffM
         )
 
 
+class DominantEigenpairMonocycleApproximation(PayoffMatrixApproximation[PayoffMatrix, GeneralPayoffMatrix]):
+    """交代行列から絶対値最大の純虚固有値ペアに対応するランク2成分を抽出する。"""
+
+    def __init__(self, *, atol: float = 1e-8):
+        self.atol = atol
+
+    def approximate(self, matrix: PayoffMatrix) -> GeneralPayoffMatrix:
+        source = np.asarray(matrix.matrix, dtype=float)
+        if source.ndim != 2 or source.shape[0] != source.shape[1]:
+            raise ValueError("正方行列が必要です")
+        if not matrix.is_alternating(atol=self.atol):
+            raise ValueError("交代行列( A^T = -A )のみ対応しています")
+
+        approx = self._extract_dominant_component(source)
+        return GeneralPayoffMatrix(
+            matrix=approx,
+            row_strategies=matrix.row_strategies,
+            col_strategies=matrix.col_strategies,
+        )
+
+    @staticmethod
+    def _extract_dominant_component(source: np.ndarray) -> np.ndarray:
+        eigenvalues, eigenvectors = np.linalg.eig(source)
+        idx = int(np.argmax(np.abs(np.imag(eigenvalues))))
+        sigma = float(np.abs(np.imag(eigenvalues[idx])))
+        if sigma < 1e-12:
+            return np.zeros_like(source)
+
+        v = eigenvectors[:, idx]
+        phase = np.exp(-1j * np.pi / 4.0)
+        x = np.real(v * phase)
+        y = np.imag(v * phase)
+
+        x_norm = np.linalg.norm(x)
+        if x_norm < 1e-12:
+            raise ValueError("固有ベクトルの実部が退化しており近似を構成できません")
+        q1 = x / x_norm
+
+        y_orth = y - float(np.dot(q1, y)) * q1
+        y_norm = np.linalg.norm(y_orth)
+        if y_norm < 1e-12:
+            raise ValueError("固有ベクトルから独立な2軸を抽出できません")
+        q2 = y_orth / y_norm
+
+        sigma_eff = float(abs(q1 @ source @ q2))
+        return sigma_eff * (np.outer(q1, q2) - np.outer(q2, q1))
+
+
 class PayoffMatrixDistance(ABC, Generic[ApproxMatrixT, ReferenceMatrixT]):
     """利得行列間距離の抽象基底クラス。"""
 
