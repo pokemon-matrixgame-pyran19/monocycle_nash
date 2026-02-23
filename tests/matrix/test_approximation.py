@@ -6,6 +6,7 @@ from monocycle_nash.matrix.approximation import (
     ApproximationQualityEvaluator,
     MaxElementDifferenceDistance,
     MonocycleToGeneralApproximation,
+    DominantEigenpairMonocycleApproximation,
 )
 from monocycle_nash.matrix.builder import PayoffMatrixBuilder
 from monocycle_nash.matrix.general import GeneralPayoffMatrix
@@ -59,3 +60,36 @@ def test_approximation_quality_evaluator_combines_approximation_and_distance(sam
     quality = evaluator.evaluate(sample_monocycle_matrix, reference)
 
     assert quality == pytest.approx(0.5)
+
+
+def test_dominant_eigenpair_monocycle_approximation_extracts_largest_pair_component():
+    approximation = DominantEigenpairMonocycleApproximation()
+    matrix = np.array(
+        [
+            [0.0, -5.0, 0.0, 0.0],
+            [5.0, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0, -2.0],
+            [0.0, 0.0, 2.0, 0.0],
+        ]
+    )
+    source = GeneralPayoffMatrix(matrix)
+
+    result = approximation.approximate(source)
+
+    expected = np.array(
+        [
+            [0.0, -5.0, 0.0, 0.0],
+            [5.0, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 0.0],
+        ]
+    )
+    assert np.allclose(result.matrix, expected, atol=1e-7)
+
+
+def test_dominant_eigenpair_monocycle_approximation_rejects_non_alternating_matrix():
+    approximation = DominantEigenpairMonocycleApproximation()
+    source = GeneralPayoffMatrix(np.array([[0.0, 1.0], [1.0, 0.0]]))
+
+    with pytest.raises(ValueError):
+        approximation.approximate(source)

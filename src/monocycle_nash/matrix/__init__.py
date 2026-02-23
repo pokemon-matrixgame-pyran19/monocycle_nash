@@ -6,6 +6,7 @@ from .random import RandomMatrixAcceptanceCondition, generate_random_skew_symmet
 from .approximation import (
     PayoffMatrixApproximation,
     MonocycleToGeneralApproximation,
+    DominantEigenpairMonocycleApproximation,
     PayoffMatrixDistance,
     MaxElementDifferenceDistance,
     ApproximationQualityEvaluator,
@@ -20,6 +21,7 @@ __all__ = [
     "generate_random_skew_symmetric_matrix",
     "PayoffMatrixApproximation",
     "MonocycleToGeneralApproximation",
+    "DominantEigenpairMonocycleApproximation",
     "PayoffMatrixDistance",
     "MaxElementDifferenceDistance",
     "ApproximationQualityEvaluator",
