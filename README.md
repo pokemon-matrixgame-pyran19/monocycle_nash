@@ -12,18 +12,16 @@ uv sync
 
 ## 主な使い方
 
-このプロジェクトでは次の3つのエントリポイントを使います。
+このプロジェクトでは次の feature を `main` から実行します。
 
-- 均衡解の計算: `solve_payoff`
-- 利得関係の有向グラフ出力: `graph_payoff`
-- キャラクターベクトルの可視化: `plot_characters`
+- `solve_payoff`: 利得行列から均衡戦略・純粋戦略利得・乖離度を計算してJSON出力します。
+- `graph_payoff`: 利得行列の有向グラフ（勝ち関係）をSVGで出力します。
+- `plot_characters`: キャラクターの相性ベクトル（2次元）をSVGで可視化します。
 
-どれも `run_config` を指定して実行します。
+`data/run_config/main.toml` の `features` に実行したい feature を並べてから、次を実行します。
 
 ```bash
-uv run solve_payoff --run-config baseline/janken_solve
-uv run graph_payoff --run-config baseline/janken_graph
-uv run plot_characters --run-config baseline/janken_char_plot
+uv run main
 ```
 
 ### 実行結果
@@ -32,6 +30,7 @@ uv run plot_characters --run-config baseline/janken_char_plot
   - `results/<run_id>/output/equilibrium.json`
   - `results/<run_id>/output/pure_strategy.json`
   - `results/<run_id>/output/divergence.json`
+  - （交代行列の場合のみ）`results/<run_id>/output/eigenvalues.json`
 - `graph_payoff`:
   - `results/<run_id>/output/edge_graph.svg`
 - `plot_characters`:
@@ -41,7 +40,7 @@ uv run plot_characters --run-config baseline/janken_char_plot
 
 ## 管理システムCLI
 
-本体コマンド（`solve_payoff` / `graph_payoff` / `plot_characters`）を通常実行した場合でも、
+本体コマンド（`main`）を通常実行した場合でも、
 実行履歴は管理システムにより自動でDBへ保存されます（既定: `.runmeta/run_history.db`）。
 
 また、`setting.analysis_project` を設定している場合は、runと考察用ディレクトリを結びつける参照リンク生成にも対応しています。
@@ -53,24 +52,38 @@ uv run plot_characters --run-config baseline/janken_char_plot
 
 ## 入力ファイルの準備方法
 
-`--run-config` で指定する文字列は、`data/run_config/<name>.toml`（拡張子省略）を指します。  
-例: `--run-config baseline/janken_solve` → `data/run_config/baseline/janken_solve.toml`
+実行時は `data/run_config/main.toml` を参照します。
 
 ### 1. run_config を作る
 
-最小構成は次のようになります。
+`data/run_config/main.toml` の最小構成は次のようになります。
 
 ```toml
-# data/run_config/<group>/<case>.toml
+features = ["solve_payoff", "graph_payoff", "plot_characters"]
+
+[shared]
 matrix = "<matrix名>"
 setting = "<setting名>"
-# graph_payoff / plot_characters を使う場合は graph が必要
-# graph = "<graph名>"
+
+[solve_payoff]
+
+[graph_payoff]
+graph = "<graph名>"
+
+[plot_characters]
+matrix = "<charactersを持つmatrix名>"
+graph = "<graph名>"
 ```
 
-- `matrix`: `data/matrix/<matrix名>/data.toml` を参照
-- `setting`: `data/setting/<setting名>.toml` を参照
-- `graph`: `data/graph/<graph名>/data.toml` を参照（`graph_payoff` / `plot_characters` で必須）
+- `features`: 実行順に feature 名を指定
+- `shared`: 各 feature で共通利用する指定
+- `<feature名>` セクション: `shared` を上書きする個別指定
+
+参照先:
+
+- `matrix`: `data/matrix/<matrix名>/data.toml`
+- `setting`: `data/setting/<setting名>.toml`
+- `graph`: `data/graph/<graph名>/data.toml`（`graph_payoff` / `plot_characters` で必須）
 
 ### 2. matrix を作る（2通り）
 
@@ -108,25 +121,18 @@ characters = [
 
 `data/graph/<graph名>/data.toml` の例:
 
-#### A. 利得有向グラフ（`graph_payoff`）
-
 ```toml
+[payoff]
 threshold = 0.0
 canvas_size = 840
-```
 
-- `threshold`（任意）: 辺を描画する下限
-- `canvas_size`（任意）: 画像サイズ
-
-#### B. キャラクターベクトル図（`plot_characters`）
-
-```toml
+[character]
 canvas_size = 840
 margin = 90
 ```
 
-- `canvas_size`（任意）: 画像サイズ
-- `margin`（任意）: 図の余白
+- `graph_payoff` は `payoff` セクションを利用
+- `plot_characters` は `character` セクションを利用
 
 ### 4. setting を作る
 
@@ -148,16 +154,10 @@ project_path = "project_prototype"
 
 ## サンプルデータ
 
-- 均衡計算: `baseline/janken_solve`
-- グラフ出力: `baseline/janken_graph`
-- キャラクター可視化: `baseline/janken_char_plot`
-
-まずは次を実行すると全体像をつかみやすいです。
+初期状態では `data/run_config/main.toml` にサンプル設定が入っています。まずは次を実行すると全体像をつかみやすいです。
 
 ```bash
-uv run solve_payoff --run-config baseline/janken_solve
-uv run graph_payoff --run-config baseline/janken_graph
-uv run plot_characters --run-config baseline/janken_char_plot
+uv run main
 ```
 
 ## テスト
