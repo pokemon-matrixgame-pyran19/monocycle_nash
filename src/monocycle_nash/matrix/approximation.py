@@ -8,6 +8,7 @@ import numpy as np
 from .base import PayoffMatrix
 from .general import GeneralPayoffMatrix
 from .monocycle import MonocyclePayoffMatrix
+from ..solver.selector import SolverSelector
 
 InputMatrixT = TypeVar("InputMatrixT", bound=PayoffMatrix)
 ApproxMatrixT = TypeVar("ApproxMatrixT", bound=PayoffMatrix)
@@ -153,6 +154,28 @@ class MaxElementDifferenceDistance(PayoffMatrixDistance[PayoffMatrix, PayoffMatr
         if left.matrix.shape != right.matrix.shape:
             raise ValueError("matrix shapes must match for distance calculation")
         return float(np.max(np.abs(left.matrix - right.matrix)))
+
+
+class EquilibriumUStrategyDifferenceDistance(PayoffMatrixDistance[PayoffMatrix, PayoffMatrix]):
+    """d(A, B) = ||(A-B)u||∞, u は基準行列 B の均衡混合戦略。"""
+
+    def __init__(self, *, solver_selector: SolverSelector | None = None):
+        self._solver_selector = solver_selector or SolverSelector()
+
+    def calculate(self, left: PayoffMatrix, right: PayoffMatrix) -> float:
+        if left.matrix.shape != right.matrix.shape:
+            raise ValueError("matrix shapes must match for distance calculation")
+
+        equilibrium = self._solver_selector.solve(right)
+        u = np.asarray(equilibrium.probabilities, dtype=float)
+
+        if u.ndim != 1:
+            raise ValueError("equilibrium strategy must be a vector")
+        if right.matrix.shape[1] != u.shape[0]:
+            raise ValueError("equilibrium strategy size does not match matrix columns")
+
+        diff = (left.matrix - right.matrix) @ u
+        return float(np.max(np.abs(diff)))
 
 
 class ApproximationQualityEvaluator(Generic[InputMatrixT, ApproxMatrixT, ReferenceMatrixT]):

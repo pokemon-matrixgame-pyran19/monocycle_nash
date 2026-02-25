@@ -9,6 +9,7 @@ from .approximation import (
     DominantEigenpairMonocycleApproximation,
     PayoffMatrixDistance,
     MaxElementDifferenceDistance,
+    EquilibriumUStrategyDifferenceDistance,
     ApproximationQualityEvaluator,
 )
 
@@ -24,5 +25,6 @@ __all__ = [
     "DominantEigenpairMonocycleApproximation",
     "PayoffMatrixDistance",
     "MaxElementDifferenceDistance",
+    "EquilibriumUStrategyDifferenceDistance",
     "ApproximationQualityEvaluator",
 ]
