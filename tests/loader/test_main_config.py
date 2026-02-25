@@ -95,3 +95,54 @@ def test_main_config_loader_requires_approximation_for_compare_feature(tmp_path:
     loader = MainConfigLoader(data_dir / "run_config" / "main.toml")
     with pytest.raises(ValueError, match="compare_approximation.approximation"):
         loader.load_inputs_for_feature("compare_approximation")
+
+
+def test_main_config_loader_loads_random_matrix_for_random_compare_feature(tmp_path: Path) -> None:
+    data_dir = tmp_path / "data"
+    _write(
+        data_dir / "run_config" / "main.toml",
+        '''
+        features = ["compare_random_approximation"]
+
+        [shared]
+        matrix = "rps3"
+        setting = "local"
+
+        [compare_random_approximation]
+        approximation = "default"
+        random_matrix = "r4"
+        ''',
+    )
+    _write(data_dir / "matrix" / "rps3" / "data.toml", 'matrix = [[0, 1], [-1, 0]]')
+    _write(data_dir / "approximation" / "default" / "data.toml", 'alpha = 0.5')
+    _write(data_dir / "random_matrix" / "r4" / "data.toml", 'size = 4')
+    _write(data_dir / "setting" / "local.toml", '[output]\nbase_dir = "result"')
+
+    loader = MainConfigLoader(data_dir / "run_config" / "main.toml")
+    loaded = loader.load_inputs_for_feature("compare_random_approximation")
+
+    assert loaded.random_matrix_data is not None
+    assert loaded.random_matrix_data["size"] == 4
+
+
+def test_main_config_loader_requires_random_matrix_for_random_compare_feature(tmp_path: Path) -> None:
+    data_dir = tmp_path / "data"
+    _write(
+        data_dir / "run_config" / "main.toml",
+        '''
+        features = ["compare_random_approximation"]
+
+        [shared]
+        matrix = "rps3"
+        setting = "local"
+
+        [compare_random_approximation]
+        approximation = "default"
+        ''',
+    )
+    _write(data_dir / "matrix" / "rps3" / "data.toml", 'matrix = [[0, 1], [-1, 0]]')
+    _write(data_dir / "setting" / "local.toml", '[output]\nbase_dir = "result"')
+
+    loader = MainConfigLoader(data_dir / "run_config" / "main.toml")
+    with pytest.raises(ValueError, match="compare_random_approximation.random_matrix"):
+        loader.load_inputs_for_feature("compare_random_approximation")
