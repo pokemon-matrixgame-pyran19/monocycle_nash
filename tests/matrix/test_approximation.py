@@ -7,9 +7,20 @@ from monocycle_nash.matrix.approximation import (
     MaxElementDifferenceDistance,
     MonocycleToGeneralApproximation,
     DominantEigenpairMonocycleApproximation,
+    EquilibriumUStrategyDifferenceDistance,
 )
 from monocycle_nash.matrix.builder import PayoffMatrixBuilder
 from monocycle_nash.matrix.general import GeneralPayoffMatrix
+
+from monocycle_nash.equilibrium.domain import MixedStrategy
+
+
+class _StubSolverSelector:
+    def __init__(self, probabilities: np.ndarray):
+        self._probabilities = probabilities
+
+    def solve(self, matrix):
+        return MixedStrategy(self._probabilities, matrix.col_strategies.ids)
 
 
 @pytest.fixture
@@ -114,3 +125,22 @@ def test_dominant_eigenpair_monocycle_approximation_quality_parameters_provides_
 
     assert parameters["dominant_eigen_ratio"] == pytest.approx(2.5)
     assert parameters["dominant_eigen_ratio_bin"] == "[2.000,3.000)"
+
+
+def test_equilibrium_u_strategy_difference_distance_uses_sup_norm_on_expected_payoff_gap():
+    left = GeneralPayoffMatrix(np.array([[0.0, 2.0], [-2.0, 0.0]]))
+    right = GeneralPayoffMatrix(np.array([[0.0, 1.0], [-1.0, 0.0]]))
+    selector = _StubSolverSelector(np.array([0.25, 0.75]))
+    distance = EquilibriumUStrategyDifferenceDistance(solver_selector=selector)
+
+    # (left-right)@u = [0.75, -0.75], sup norm = 0.75
+    assert distance.calculate(left, right) == pytest.approx(0.75)
+
+
+def test_equilibrium_u_strategy_difference_distance_rejects_shape_mismatch():
+    distance = EquilibriumUStrategyDifferenceDistance(solver_selector=_StubSolverSelector(np.array([0.5, 0.5])))
+    left = GeneralPayoffMatrix(np.array([[1.0, 2.0], [3.0, 4.0]]))
+    right = GeneralPayoffMatrix(np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]))
+
+    with pytest.raises(ValueError):
+        distance.calculate(left, right)
