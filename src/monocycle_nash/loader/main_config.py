@@ -16,6 +16,7 @@ class LoadedFeatureInputs:
     matrix_data: dict
     graph_data: dict | None
     approximation_data: dict | None
+    random_matrix_data: dict | None
     setting_data: dict
 
 
@@ -39,11 +40,13 @@ class MainConfigLoader:
         setting_name = self._require_non_empty_str(merged, key="setting", name=f"{feature}.setting")
         graph_name = self._optional_non_empty_str(merged, key="graph", name=f"{feature}.graph")
         approximation_name = self._resolve_approximation_name(merged, feature=feature)
+        random_matrix_name = self._resolve_random_matrix_name(merged, feature=feature)
 
         exp_loader = ExperimentDataLoader(base_dir=self._main_config_path.parent.parent)
         matrix_data = exp_loader.load("matrix", matrix_name)
         loaded_graph = exp_loader.load("graph", graph_name) if graph_name is not None else None
         approximation_data = exp_loader.load("approximation", approximation_name) if approximation_name is not None else None
+        random_matrix_data = exp_loader.load("random_matrix", random_matrix_name) if random_matrix_name is not None else None
         graph_data = loaded_graph if graph_section is None else self._select_graph_section(loaded_graph, graph_section=graph_section)
 
         setting = SettingDataLoader(base_dir=self._main_config_path.parent.parent / "setting").load(setting_name)
@@ -55,6 +58,7 @@ class MainConfigLoader:
             matrix_data=matrix_data,
             graph_data=graph_data,
             approximation_data=approximation_data,
+            random_matrix_data=random_matrix_data,
             setting_data=setting,
         )
 
@@ -100,6 +104,14 @@ class MainConfigLoader:
         value = cls._optional_non_empty_str(container, key="approximation", name=f"{feature}.approximation")
         if value is None and feature.startswith("compare_"):
             raise ValueError(f"{feature}.approximation は必須です")
+        return value
+
+
+    @classmethod
+    def _resolve_random_matrix_name(cls, container: dict, *, feature: str) -> str | None:
+        value = cls._optional_non_empty_str(container, key="random_matrix", name=f"{feature}.random_matrix")
+        if value is None and feature == "compare_random_approximation":
+            raise ValueError(f"{feature}.random_matrix は必須です")
         return value
 
     @staticmethod
