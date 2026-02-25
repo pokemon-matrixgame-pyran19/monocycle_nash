@@ -73,9 +73,10 @@ def test_compare_random_approximation_writes_summary_json(tmp_path: Path) -> Non
 
     assert payload["generation_count"] == 8
     assert payload["random_matrix"]["acceptance_condition"] == "even_size"
-    assert payload["quality"]["min"] == 0.0
-    assert payload["quality"]["max"] == 0.0
+    assert payload["quality"]["count"] == 8
     assert payload["quality"]["mean"] == 0.0
+    assert payload["quality"]["stddev"] == 0.0
+    assert "eigen_ratio_group" in payload["quality_by_parameters"]
 
 
 def test_compare_random_approximation_returns_failure_for_invalid_condition(tmp_path: Path) -> None:

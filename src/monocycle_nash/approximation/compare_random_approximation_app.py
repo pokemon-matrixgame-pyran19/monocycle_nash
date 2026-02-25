@@ -30,6 +30,7 @@ class RandomGenerationConfig:
     high: float
     max_attempts: int
     random_seed: int | None
+    eigen_ratio_split_threshold: float
 
 
 class EvenSizeCondition(RandomMatrixAcceptanceCondition):
@@ -83,13 +84,25 @@ def run(config_loader: MainConfigLoader) -> int:
             )
             source = build_matrix({"matrix": raw_matrix.tolist()})
             score = evaluator.evaluate(source, source)
-            statistics.add(score)
 
-        summary = statistics.summarize()
+            eigen_ratio = _compute_top_eigenvalue_ratio(raw_matrix)
+            ratio_group = (
+                "high" if eigen_ratio >= generation_cfg.eigen_ratio_split_threshold else "low"
+            )
+            statistics.add(
+                score,
+                parameters={
+                    "eigen_ratio": eigen_ratio,
+                    "eigen_ratio_group": ratio_group,
+                },
+            )
+
+        overall = statistics.summarize()
+        by_ratio_group = statistics.summarize_grouped("eigen_ratio_group")
         write_json(
             service.artifact_store.run_dir(ctx.run_id) / "output" / "random_approximation_quality.json",
             {
-                "generation_count": summary.count,
+                "generation_count": overall.count,
                 "approximation": "MonocycleToGeneralApproximation",
                 "distance": "MaxElementDifferenceDistance",
                 "random_matrix": {
@@ -99,13 +112,22 @@ def run(config_loader: MainConfigLoader) -> int:
                     "max_attempts": generation_cfg.max_attempts,
                     "acceptance_condition": _condition_keyword(generation_cfg.acceptance_condition),
                     "random_seed": generation_cfg.random_seed,
+                    "eigen_ratio_split_threshold": generation_cfg.eigen_ratio_split_threshold,
                 },
                 "quality": {
-                    "min": summary.minimum,
-                    "max": summary.maximum,
-                    "mean": summary.mean,
-                    "median": summary.median,
-                    "stddev": summary.stddev,
+                    "count": overall.count,
+                    "mean": overall.mean,
+                    "stddev": overall.stddev,
+                },
+                "quality_by_parameters": {
+                    "eigen_ratio_group": {
+                        key: {
+                            "count": grouped.count,
+                            "mean": grouped.mean,
+                            "stddev": grouped.stddev,
+                        }
+                        for key, grouped in by_ratio_group.items()
+                    }
                 },
             },
         )
@@ -131,6 +153,14 @@ def _condition_keyword(condition: RandomMatrixAcceptanceCondition | None) -> str
     raise ValueError("未対応の acceptance_condition です")
 
 
+def _compute_top_eigenvalue_ratio(matrix: np.ndarray) -> float:
+    eigenvalues = np.linalg.eigvals(matrix)
+    imag_abs = np.sort(np.abs(np.imag(eigenvalues)))[::-1]
+    if imag_abs.size < 2 or imag_abs[1] < 1e-12:
+        return float("inf")
+    return float(imag_abs[0] / imag_abs[1])
+
+
 def _parse_random_generation_config(config: dict) -> RandomGenerationConfig:
     size = _required_int(config, key="size", default=None)
     generation_count = _required_int(config, key="generation_count", default=100)
@@ -138,6 +168,7 @@ def _parse_random_generation_config(config: dict) -> RandomGenerationConfig:
     high = _required_float(config, key="high", default=1.0)
     max_attempts = _required_int(config, key="max_attempts", default=10_000)
     random_seed = _optional_int(config, key="random_seed")
+    eigen_ratio_split_threshold = _required_float(config, key="eigen_ratio_split_threshold", default=1.5)
 
     condition_keyword = config.get("acceptance_condition")
     if condition_keyword is None:
@@ -151,6 +182,8 @@ def _parse_random_generation_config(config: dict) -> RandomGenerationConfig:
         raise ValueError("random_matrix.size は1以上で指定してください")
     if generation_count <= 0:
         raise ValueError("random_matrix.generation_count は1以上で指定してください")
+    if eigen_ratio_split_threshold <= 0.0:
+        raise ValueError("random_matrix.eigen_ratio_split_threshold は0より大きく指定してください")
 
     return RandomGenerationConfig(
         size=size,
@@ -160,6 +193,7 @@ def _parse_random_generation_config(config: dict) -> RandomGenerationConfig:
         high=high,
         max_attempts=max_attempts,
         random_seed=random_seed,
+        eigen_ratio_split_threshold=eigen_ratio_split_threshold,
     )
 
 
@@ -194,4 +228,3 @@ def _required_float(config: dict, *, key: str, default: float) -> float:
     if not isinstance(raw, (int, float)):
         raise ValueError(f"random_matrix.{key} は数値で指定してください")
     return float(raw)
-
