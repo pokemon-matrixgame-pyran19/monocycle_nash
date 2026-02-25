@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Generic, TypeVar
+from typing import Any, Generic, TypeVar
 
 import numpy as np
 
@@ -20,6 +20,10 @@ class PayoffMatrixApproximation(ABC, Generic[InputMatrixT, ApproxMatrixT]):
     @abstractmethod
     def approximate(self, matrix: InputMatrixT) -> ApproxMatrixT:
         raise NotImplementedError
+
+    def quality_parameters(self, matrix: InputMatrixT, *, config: dict[str, Any] | None = None) -> dict[str, Any]:
+        """精度評価時に付与する補助パラメータを返す。デフォルトは空。"""
+        return {}
 
 
 class MonocycleToGeneralApproximation(PayoffMatrixApproximation[MonocyclePayoffMatrix, GeneralPayoffMatrix]):
@@ -53,6 +57,15 @@ class DominantEigenpairMonocycleApproximation(PayoffMatrixApproximation[PayoffMa
             col_strategies=matrix.col_strategies,
         )
 
+    def quality_parameters(self, matrix: PayoffMatrix, *, config: dict[str, Any] | None = None) -> dict[str, Any]:
+        source = np.asarray(matrix.matrix, dtype=float)
+        ratio = self._dominant_eigen_ratio(source)
+        bin_edges = self._resolve_ratio_bin_edges(config)
+        return {
+            "dominant_eigen_ratio": ratio,
+            "dominant_eigen_ratio_bin": self._histogram_label(ratio, bin_edges),
+        }
+
     @staticmethod
     def _extract_dominant_component(source: np.ndarray) -> np.ndarray:
         eigenvalues, eigenvectors = np.linalg.eig(source)
@@ -79,6 +92,50 @@ class DominantEigenpairMonocycleApproximation(PayoffMatrixApproximation[PayoffMa
 
         sigma_eff = float(abs(q1 @ source @ q2))
         return sigma_eff * (np.outer(q1, q2) - np.outer(q2, q1))
+
+    @staticmethod
+    def _dominant_eigen_ratio(source: np.ndarray) -> float:
+        eigenvalues = np.linalg.eigvals(source)
+        imag_abs = np.abs(np.imag(eigenvalues))
+        significant = np.sort(imag_abs[imag_abs >= 1e-12])[::-1]
+        if significant.size == 0:
+            return float("inf")
+
+        unique_levels: list[float] = []
+        for value in significant:
+            if not unique_levels or abs(value - unique_levels[-1]) > 1e-9:
+                unique_levels.append(float(value))
+            if len(unique_levels) >= 2:
+                break
+
+        if len(unique_levels) < 2 or unique_levels[1] < 1e-12:
+            return float("inf")
+        return float(unique_levels[0] / unique_levels[1])
+
+    @staticmethod
+    def _resolve_ratio_bin_edges(config: dict[str, Any] | None) -> list[float]:
+        raw = None if config is None else config.get("dominant_eigen_ratio_bin_edges")
+        if raw is None:
+            return [1.25, 1.5, 2.0, 3.0]
+        if not isinstance(raw, list) or any(not isinstance(x, (int, float)) for x in raw):
+            raise ValueError("dominant_eigen_ratio_bin_edges は数値配列で指定してください")
+        edges = [float(x) for x in raw]
+        if any(x <= 0.0 for x in edges):
+            raise ValueError("dominant_eigen_ratio_bin_edges は正の数値で指定してください")
+        if any(edges[i] >= edges[i + 1] for i in range(len(edges) - 1)):
+            raise ValueError("dominant_eigen_ratio_bin_edges は昇順で指定してください")
+        return edges
+
+    @staticmethod
+    def _histogram_label(value: float, edges: list[float]) -> str:
+        if not np.isfinite(value):
+            return "[inf]"
+        lower = 1.0
+        for edge in edges:
+            if value < edge:
+                return f"[{lower:.3f},{edge:.3f})"
+            lower = edge
+        return f"[{edges[-1]:.3f},inf)"
 
 
 class PayoffMatrixDistance(ABC, Generic[ApproxMatrixT, ReferenceMatrixT]):

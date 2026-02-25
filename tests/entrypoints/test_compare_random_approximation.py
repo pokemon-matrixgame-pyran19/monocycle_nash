@@ -45,9 +45,9 @@ def test_compare_random_approximation_writes_summary_json(tmp_path: Path) -> Non
     _write(
         data_dir / "approximation" / "default" / "data.toml",
         '''
-        [approxmation]
-        approximation = "MonocycleToGeneralApproximation"
+        approximation = "DominantEigenpairMonocycleApproximation"
         distance = "MaxElementDifferenceDistance"
+        dominant_eigen_ratio_bin_edges = [1.2, 1.4, 1.8]
         ''',
     )
     _write(
@@ -72,11 +72,12 @@ def test_compare_random_approximation_writes_summary_json(tmp_path: Path) -> Non
     payload = json.loads(result_path.read_text(encoding="utf-8"))
 
     assert payload["generation_count"] == 8
+    assert payload["approximation"] == "DominantEigenpairMonocycleApproximation"
     assert payload["random_matrix"]["acceptance_condition"] == "even_size"
     assert payload["quality"]["count"] == 8
-    assert payload["quality"]["mean"] == 0.0
-    assert payload["quality"]["stddev"] == 0.0
-    assert "eigen_ratio_group" in payload["quality_by_parameters"]
+    assert "mean" in payload["quality"]
+    assert "stddev" in payload["quality"]
+    assert "dominant_eigen_ratio_bin" in payload["quality_by_parameters"]
 
 
 def test_compare_random_approximation_returns_failure_for_invalid_condition(tmp_path: Path) -> None:

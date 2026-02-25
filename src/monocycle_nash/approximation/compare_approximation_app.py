@@ -5,7 +5,13 @@ import traceback
 from monocycle_nash.loader.data_loader import ExperimentDataLoader
 from monocycle_nash.loader.main_config import MainConfigLoader
 from monocycle_nash.loader.runtime_common import _to_toml, build_matrix, prepare_run_session, write_input_snapshots, write_json
-from monocycle_nash.matrix import ApproximationQualityEvaluator, MaxElementDifferenceDistance, MonocycleToGeneralApproximation
+from monocycle_nash.matrix import (
+    ApproximationQualityEvaluator,
+    DominantEigenpairMonocycleApproximation,
+    MaxElementDifferenceDistance,
+    MonocycleToGeneralApproximation,
+    PayoffMatrixApproximation,
+)
 
 
 FEATURE_NAME = "compare_approximation"
@@ -78,11 +84,13 @@ def _load_source_and_reference_matrices(
     return source_matrix_data, reference_matrix_data
 
 
-def _build_approximation(approximation_data: dict) -> MonocycleToGeneralApproximation:
+def _build_approximation(approximation_data: dict) -> PayoffMatrixApproximation:
     approx_name = _resolve_algorithm_name(approximation_data, kind="approximation")
-    if approx_name != "MonocycleToGeneralApproximation":
-        raise ValueError(f"未対応の approximation です: {approx_name}")
-    return MonocycleToGeneralApproximation()
+    if approx_name == "MonocycleToGeneralApproximation":
+        return MonocycleToGeneralApproximation()
+    if approx_name == "DominantEigenpairMonocycleApproximation":
+        return DominantEigenpairMonocycleApproximation()
+    raise ValueError(f"未対応の approximation です: {approx_name}")
 
 
 def _build_distance(approximation_data: dict) -> MaxElementDifferenceDistance:

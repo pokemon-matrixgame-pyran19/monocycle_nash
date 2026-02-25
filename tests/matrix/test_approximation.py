@@ -93,3 +93,24 @@ def test_dominant_eigenpair_monocycle_approximation_rejects_non_alternating_matr
 
     with pytest.raises(ValueError):
         approximation.approximate(source)
+
+
+def test_dominant_eigenpair_monocycle_approximation_quality_parameters_provides_histogram_bin():
+    approximation = DominantEigenpairMonocycleApproximation()
+    matrix = np.array(
+        [
+            [0.0, -5.0, 0.0, 0.0],
+            [5.0, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0, -2.0],
+            [0.0, 0.0, 2.0, 0.0],
+        ]
+    )
+    source = GeneralPayoffMatrix(matrix)
+
+    parameters = approximation.quality_parameters(
+        source,
+        config={"dominant_eigen_ratio_bin_edges": [1.5, 2.0, 3.0]},
+    )
+
+    assert parameters["dominant_eigen_ratio"] == pytest.approx(2.5)
+    assert parameters["dominant_eigen_ratio_bin"] == "[2.000,3.000)"
