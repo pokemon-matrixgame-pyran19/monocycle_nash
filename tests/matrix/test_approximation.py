@@ -7,6 +7,7 @@ from monocycle_nash.matrix.approximation import (
     MaxElementDifferenceDistance,
     MonocycleToGeneralApproximation,
     DominantEigenpairMonocycleApproximation,
+    EquilibriumPreservingResidualMonocycleApproximation,
     EquilibriumUStrategyDifferenceDistance,
 )
 from monocycle_nash.matrix.builder import PayoffMatrixBuilder
@@ -144,3 +145,34 @@ def test_equilibrium_u_strategy_difference_distance_rejects_shape_mismatch():
 
     with pytest.raises(ValueError):
         distance.calculate(left, right)
+
+
+def test_equilibrium_preserving_residual_monocycle_approximation_matches_equilibrium_action():
+    matrix = np.array(
+        [
+            [0.0, -5.0, 0.7, -0.1],
+            [5.0, 0.0, 0.3, -0.4],
+            [-0.7, -0.3, 0.0, -2.0],
+            [0.1, 0.4, 2.0, 0.0],
+        ]
+    )
+    source = GeneralPayoffMatrix(matrix)
+    u = np.array([0.1, 0.2, 0.3, 0.4])
+
+    approximation = EquilibriumPreservingResidualMonocycleApproximation(
+        solver_selector=_StubSolverSelector(u)
+    )
+    result = approximation.approximate(source)
+
+    assert np.allclose(result.matrix + result.matrix.T, 0.0, atol=1e-8)
+    assert np.allclose(result.matrix @ u, source.matrix @ u, atol=1e-7)
+
+
+def test_equilibrium_preserving_residual_monocycle_approximation_rejects_non_alternating_matrix():
+    approximation = EquilibriumPreservingResidualMonocycleApproximation(
+        solver_selector=_StubSolverSelector(np.array([0.5, 0.5]))
+    )
+    source = GeneralPayoffMatrix(np.array([[0.0, 1.0], [1.0, 0.0]]))
+
+    with pytest.raises(ValueError):
+        approximation.approximate(source)

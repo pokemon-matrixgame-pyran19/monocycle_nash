@@ -139,6 +139,46 @@ class DominantEigenpairMonocycleApproximation(PayoffMatrixApproximation[PayoffMa
         return f"[{edges[-1]:.3f},inf)"
 
 
+class EquilibriumPreservingResidualMonocycleApproximation(PayoffMatrixApproximation[PayoffMatrix, GeneralPayoffMatrix]):
+    """A=J+R を B=J+(p_i-p_j) へ近似し、基準均衡 u に対する作用 Au を保つ。"""
+
+    def __init__(self, *, solver_selector: SolverSelector | None = None, atol: float = 1e-8):
+        self._solver_selector = solver_selector or SolverSelector()
+        self.atol = atol
+
+    def approximate(self, matrix: PayoffMatrix) -> GeneralPayoffMatrix:
+        source = np.asarray(matrix.matrix, dtype=float)
+        if source.ndim != 2 or source.shape[0] != source.shape[1]:
+            raise ValueError("正方行列が必要です")
+        if not matrix.is_alternating(atol=self.atol):
+            raise ValueError("交代行列( A^T = -A )のみ対応しています")
+
+        dominant = DominantEigenpairMonocycleApproximation._extract_dominant_component(source)
+        residual = source - dominant
+
+        equilibrium = self._solver_selector.solve(matrix)
+        u = np.asarray(equilibrium.probabilities, dtype=float)
+        if u.ndim != 1 or u.shape[0] != source.shape[1]:
+            raise ValueError("均衡混合戦略の次元が行列サイズと一致しません")
+
+        p = self._solve_potential_vector(u, residual @ u)
+        transformed_residual = np.outer(p, np.ones_like(p)) - np.outer(np.ones_like(p), p)
+        approx = dominant + transformed_residual
+
+        return GeneralPayoffMatrix(
+            matrix=approx,
+            row_strategies=matrix.row_strategies,
+            col_strategies=matrix.col_strategies,
+        )
+
+    @staticmethod
+    def _solve_potential_vector(u: np.ndarray, rhs: np.ndarray) -> np.ndarray:
+        size = u.shape[0]
+        operator = np.eye(size) - np.outer(np.ones(size), u)
+        solution, *_ = np.linalg.lstsq(operator, rhs, rcond=None)
+        return np.asarray(solution, dtype=float)
+
+
 class PayoffMatrixDistance(ABC, Generic[ApproxMatrixT, ReferenceMatrixT]):
     """利得行列間距離の抽象基底クラス。"""
 

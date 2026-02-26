@@ -177,3 +177,54 @@ def test_compare_approximation_supports_equilibrium_u_strategy_distance(tmp_path
 
     assert payload["distance"] == "EquilibriumUStrategyDifferenceDistance"
     assert payload["quality"] == 1.0
+
+
+def test_compare_approximation_supports_equilibrium_preserving_residual_approximation(tmp_path: Path) -> None:
+    data_dir = tmp_path / "data"
+    _write(
+        data_dir / "run_config" / "main.toml",
+        """
+        features = ["compare_approximation"]
+
+        [shared]
+        matrix = "source_matrix"
+        setting = "local"
+
+        [compare_approximation]
+        approximation = "default"
+        """,
+    )
+    _write(
+        data_dir / "matrix" / "source_matrix" / "data.toml",
+        """
+        matrix = [
+          [0.0, -3.0, 1.0],
+          [3.0, 0.0, -2.0],
+          [-1.0, 2.0, 0.0],
+        ]
+        """,
+    )
+    _write(
+        data_dir / "approximation" / "default" / "data.toml",
+        """
+        source_matrix = "source_matrix"
+        reference_matrix = "source_matrix"
+
+        [approxmation]
+        approximation = "EquilibriumPreservingResidualMonocycleApproximation"
+        distance = "EquilibriumUStrategyDifferenceDistance"
+        """,
+    )
+    _write_setting(data_dir, tmp_path)
+
+    code = run(MainConfigLoader(data_dir / "run_config" / "main.toml"))
+
+    assert code == 0
+
+    run_dirs = [x for x in (tmp_path / "result").iterdir() if x.is_dir()]
+    assert len(run_dirs) == 1
+
+    result_path = run_dirs[0] / "output" / "approximation_quality.json"
+    payload = json.loads(result_path.read_text(encoding="utf-8"))
+
+    assert payload["approximation"] == "EquilibriumPreservingResidualMonocycleApproximation"
