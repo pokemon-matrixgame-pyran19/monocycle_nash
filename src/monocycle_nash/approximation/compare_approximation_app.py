@@ -8,6 +8,7 @@ from monocycle_nash.loader.runtime_common import _to_toml, build_matrix, prepare
 from monocycle_nash.matrix import (
     ApproximationQualityEvaluator,
     DominantEigenpairMonocycleApproximation,
+    EquilibriumPreservingResidualMonocycleApproximation,
     EquilibriumUStrategyDifferenceDistance,
     MaxElementDifferenceDistance,
     MonocycleToGeneralApproximation,
@@ -53,7 +54,7 @@ def run(config_loader: MainConfigLoader) -> int:
             {
                 "source_matrix": _resolve_matrix_name(approximation_data, key="source_matrix", default="<shared.matrix>"),
                 "reference_matrix": _resolve_matrix_name(approximation_data, key="reference_matrix", default="<shared.matrix>"),
-                "approximation": "MonocycleToGeneralApproximation",
+                "approximation": approximation.__class__.__name__,
                 "distance": distance.__class__.__name__,
                 "quality": score,
             },
@@ -92,6 +93,8 @@ def _build_approximation(approximation_data: dict) -> PayoffMatrixApproximation:
         return MonocycleToGeneralApproximation()
     if approx_name == "DominantEigenpairMonocycleApproximation":
         return DominantEigenpairMonocycleApproximation()
+    if approx_name == "EquilibriumPreservingResidualMonocycleApproximation":
+        return EquilibriumPreservingResidualMonocycleApproximation()
     raise ValueError(f"未対応の approximation です: {approx_name}")
 
 
