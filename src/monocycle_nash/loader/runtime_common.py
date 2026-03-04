@@ -4,6 +4,7 @@ import argparse
 import itertools
 import json
 import sqlite3
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +23,41 @@ from monocycle_nash.runmeta.repositories import UNASSIGNED_PROJECT_ID, ProjectsR
 from monocycle_nash.runmeta.service import RunSessionService
 from monocycle_nash.team.domain import Team
 from monocycle_nash.team.matrix_approx import ExactTeamPayoffCalculator
+
+
+@dataclass
+class _SharedRunState:
+    service: RunSessionService
+    ctx: Any
+    conn: sqlite3.Connection
+    failed: bool = False
+
+
+class _NoCloseConnection:
+    def __init__(self, conn: sqlite3.Connection) -> None:
+        self._conn = conn
+
+    def close(self) -> None:
+        return
+
+
+class _SharedRunSessionServiceProxy:
+    def __init__(self, service: RunSessionService, state: _SharedRunState) -> None:
+        self.artifact_store = service.artifact_store
+        self._state = state
+
+    def finish_success(self, ctx: Any, extra_meta: dict[str, Any] | None = None) -> None:
+        return
+
+    def finish_fail(self, ctx: Any, extra_meta: dict[str, Any] | None = None) -> None:
+        self._state.failed = True
+
+    def finish_killed(self, ctx: Any, extra_meta: dict[str, Any] | None = None) -> None:
+        self._state.failed = True
+
+
+_SHARED_RUN_MODE = False
+_SHARED_RUN_STATE: _SharedRunState | None = None
 
 
 def build_parser(prog: str) -> argparse.ArgumentParser:
@@ -346,7 +382,33 @@ def _optional_int(container: dict[str, Any], *, key: str) -> int | None:
     return value
 
 
+def set_shared_run_mode(enabled: bool) -> None:
+    global _SHARED_RUN_MODE
+    _SHARED_RUN_MODE = enabled
+
+
+def finalize_shared_run() -> None:
+    global _SHARED_RUN_STATE
+    state = _SHARED_RUN_STATE
+    if state is None:
+        return
+
+    try:
+        if state.failed:
+            state.service.finish_fail(state.ctx)
+        else:
+            state.service.finish_success(state.ctx)
+    finally:
+        state.conn.close()
+        _SHARED_RUN_STATE = None
+
+
 def prepare_run_session(setting: dict[str, Any], command: str) -> tuple[RunSessionService, Any, sqlite3.Connection]:
+    global _SHARED_RUN_STATE
+    if _SHARED_RUN_MODE and _SHARED_RUN_STATE is not None:
+        shared = _SHARED_RUN_STATE
+        return _SharedRunSessionServiceProxy(shared.service, shared), shared.ctx, _NoCloseConnection(shared.conn)
+
     runmeta = setting.get("runmeta", {}) if isinstance(setting.get("runmeta"), dict) else {}
     output = setting.get("output", {}) if isinstance(setting.get("output"), dict) else {}
     project = setting.get("analysis_project", {}) if isinstance(setting.get("analysis_project"), dict) else {}
@@ -376,6 +438,11 @@ def prepare_run_session(setting: dict[str, Any], command: str) -> tuple[RunSessi
         project_path=effective_project_path,
         status="running",
     )
+
+    if _SHARED_RUN_MODE:
+        _SHARED_RUN_STATE = _SharedRunState(service=service, ctx=ctx, conn=conn)
+        return _SharedRunSessionServiceProxy(service, _SHARED_RUN_STATE), ctx, _NoCloseConnection(conn)
+
     return service, ctx, conn
 
 
