@@ -1,2 +1,1 @@
-matrix = "janken_matrix"
-setting = "local"
+# solve_payoff は graph を不要とする。

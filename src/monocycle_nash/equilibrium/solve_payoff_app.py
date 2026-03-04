@@ -1,29 +1,29 @@
 from __future__ import annotations
 
 import traceback
-from typing import Sequence
 
 import numpy as np
 
+from monocycle_nash.loader.main_config import MainConfigLoader
+from monocycle_nash.loader.runtime_common import build_matrix, prepare_run_session, write_input_snapshots, write_json
 from monocycle_nash.solver.selector import SolverSelector
 
-from .common import build_matrix, build_parser, load_inputs, prepare_run_session, write_input_snapshots, write_json
+
+FEATURE_NAME = "solve_payoff"
 
 
-def main(argv: Sequence[str] | None = None) -> int:
-    args = build_parser("solve_payoff").parse_args(argv)
-    matrix_data, _, setting, _ = load_inputs(args.run_config, args.data_dir, require_graph=False)
-    matrix = build_matrix(matrix_data)
+def run(config_loader: MainConfigLoader) -> int:
+    loaded = config_loader.load_inputs_for_feature(FEATURE_NAME)
+    matrix = build_matrix(loaded.matrix_data)
 
-    command = f"python -m monocycle_nash.entrypoints.solve_payoff --run-config {args.run_config}"
-    service, ctx, conn = prepare_run_session(setting, command)
+    service, ctx, conn = prepare_run_session(loaded.setting_data, f"uv run main ({FEATURE_NAME})")
     try:
         write_input_snapshots(
             service,
             ctx.run_id,
-            matrix_data=matrix_data,
+            matrix_data=loaded.matrix_data,
             graph_data=None,
-            setting_data=setting,
+            setting_data=loaded.setting_data,
         )
 
         eq = SolverSelector().solve(matrix)
@@ -60,16 +60,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             "output/divergence.json",
         ]
         if matrix.is_alternating():
-            write_json(
-                out_dir / "eigenvalues.json",
-                {"eigenvalues": matrix.eigenvalues().tolist()},
-            )
+            write_json(out_dir / "eigenvalues.json", {"eigenvalues": matrix.eigenvalues().tolist()})
             output_files.append("output/eigenvalues.json")
 
-        service.finish_success(
-            ctx,
-            extra_meta={"output_files": output_files},
-        )
+        service.finish_success(ctx, extra_meta={"output_files": output_files})
         return 0
     except Exception as exc:  # noqa: BLE001
         err = traceback.format_exc()
@@ -78,7 +72,3 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 1
     finally:
         conn.close()
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

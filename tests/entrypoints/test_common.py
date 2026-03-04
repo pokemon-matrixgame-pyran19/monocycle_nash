@@ -3,10 +3,10 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-import monocycle_nash.entrypoints.common as common_mod
+import monocycle_nash.loader.runtime_common as common_mod
 import monocycle_nash.runmeta.project_refs as project_refs_mod
 
-from monocycle_nash.entrypoints.common import (
+from monocycle_nash.loader.runtime_common import (
     build_characters,
     build_matrix,
     load_inputs,
@@ -25,7 +25,7 @@ def test_load_inputs_from_run_config(tmp_path: Path) -> None:
         tmp_path / "data" / "run_config" / "baseline" / "rps3_graph.toml",
         '''
         matrix = "rps3"
-        graph = "payoff/default"
+        graph = "default"
         setting = "local"
         ''',
     )
@@ -36,10 +36,15 @@ def test_load_inputs_from_run_config(tmp_path: Path) -> None:
         ''',
     )
     _write(
-        tmp_path / "data" / "graph" / "payoff" / "default" / "data.toml",
+        tmp_path / "data" / "graph" / "default" / "data.toml",
         '''
+        [payoff]
         threshold = 0.0
         canvas_size = 840
+
+        [character]
+        canvas_size = 840
+        margin = 90
         ''',
     )
     _write(
@@ -53,7 +58,12 @@ def test_load_inputs_from_run_config(tmp_path: Path) -> None:
         ''',
     )
 
-    matrix, graph, setting, run_cfg = load_inputs("baseline/rps3_graph", tmp_path / "data", require_graph=True)
+    matrix, graph, setting, run_cfg = load_inputs(
+        "baseline/rps3_graph",
+        tmp_path / "data",
+        require_graph=True,
+        graph_section="payoff",
+    )
 
     assert matrix["matrix"][0] == [0, 1, -1]
     assert graph is not None
@@ -128,16 +138,33 @@ def test_load_inputs_rejects_invalid_graph_type(tmp_path: Path) -> None:
         tmp_path / "data" / "run_config" / "baseline" / "invalid_graph.toml",
         '''
         matrix = "rps3"
-        graph = "payoff/default"
+        graph = "default"
         setting = "local"
         ''',
     )
     _write(tmp_path / "data" / "matrix" / "rps3" / "data.toml", 'matrix = [[0, 1], [-1, 0]]')
-    _write(tmp_path / "data" / "graph" / "payoff" / "default" / "data.toml", 'canvas_size = "large"')
+    _write(tmp_path / "data" / "graph" / "default" / "data.toml", '[payoff]\ncanvas_size = "large"')
     _write(tmp_path / "data" / "setting" / "local.toml", '[output]\nbase_dir = "result"')
 
     with pytest.raises(ValueError, match="graph.canvas_size"):
-        load_inputs("baseline/invalid_graph", tmp_path / "data", require_graph=True)
+        load_inputs("baseline/invalid_graph", tmp_path / "data", require_graph=True, graph_section="payoff")
+
+
+def test_load_inputs_requires_requested_graph_section(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "data" / "run_config" / "baseline" / "invalid_graph_section.toml",
+        '''
+        matrix = "rps3"
+        graph = "default"
+        setting = "local"
+        ''',
+    )
+    _write(tmp_path / "data" / "matrix" / "rps3" / "data.toml", 'matrix = [[0, 1], [-1, 0]]')
+    _write(tmp_path / "data" / "graph" / "default" / "data.toml", '[payoff]\ncanvas_size = 840')
+    _write(tmp_path / "data" / "setting" / "local.toml", '[output]\nbase_dir = "result"')
+
+    with pytest.raises(ValueError, match="graph.character"):
+        load_inputs("baseline/invalid_graph_section", tmp_path / "data", require_graph=True, graph_section="character")
 
 
 def test_load_inputs_rejects_invalid_setting_type(tmp_path: Path) -> None:
@@ -162,7 +189,7 @@ def test_prepare_run_session_creates_output_base_dir_run_folder(tmp_path: Path) 
         "output": {"base_dir": str(output_base)},
     }
 
-    service, ctx, conn = prepare_run_session(setting, "python -m monocycle_nash.entrypoints.solve_payoff --run-config x")
+    service, ctx, conn = prepare_run_session(setting, "uv run main (solve_payoff) --run-config x")
     conn.close()
 
     run_dir = output_base / str(ctx.run_id)
@@ -188,7 +215,7 @@ def test_write_input_snapshots_saves_resolved_split_toml_files(tmp_path: Path) -
         "output": {"base_dir": "result"},
     }
 
-    service, ctx, conn = prepare_run_session(setting, "python -m monocycle_nash.entrypoints.graph_payoff --run-config x")
+    service, ctx, conn = prepare_run_session(setting, "uv run main (graph_payoff) --run-config x")
     try:
         write_input_snapshots(
             service,
@@ -219,7 +246,7 @@ def test_write_input_snapshots_skips_graph_file_when_not_provided(tmp_path: Path
         "output": {"base_dir": str(output_base)},
     }
 
-    service, ctx, conn = prepare_run_session(setting, "python -m monocycle_nash.entrypoints.solve_payoff --run-config x")
+    service, ctx, conn = prepare_run_session(setting, "uv run main (solve_payoff) --run-config x")
     try:
         write_input_snapshots(
             service,
@@ -249,7 +276,7 @@ def test_prepare_run_session_uses_analysis_project_for_runmeta_linkage(tmp_path:
         },
     }
 
-    service, ctx, conn = prepare_run_session(setting, "python -m monocycle_nash.entrypoints.solve_payoff --run-config x")
+    service, ctx, conn = prepare_run_session(setting, "uv run main (solve_payoff) --run-config x")
     try:
         run = service.runs_repository.find_by_id(ctx.run_id)
     finally:
@@ -290,13 +317,13 @@ def test_prepare_run_session_updates_existing_project_path(tmp_path: Path) -> No
 
     _, first_ctx, first_conn = prepare_run_session(
         first_setting,
-        "python -m monocycle_nash.entrypoints.solve_payoff --run-config first",
+        "uv run main (solve_payoff) --run-config first",
     )
     first_conn.close()
 
     service, second_ctx, second_conn = prepare_run_session(
         second_setting,
-        "python -m monocycle_nash.entrypoints.solve_payoff --run-config second",
+        "uv run main (solve_payoff) --run-config second",
     )
     try:
         project = service.runs_repository.conn.execute(
@@ -335,7 +362,7 @@ def test_prepare_run_session_writes_txt_when_symlink_and_junction_fail(tmp_path:
     monkeypatch.setattr(Path, "symlink_to", _raise_symlink)
     monkeypatch.setattr(project_refs_mod, "_try_create_windows_junction", lambda **_: False)
 
-    _, ctx, conn = prepare_run_session(setting, "python -m monocycle_nash.entrypoints.solve_payoff --run-config txt")
+    _, ctx, conn = prepare_run_session(setting, "uv run main (solve_payoff) --run-config txt")
     conn.close()
 
     txt_path = project_root / "experiment_refs" / f"{ctx.run_id}.txt"

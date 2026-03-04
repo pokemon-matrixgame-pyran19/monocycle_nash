@@ -3,6 +3,10 @@ from typing import TYPE_CHECKING
 
 from .general import GeneralPayoffMatrix
 from .monocycle import MonocyclePayoffMatrix
+from .random import (
+    RandomMatrixAcceptanceCondition,
+    generate_random_skew_symmetric_matrix,
+)
 from ..character.domain import Character
 from ..strategy.domain import PureStrategySet
 from ..team.matrix_approx import TwoPlayerTeamMatrixCalculator
@@ -61,3 +65,25 @@ class PayoffMatrixBuilder:
             use_monocycle_formula=use_monocycle_formula,
         )
         return matrix_calculator.generate_matrix(teams)
+
+    @staticmethod
+    def from_random_matrix(
+        size: int,
+        low: float = -1.0,
+        high: float = 1.0,
+        acceptance_condition: RandomMatrixAcceptanceCondition | None = None,
+        *,
+        rng: np.random.Generator | None = None,
+        max_attempts: int = 10_000,
+        labels: list[str] | None = None,
+    ) -> GeneralPayoffMatrix:
+        """交代行列のランダム利得行列を生成する。"""
+        matrix = generate_random_skew_symmetric_matrix(
+            size=size,
+            low=low,
+            high=high,
+            acceptance_condition=acceptance_condition,
+            rng=rng,
+            max_attempts=max_attempts,
+        )
+        return GeneralPayoffMatrix(matrix, labels)
