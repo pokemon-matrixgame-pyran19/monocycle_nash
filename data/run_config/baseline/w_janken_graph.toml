@@ -1,3 +1,0 @@
-matrix = "weighted_janken_matrix"
-graph = "payoff/default"
-setting = "local"

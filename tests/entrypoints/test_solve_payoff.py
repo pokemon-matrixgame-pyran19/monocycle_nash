@@ -28,13 +28,6 @@ def _write_setting(data_dir: Path, tmp_path: Path) -> None:
 def test_solve_payoff_outputs_eigenvalues_for_alternating_matrix(tmp_path: Path) -> None:
     data_dir = tmp_path / "data"
     _write(
-        data_dir / "run_config" / "baseline" / "rps3_solve.toml",
-        '''
-        matrix = "rps3"
-        setting = "local"
-        ''',
-    )
-    _write(
         data_dir / "matrix" / "rps3" / "data.toml",
         '''
         matrix = [[0, 1, -1], [-1, 0, 1], [1, -1, 0]]
@@ -43,7 +36,13 @@ def test_solve_payoff_outputs_eigenvalues_for_alternating_matrix(tmp_path: Path)
     )
     _write_setting(data_dir, tmp_path)
 
-    (data_dir / "run_config" / "main.toml").write_text("features=[\"solve_payoff\"]\n[shared]\nmatrix=\"rps3\"\nsetting=\"local\"\n[solve_payoff]\n", encoding="utf-8")
+    _write(data_dir / "run_config" / "main.toml", """
+features=["solve_payoff"]
+[shared]
+matrix="rps3"
+setting="local"
+[solve_payoff]
+""")
     code = run(MainConfigLoader(data_dir / "run_config" / "main.toml"))
 
     assert code == 0
@@ -65,13 +64,6 @@ def test_solve_payoff_outputs_eigenvalues_for_alternating_matrix(tmp_path: Path)
 def test_solve_payoff_skips_eigenvalues_for_non_alternating_matrix(tmp_path: Path) -> None:
     data_dir = tmp_path / "data"
     _write(
-        data_dir / "run_config" / "baseline" / "non_alt_solve.toml",
-        '''
-        matrix = "non_alt"
-        setting = "local"
-        ''',
-    )
-    _write(
         data_dir / "matrix" / "non_alt" / "data.toml",
         '''
         matrix = [[0, 1], [0, 0]]
@@ -80,7 +72,13 @@ def test_solve_payoff_skips_eigenvalues_for_non_alternating_matrix(tmp_path: Pat
     )
     _write_setting(data_dir, tmp_path)
 
-    (data_dir / "run_config" / "main.toml").write_text("features=[\"solve_payoff\"]\n[shared]\nmatrix=\"non_alt\"\nsetting=\"local\"\n[solve_payoff]\n", encoding="utf-8")
+    _write(data_dir / "run_config" / "main.toml", """
+features=["solve_payoff"]
+[shared]
+matrix="non_alt"
+setting="local"
+[solve_payoff]
+""")
     code = run(MainConfigLoader(data_dir / "run_config" / "main.toml"))
 
     assert code == 0
