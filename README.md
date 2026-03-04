@@ -148,7 +148,12 @@ base_dir = "results"
 [analysis_project]
 project_id = "prototype"
 project_path = "project_prototype"
+# 試験実行で project と紐づけたくない場合は _null を指定
+# project_id = "_null"
 ```
+
+`analysis_project.project_id = "_null"` を指定すると、runmeta 上は `project_id = NULL` として登録され、
+プロジェクト連携（projects テーブル登録 / experiment_refs 生成）を行わない単発実行モードになります。
 
 最低限、`runmeta` と `output` を置いておくと運用しやすいです。
 

@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 import monocycle_nash.runmeta.project_refs as project_refs_mod
+from monocycle_nash.runmeta.repositories import UNASSIGNED_PROJECT_ID
 
 from monocycle_nash.loader.runtime_common import (
     build_characters,
@@ -195,6 +196,32 @@ def test_prepare_run_session_updates_existing_project_path(tmp_path: Path) -> No
     assert (new_project_root / "experiment_refs" / str(second_ctx.run_id)).exists() or (
         new_project_root / "experiment_refs" / f"{second_ctx.run_id}.txt"
     ).exists()
+
+
+def test_prepare_run_session_uses_unassigned_project_id_as_unlinked_mode(tmp_path: Path) -> None:
+    output_base = tmp_path / "result"
+    project_root = tmp_path / "analysis-main"
+    setting = {
+        "runmeta": {"sqlite_path": str(tmp_path / ".runmeta" / "run_history.db")},
+        "output": {"base_dir": str(output_base)},
+        "analysis_project": {
+            "project_id": UNASSIGNED_PROJECT_ID,
+            "project_path": str(project_root),
+        },
+    }
+
+    service, ctx, conn = prepare_run_session(setting, "uv run main (solve_payoff) --run-config x")
+    try:
+        run = service.runs_repository.find_by_id(ctx.run_id)
+        project = service.runs_repository.conn.execute("SELECT * FROM projects").fetchall()
+    finally:
+        conn.close()
+
+    assert run is not None
+    assert run.project_id is None
+    assert run.project_path is None
+    assert project == []
+    assert not (project_root / "experiment_refs").exists()
 
 
 def test_prepare_run_session_writes_txt_when_symlink_and_junction_fail(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
