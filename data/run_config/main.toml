@@ -10,8 +10,11 @@ setting = "local"
 graph = "default"
 
 [compare_approximation]
-approximation_setting = "default"
-reference_matrix = "janken_matrix"
+approximation = "default"
+
+[compare_random_approximation]
+approximation = "default"
+random_matrix = "default"
 
 [plot_characters]
 matrix = "janken_characters"
