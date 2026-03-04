@@ -1,0 +1,4 @@
+# compare_approximation のデフォルト設定
+# source_matrix / reference_matrix 未指定時は main.toml の shared.matrix を使用
+approximation = "MonocycleToGeneralApproximation"
+distance = "MaxElementDifferenceDistance"
