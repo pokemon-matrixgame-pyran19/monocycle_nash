@@ -51,3 +51,39 @@ def test_main_runs_compare_random_approximation(monkeypatch: pytest.MonkeyPatch)
 
     assert main_mod.main() == 0
     assert called == [fake_loader]
+
+
+def test_main_enables_shared_run_mode_for_multiple_features(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_loader = _FakeConfigLoader(["compare_payoff", "compare_random_approximation"])
+    monkeypatch.setattr(main_mod, "MainConfigLoader", lambda: fake_loader)
+
+    run_calls: list[str] = []
+    shared_mode_calls: list[bool] = []
+    finalize_calls = 0
+
+    def _fake_compare_run(config_loader: _FakeConfigLoader) -> int:
+        run_calls.append("compare_payoff")
+        assert config_loader is fake_loader
+        return 0
+
+    def _fake_random_run(config_loader: _FakeConfigLoader) -> int:
+        run_calls.append("compare_random_approximation")
+        assert config_loader is fake_loader
+        return 0
+
+    def _fake_set_shared_mode(enabled: bool) -> None:
+        shared_mode_calls.append(enabled)
+
+    def _fake_finalize() -> None:
+        nonlocal finalize_calls
+        finalize_calls += 1
+
+    monkeypatch.setattr(main_mod, "run_compare_payoff", _fake_compare_run)
+    monkeypatch.setattr(main_mod, "run_compare_random_approximation", _fake_random_run)
+    monkeypatch.setattr(main_mod, "set_shared_run_mode", _fake_set_shared_mode)
+    monkeypatch.setattr(main_mod, "finalize_shared_run", _fake_finalize)
+
+    assert main_mod.main() == 0
+    assert run_calls == ["compare_payoff", "compare_random_approximation"]
+    assert shared_mode_calls == [True, False]
+    assert finalize_calls == 1
