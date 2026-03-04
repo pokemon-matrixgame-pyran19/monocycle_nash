@@ -18,7 +18,7 @@ from monocycle_nash.runmeta.artifact_store import RunArtifactStore
 from monocycle_nash.runmeta.clock import now_jst_iso
 from monocycle_nash.runmeta.db import SQLiteConnectionFactory, migrate
 from monocycle_nash.runmeta.project_refs import create_analysis_project_reference
-from monocycle_nash.runmeta.repositories import ProjectsRepository, RunsRepository
+from monocycle_nash.runmeta.repositories import UNASSIGNED_PROJECT_ID, ProjectsRepository, RunsRepository
 from monocycle_nash.runmeta.service import RunSessionService
 from monocycle_nash.team.domain import Team
 from monocycle_nash.team.matrix_approx import ExactTeamPayoffCalculator
@@ -362,6 +362,7 @@ def prepare_run_session(setting: dict[str, Any], command: str) -> tuple[RunSessi
     service = RunSessionService(runs_repository=runs, artifact_store=RunArtifactStore(output_root))
 
     project_id = project.get("project_id") if isinstance(project.get("project_id"), str) and project.get("project_id") else None
+    project_id = _resolve_analysis_project_id(project_id)
     project_path = project.get("project_path") if isinstance(project.get("project_path"), str) and project.get("project_path") else None
     effective_project_path = _ensure_project_linkage(projects, project_id=project_id, project_path=project_path)
 
@@ -376,6 +377,12 @@ def prepare_run_session(setting: dict[str, Any], command: str) -> tuple[RunSessi
         status="running",
     )
     return service, ctx, conn
+
+
+def _resolve_analysis_project_id(project_id: str | None) -> str | None:
+    if project_id == UNASSIGNED_PROJECT_ID:
+        return None
+    return project_id
 
 
 def _ensure_project_linkage(

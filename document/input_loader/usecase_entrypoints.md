@@ -161,9 +161,11 @@ project_path = "C:\\analysis\\main"
 - `runmeta.sqlite_path`: run履歴 DB。
 - `output.base_dir`: 実行結果ルート（`result` を想定）。
 - `analysis_project.project_id`: run を紐づける考察プロジェクトID。
+  - `_null` を指定すると「非紐づけモード」になり、`runs.project_id` は `NULL` で保存される。
 - `analysis_project.project_path`: 考察プロジェクト実体パス。
 
 `analysis_project` は `run_result_management_spec.md` の `projects` テーブル登録・関連付け時に使用する。
+ただし `project_id = "_null"` 時は projects 登録や参照リンク生成を行わない。
 
 ---
 
