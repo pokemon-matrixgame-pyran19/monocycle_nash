@@ -26,9 +26,22 @@ def test_approximation_quality_statistics_summarize_grouped() -> None:
 
     grouped = stats.summarize_grouped("group")
 
-    assert grouped["small"].count == 2
-    assert grouped["small"].mean == pytest.approx(0.25)
-    assert grouped["large"].count == 1
+    assert grouped[("small",)].count == 2
+    assert grouped[("small",)].mean == pytest.approx(0.25)
+    assert grouped[("large",)].count == 1
+
+
+def test_approximation_quality_statistics_summarize_grouped_by_composite_labels() -> None:
+    stats = ApproximationQualityStatistics()
+    stats.add(0.2, parameters={"group": "small", "stage": "A"})
+    stats.add(0.5, parameters={"group": "small", "stage": "A"})
+    stats.add(0.3, parameters={"group": "small", "stage": "B"})
+
+    grouped = stats.summarize_grouped("group", "stage")
+
+    assert grouped[("small", "A")].count == 2
+    assert grouped[("small", "A")].mean == pytest.approx(0.35)
+    assert grouped[("small", "B")].count == 1
 
 
 def test_approximation_quality_statistics_requires_scores() -> None:

@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
-
 import numpy as np
 
 
@@ -38,30 +36,14 @@ class ApproximationQualityStatistics:
     def summarize(self) -> ApproximationQualitySummary:
         return self._summarize_records(self._records)
 
-    def summarize_grouped(self, *group_keys: str) -> dict[str, Any]:
+    def summarize_grouped(self, *group_keys: str) -> dict[tuple[str, ...], ApproximationQualitySummary]:
         if not group_keys:
             raise ValueError("group_keys は1件以上必要です")
-        return self._summarize_grouped_recursive(self._records, list(group_keys))
-
-    def _summarize_grouped_recursive(
-        self,
-        records: list[ApproximationQualityRecord],
-        group_keys: list[str],
-    ) -> dict[str, Any]:
-        current_key = group_keys[0]
-        bucketed: dict[str, list[ApproximationQualityRecord]] = {}
-        for record in records:
-            value = record.parameters.get(current_key, "<missing>")
-            bucketed.setdefault(str(value), []).append(record)
-
-        if len(group_keys) == 1:
-            return {label: self._summarize_records(bucket_records) for label, bucket_records in bucketed.items()}
-
-        rest_keys = group_keys[1:]
-        return {
-            label: self._summarize_grouped_recursive(bucket_records, rest_keys)
-            for label, bucket_records in bucketed.items()
-        }
+        bucketed: dict[tuple[str, ...], list[ApproximationQualityRecord]] = {}
+        for record in self._records:
+            labels = tuple(str(record.parameters.get(group_key, "<missing>")) for group_key in group_keys)
+            bucketed.setdefault(labels, []).append(record)
+        return {labels: self._summarize_records(bucket_records) for labels, bucket_records in bucketed.items()}
 
     @staticmethod
     def _summarize_records(records: list[ApproximationQualityRecord]) -> ApproximationQualitySummary:

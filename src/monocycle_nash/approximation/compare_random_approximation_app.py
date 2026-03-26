@@ -4,8 +4,6 @@ from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass
 from monocycle_nash.loader.main_config import MainConfigLoader
 import traceback
-from typing import Any
-
 import numpy as np
 
 from monocycle_nash.approximation.compare_approximation_app import (
@@ -166,22 +164,25 @@ def run(config_loader: MainConfigLoader) -> int:
         conn.close()
 
 
-def _build_grouped_summary(statistics: ApproximationQualityStatistics) -> dict[str, Any]:
+def _build_grouped_summary(statistics: ApproximationQualityStatistics) -> dict[str, dict[str, float | int]]:
     if not statistics.records:
         return {}
     group_keys = sorted({key for record in statistics.records for key in record.parameters.keys() if key.endswith("_bin")})
     if not group_keys:
         return {}
     grouped = statistics.summarize_grouped(*group_keys)
-    return {group_keys[0]: _serialize_grouped_summary(grouped)}
+    return {
+        _format_group_label(group_keys, labels): asdict(summary)
+        for labels, summary in grouped.items()
+    }
 
 
 def _flatten_diagnostics(
     result: ApproximationResult,
     *,
     dominant_eigen_ratio_bin_edges: tuple[float, ...] | None = None,
-) -> dict[str, Any]:
-    parameters: dict[str, Any] = {
+) -> dict[str, object]:
+    parameters: dict[str, object] = {
         f"method.{key}": value for key, value in asdict(result.diagnostics.method).items()
     }
 
@@ -208,12 +209,8 @@ def _histogram_label(value: float, edges: tuple[float, ...]) -> str:
     return f"[{edges[-1]:.3f},inf)"
 
 
-def _serialize_grouped_summary(data: Any) -> Any:
-    if isinstance(data, ApproximationQualitySummary):
-        return asdict(data)
-    if isinstance(data, dict):
-        return {key: _serialize_grouped_summary(value) for key, value in data.items()}
-    return data
+def _format_group_label(group_keys: list[str], labels: tuple[str, ...]) -> str:
+    return ", ".join(f"{group_key}={label}" for group_key, label in zip(group_keys, labels, strict=True))
 
 
 def _condition_keyword(condition: RandomMatrixAcceptanceCondition | None) -> str:
