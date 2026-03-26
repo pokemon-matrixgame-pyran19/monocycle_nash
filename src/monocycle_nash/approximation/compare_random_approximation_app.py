@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from monocycle_nash.application_ports import FeatureWorkflowInputPort, RandomMatrixConfig
+from monocycle_nash.loader.main_config import MainConfigLoader
 import traceback
 from dataclasses import asdict, dataclass
 from typing import Any
@@ -8,6 +8,7 @@ from typing import Any
 import numpy as np
 
 from monocycle_nash.approximation.compare_approximation_app import _build_approximation, _build_distance
+from monocycle_nash.approximation.infra import ApproximationFeatureInfrastructure, RandomMatrixSettings
 from monocycle_nash.approximation.random_experiment_domain import ApproximationQualityStatistics, ApproximationQualitySummary
 from monocycle_nash.loader.runtime_common import (
     _to_toml,
@@ -43,23 +44,19 @@ class RankAtLeastFourCondition(RandomMatrixAcceptanceCondition):
         return int(np.linalg.matrix_rank(matrix)) >= 4
 
 
-def run(config_loader: FeatureWorkflowInputPort) -> int:
-    loaded = config_loader.load_inputs_for_feature(FEATURE_NAME)
-    approximation_config = loaded.approximation_config
-    random_matrix_config = loaded.random_matrix_config
-    if approximation_config is None:
-        raise ValueError("approximation 設定が必要です")
-    if random_matrix_config is None:
-        raise ValueError("random_matrix 設定が必要です")
+def run(config_loader: MainConfigLoader) -> int:
+    feature_config = ApproximationFeatureInfrastructure(config_loader).load_compare_random_approximation()
+    approximation_config = feature_config.approximation
+    random_matrix_config = feature_config.random_matrix
 
-    service, ctx, conn = prepare_run_session(loaded.setting_data, f"uv run main ({FEATURE_NAME})")
+    service, ctx, conn = prepare_run_session(feature_config.setting_data, f"uv run main ({FEATURE_NAME})")
     try:
         write_input_snapshots(
             service,
             ctx.run_id,
-            matrix_data=loaded.matrix_data,
+            matrix_data=feature_config.matrix_data,
             graph_data=None,
-            setting_data=loaded.setting_data,
+            setting_data=feature_config.setting_data,
         )
         input_dir = service.artifact_store.run_dir(ctx.run_id) / "input"
         (input_dir / "approximation.toml").write_text(_to_toml(approximation_config.raw_input), encoding="utf-8")
@@ -147,7 +144,7 @@ def _condition_keyword(condition: RandomMatrixAcceptanceCondition | None) -> str
     raise ValueError("未対応の acceptance_condition です")
 
 
-def _parse_random_generation_config(config: RandomMatrixConfig) -> RandomGenerationConfig:
+def _parse_random_generation_config(config: RandomMatrixSettings) -> RandomGenerationConfig:
     acceptance_condition = _build_acceptance_condition(config.acceptance_condition)
 
     if config.size <= 0:

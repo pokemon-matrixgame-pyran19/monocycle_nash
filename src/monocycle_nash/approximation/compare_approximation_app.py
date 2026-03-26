@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from monocycle_nash.application_ports import ApproximationConfig, FeatureWorkflowInputPort
+from monocycle_nash.loader.main_config import MainConfigLoader
 import traceback
 
+from monocycle_nash.approximation.infra import ApproximationFeatureInfrastructure
 from monocycle_nash.loader.runtime_common import _to_toml, build_matrix, prepare_run_session, write_input_snapshots, write_json
 from monocycle_nash.matrix import (
     ApproximationQualityEvaluator,
@@ -19,22 +20,21 @@ from monocycle_nash.matrix import (
 FEATURE_NAME = "compare_approximation"
 
 
-def run(config_loader: FeatureWorkflowInputPort) -> int:
-    loaded = config_loader.load_inputs_for_feature(FEATURE_NAME)
-    approximation_config = loaded.approximation_config
-    if approximation_config is None:
-        raise ValueError("approximation 設定が必要です")
+def run(config_loader: MainConfigLoader) -> int:
+    feature_config = ApproximationFeatureInfrastructure(config_loader).load_compare_approximation()
+    approximation_config = feature_config.approximation
 
-    service, ctx, conn = prepare_run_session(loaded.setting_data, f"uv run main ({FEATURE_NAME})")
+    service, ctx, conn = prepare_run_session(feature_config.setting_data, f"uv run main ({FEATURE_NAME})")
     try:
-        source_matrix_data, reference_matrix_data = _load_source_and_reference_matrices(config_loader, loaded.matrix_data, approximation_config)
+        source_matrix_data = feature_config.source_matrix_data
+        reference_matrix_data = feature_config.reference_matrix_data
 
         write_input_snapshots(
             service,
             ctx.run_id,
             matrix_data=source_matrix_data,
             graph_data=None,
-            setting_data=loaded.setting_data,
+            setting_data=feature_config.setting_data,
         )
         input_dir = service.artifact_store.run_dir(ctx.run_id) / "input"
         (input_dir / "reference_matrix.toml").write_text(_to_toml(reference_matrix_data), encoding="utf-8")
@@ -68,19 +68,6 @@ def run(config_loader: FeatureWorkflowInputPort) -> int:
         return 1
     finally:
         conn.close()
-
-
-def _load_source_and_reference_matrices(
-    config_loader: FeatureWorkflowInputPort,
-    default_matrix_data: dict,
-    approximation_config: ApproximationConfig,
-) -> tuple[dict, dict]:
-    source_name = approximation_config.source_matrix_name
-    reference_name = approximation_config.reference_matrix_name
-
-    source_matrix_data = config_loader.load_matrix_data(source_name) if source_name is not None else default_matrix_data
-    reference_matrix_data = config_loader.load_matrix_data(reference_name) if reference_name is not None else default_matrix_data
-    return source_matrix_data, reference_matrix_data
 
 
 def _build_approximation(approx_name: str) -> PayoffMatrixApproximation:
