@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from monocycle_nash.application_ports import FeatureWorkflowInputPort
+from monocycle_nash.loader.main_config import MainConfigLoader
 import traceback
 
 import numpy as np
 
+from monocycle_nash.equilibrium.infra import EquilibriumFeatureInfrastructure
 from monocycle_nash.loader.runtime_common import build_matrix, prepare_run_session, write_input_snapshots, write_json
 from monocycle_nash.solver.selector import SolverSelector
 
@@ -12,18 +13,18 @@ from monocycle_nash.solver.selector import SolverSelector
 FEATURE_NAME = "solve_payoff"
 
 
-def run(config_loader: FeatureWorkflowInputPort) -> int:
-    loaded = config_loader.load_inputs_for_feature(FEATURE_NAME)
-    matrix = build_matrix(loaded.matrix_data)
+def run(config_loader: MainConfigLoader) -> int:
+    feature_config = EquilibriumFeatureInfrastructure(config_loader).load_solve_payoff()
+    matrix = build_matrix(feature_config.matrix_data)
 
-    service, ctx, conn = prepare_run_session(loaded.setting_data, f"uv run main ({FEATURE_NAME})")
+    service, ctx, conn = prepare_run_session(feature_config.setting_data, f"uv run main ({FEATURE_NAME})")
     try:
         write_input_snapshots(
             service,
             ctx.run_id,
-            matrix_data=loaded.matrix_data,
+            matrix_data=feature_config.matrix_data,
             graph_data=None,
-            setting_data=loaded.setting_data,
+            setting_data=feature_config.setting_data,
         )
 
         eq = SolverSelector().solve(matrix)
