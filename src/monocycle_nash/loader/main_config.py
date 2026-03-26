@@ -10,7 +10,8 @@ from monocycle_nash.application_ports import (
     RandomMatrixConfig,
 )
 from monocycle_nash.loader.data_loader import ExperimentDataLoader, SettingDataLoader
-from monocycle_nash.loader.runtime_common import validate_matrix_input, validate_setting_input
+from monocycle_nash.loader.runtime_common import validate_setting_input
+from monocycle_nash.matrix import MatrixFileInfrastructure
 from monocycle_nash.loader.toml_tree import TomlTreeLoader
 
 
@@ -39,15 +40,16 @@ class MainConfigLoader:
         approximation_name = self._resolve_approximation_name(merged, feature=feature)
         random_matrix_name = self._resolve_random_matrix_name(merged, feature=feature)
 
-        exp_loader = ExperimentDataLoader(base_dir=self._main_config_path.parent.parent)
-        matrix_data = exp_loader.load("matrix", matrix_name)
+        data_root = self._main_config_path.parent.parent
+        matrix_data = MatrixFileInfrastructure(base_dir=data_root).load_matrix_data(matrix_name)
+
+        exp_loader = ExperimentDataLoader(base_dir=data_root)
         approximation_data = exp_loader.load("approximation", approximation_name) if approximation_name is not None else None
         random_matrix_data = exp_loader.load("random_matrix", random_matrix_name) if random_matrix_name is not None else None
         graph_data = exp_loader.load("graph", graph_name) if graph_name is not None else None
 
         setting = SettingDataLoader(base_dir=self._main_config_path.parent.parent / "setting").load(setting_name)
 
-        validate_matrix_input(matrix_data)
         validate_setting_input(setting)
 
         return LoadedFeatureInputs(
@@ -61,10 +63,8 @@ class MainConfigLoader:
     def load_matrix_data(self, matrix_name: str) -> dict:
         if not isinstance(matrix_name, str) or not matrix_name:
             raise ValueError("matrix_name は空でない文字列で指定してください")
-        exp_loader = ExperimentDataLoader(base_dir=self._main_config_path.parent.parent)
-        matrix_data = exp_loader.load("matrix", matrix_name)
-        validate_matrix_input(matrix_data)
-        return matrix_data
+        data_root = self._main_config_path.parent.parent
+        return MatrixFileInfrastructure(base_dir=data_root).load_matrix_data(matrix_name)
 
     def _build_graph_config(self, feature: str, graph_data: dict | None) -> PayoffGraphConfig | CharacterGraphConfig | None:
         if feature == "graph_payoff":
