@@ -32,12 +32,12 @@ def test_main_config_loader_resolves_shared_and_feature_override(tmp_path: Path)
     _write(data_dir / "setting" / "local.toml", '[output]\nbase_dir = "result"')
 
     loader = MainConfigLoader(data_dir / "run_config" / "main.toml")
-    loaded = loader.load_inputs_for_feature("graph_payoff", graph_section="payoff")
+    loaded = loader.load_inputs_for_feature("graph_payoff")
 
     assert loader.load_features() == ["graph_payoff"]
     assert loaded.matrix_data["matrix"] == [[0, 1], [-1, 0]]
-    assert loaded.graph_data is not None
-    assert loaded.graph_data["canvas_size"] == 840
+    assert loaded.graph_config is not None
+    assert loaded.graph_config.canvas_size == 840
 
 
 def test_main_config_loader_requires_declared_feature_section(tmp_path: Path) -> None:
@@ -71,8 +71,8 @@ def test_main_config_loader_loads_approximation_for_compare_feature(tmp_path: Pa
     loader = MainConfigLoader(data_dir / "run_config" / "main.toml")
     loaded = loader.load_inputs_for_feature("compare_approximation")
 
-    assert loaded.approximation_data is not None
-    assert loaded.approximation_data["alpha"] == 0.5
+    assert loaded.approximation_config is not None
+    assert loaded.approximation_config.approximation_name == "MonocycleToGeneralApproximation"
 
 
 def test_main_config_loader_requires_approximation_for_compare_feature(tmp_path: Path) -> None:
@@ -121,8 +121,8 @@ def test_main_config_loader_loads_random_matrix_for_random_compare_feature(tmp_p
     loader = MainConfigLoader(data_dir / "run_config" / "main.toml")
     loaded = loader.load_inputs_for_feature("compare_random_approximation")
 
-    assert loaded.random_matrix_data is not None
-    assert loaded.random_matrix_data["size"] == 4
+    assert loaded.random_matrix_config is not None
+    assert loaded.random_matrix_config.size == 4
 
 
 def test_main_config_loader_requires_random_matrix_for_random_compare_feature(tmp_path: Path) -> None:
