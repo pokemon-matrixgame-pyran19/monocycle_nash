@@ -3,7 +3,7 @@ from __future__ import annotations
 from monocycle_nash.loader.main_config import MainConfigLoader
 import traceback
 
-from monocycle_nash.approximation.infra import ApproximationFeatureInfrastructure
+from monocycle_nash.approximation.infra import ApproximationFeatureInfrastructure, ApproximationSettings
 from monocycle_nash.loader.runtime_common import _to_toml, matrix_to_toml_payload, prepare_run_session, write_input_snapshots, write_json
 from monocycle_nash.matrix import (
     ApproximationQualityEvaluator,
@@ -41,7 +41,7 @@ def run(config_loader: MainConfigLoader) -> int:
             _to_toml(matrix_to_toml_payload(reference_matrix)),
             encoding="utf-8",
         )
-        (input_dir / "approximation.toml").write_text(_to_toml(approximation_config.raw_input), encoding="utf-8")
+        (input_dir / "approximation.toml").write_text(_to_toml(_approximation_to_toml_payload(approximation_config)), encoding="utf-8")
 
         approximation = _build_approximation(approximation_config.approximation_name)
         distance = _build_distance(approximation_config.distance_name)
@@ -88,3 +88,16 @@ def _build_distance(distance_name: str) -> PayoffMatrixDistance:
         return EquilibriumUStrategyDifferenceDistance()
     raise ValueError(f"未対応の distance です: {distance_name}")
 
+
+def _approximation_to_toml_payload(approximation: ApproximationSettings) -> dict[str, object]:
+    config = {
+        "approximation": approximation.approximation_name,
+        "distance": approximation.distance_name,
+    }
+    if approximation.source_matrix_name is not None:
+        config["source_matrix"] = approximation.source_matrix_name
+    if approximation.reference_matrix_name is not None:
+        config["reference_matrix"] = approximation.reference_matrix_name
+    if approximation.dominant_eigen_ratio_bin_edges is not None:
+        config["dominant_eigen_ratio_bin_edges"] = list(approximation.dominant_eigen_ratio_bin_edges)
+    return config

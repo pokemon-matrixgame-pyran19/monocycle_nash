@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Generic, TypeVar
+from typing import Generic, TypeVar
 
 import numpy as np
 
@@ -22,7 +22,12 @@ class PayoffMatrixApproximation(ABC, Generic[InputMatrixT, ApproxMatrixT]):
     def approximate(self, matrix: InputMatrixT) -> ApproxMatrixT:
         raise NotImplementedError
 
-    def quality_parameters(self, matrix: InputMatrixT, *, config: dict[str, Any] | None = None) -> dict[str, Any]:
+    def quality_parameters(
+        self,
+        matrix: InputMatrixT,
+        *,
+        dominant_eigen_ratio_bin_edges: tuple[float, ...] | None = None,
+    ) -> dict[str, float | str]:
         """精度評価時に付与する補助パラメータを返す。デフォルトは空。"""
         return {}
 
@@ -58,10 +63,15 @@ class DominantEigenpairMonocycleApproximation(PayoffMatrixApproximation[PayoffMa
             col_strategies=matrix.col_strategies,
         )
 
-    def quality_parameters(self, matrix: PayoffMatrix, *, config: dict[str, Any] | None = None) -> dict[str, Any]:
+    def quality_parameters(
+        self,
+        matrix: PayoffMatrix,
+        *,
+        dominant_eigen_ratio_bin_edges: tuple[float, ...] | None = None,
+    ) -> dict[str, float | str]:
         source = np.asarray(matrix.matrix, dtype=float)
         ratio = self._dominant_eigen_ratio(source)
-        bin_edges = self._resolve_ratio_bin_edges(config)
+        bin_edges = self._resolve_ratio_bin_edges(dominant_eigen_ratio_bin_edges)
         return {
             "dominant_eigen_ratio": ratio,
             "dominant_eigen_ratio_bin": self._histogram_label(ratio, bin_edges),
@@ -114,18 +124,10 @@ class DominantEigenpairMonocycleApproximation(PayoffMatrixApproximation[PayoffMa
         return float(unique_levels[0] / unique_levels[1])
 
     @staticmethod
-    def _resolve_ratio_bin_edges(config: dict[str, Any] | None) -> list[float]:
-        raw = None if config is None else config.get("dominant_eigen_ratio_bin_edges")
-        if raw is None:
+    def _resolve_ratio_bin_edges(dominant_eigen_ratio_bin_edges: tuple[float, ...] | None) -> list[float]:
+        if dominant_eigen_ratio_bin_edges is None:
             return [1.25, 1.5, 2.0, 3.0]
-        if not isinstance(raw, list) or any(not isinstance(x, (int, float)) for x in raw):
-            raise ValueError("dominant_eigen_ratio_bin_edges は数値配列で指定してください")
-        edges = [float(x) for x in raw]
-        if any(x <= 0.0 for x in edges):
-            raise ValueError("dominant_eigen_ratio_bin_edges は正の数値で指定してください")
-        if any(edges[i] >= edges[i + 1] for i in range(len(edges) - 1)):
-            raise ValueError("dominant_eigen_ratio_bin_edges は昇順で指定してください")
-        return edges
+        return list(dominant_eigen_ratio_bin_edges)
 
     @staticmethod
     def _histogram_label(value: float, edges: list[float]) -> str:

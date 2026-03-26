@@ -8,7 +8,11 @@ from typing import Any
 import numpy as np
 
 from monocycle_nash.approximation.compare_approximation_app import _build_approximation, _build_distance
-from monocycle_nash.approximation.infra import ApproximationFeatureInfrastructure, RandomMatrixSettings
+from monocycle_nash.approximation.infra import (
+    ApproximationFeatureInfrastructure,
+    ApproximationSettings,
+    RandomMatrixSettings,
+)
 from monocycle_nash.approximation.random_experiment_domain import ApproximationQualityStatistics, ApproximationQualitySummary
 from monocycle_nash.loader.runtime_common import (
     _to_toml,
@@ -64,8 +68,11 @@ def run(config_loader: MainConfigLoader) -> int:
             setting_data=feature_config.setting_data,
         )
         input_dir = service.artifact_store.run_dir(ctx.run_id) / "input"
-        (input_dir / "approximation.toml").write_text(_to_toml(approximation_config.raw_input), encoding="utf-8")
-        (input_dir / "random_matrix.toml").write_text(_to_toml(random_matrix_config.raw_input), encoding="utf-8")
+        (input_dir / "approximation.toml").write_text(
+            _to_toml(_approximation_to_toml_payload(approximation_config)),
+            encoding="utf-8",
+        )
+        (input_dir / "random_matrix.toml").write_text(_to_toml(_random_matrix_to_toml_payload(random_matrix_config)), encoding="utf-8")
 
         approximation = _build_approximation(approximation_config.approximation_name)
         distance = _build_distance(approximation_config.distance_name)
@@ -86,7 +93,10 @@ def run(config_loader: MainConfigLoader) -> int:
             )
             source = PayoffMatrixBuilder.from_general_matrix(raw_matrix)
             score = evaluator.evaluate(source, source)
-            parameters = approximation.quality_parameters(source, config=approximation_config.raw_input)
+            parameters = approximation.quality_parameters(
+                source,
+                dominant_eigen_ratio_bin_edges=approximation_config.dominant_eigen_ratio_bin_edges,
+            )
             statistics.add(score, parameters=parameters)
 
         overall = statistics.summarize()
@@ -177,3 +187,31 @@ def _build_acceptance_condition(keyword: str) -> RandomMatrixAcceptanceCondition
         return RankAtLeastFourCondition()
     raise ValueError(f"未対応の random_matrix.acceptance_condition です: {keyword}")
 
+
+def _approximation_to_toml_payload(approximation: ApproximationSettings) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "approximation": approximation.approximation_name,
+        "distance": approximation.distance_name,
+    }
+    if approximation.source_matrix_name is not None:
+        payload["source_matrix"] = approximation.source_matrix_name
+    if approximation.reference_matrix_name is not None:
+        payload["reference_matrix"] = approximation.reference_matrix_name
+    if approximation.dominant_eigen_ratio_bin_edges is not None:
+        payload["dominant_eigen_ratio_bin_edges"] = list(approximation.dominant_eigen_ratio_bin_edges)
+    return payload
+
+
+def _random_matrix_to_toml_payload(config: RandomMatrixSettings) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "size": config.size,
+        "generation_count": config.generation_count,
+        "low": config.low,
+        "high": config.high,
+        "max_attempts": config.max_attempts,
+    }
+    if config.acceptance_condition:
+        payload["acceptance_condition"] = config.acceptance_condition
+    if config.random_seed is not None:
+        payload["random_seed"] = config.random_seed
+    return payload
