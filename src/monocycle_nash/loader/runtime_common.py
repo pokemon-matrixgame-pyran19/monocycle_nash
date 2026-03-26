@@ -17,6 +17,13 @@ from monocycle_nash.runmeta.db import SQLiteConnectionFactory, migrate
 from monocycle_nash.runmeta.project_refs import create_analysis_project_reference
 from monocycle_nash.runmeta.repositories import UNASSIGNED_PROJECT_ID, ProjectsRepository, RunsRepository
 from monocycle_nash.runmeta.service import RunSessionService
+from monocycle_nash.runmeta.setting_domain import (
+    AnalysisProjectSetting,
+    OutputSetting,
+    RunMetaSetting,
+    RuntimeSetting,
+    RuntimeSettingParser,
+)
 
 
 @dataclass
@@ -67,7 +74,7 @@ def load_inputs(
     *,
     require_graph: bool,
     graph_section: str | None = None,
-) -> tuple[PayoffMatrix, dict[str, Any] | None, dict[str, Any], Path]:
+) -> tuple[PayoffMatrix, dict[str, Any] | None, RuntimeSetting, Path]:
     data_root = Path(data_dir)
     cfg = _load_run_config(run_config, data_root)
     refs = _resolve_run_config_refs(cfg, require_graph=require_graph)
@@ -78,9 +85,9 @@ def load_inputs(
     exp_loader = ExperimentDataLoader(base_dir=data_root)
     loaded_graph_data = exp_loader.load("graph", refs.graph) if refs.graph is not None else None
     graph_data = _select_graph_section(loaded_graph_data, graph_section=graph_section)
-    setting = SettingDataLoader(base_dir=data_root / "setting").load(refs.setting)
+    setting_raw = SettingDataLoader(base_dir=data_root / "setting").load(refs.setting)
     validate_graph_input(graph_data)
-    validate_setting_input(setting)
+    setting = TomlRuntimeSettingParser().parse(setting_raw)
     return matrix, graph_data, setting, _run_config_path(run_config, data_root)
 
 
@@ -144,7 +151,7 @@ def _select_graph_section(graph_data: dict[str, Any] | None, *, graph_section: s
     return section_data
 
 
-def validate_setting_input(setting_data: dict[str, Any]) -> None:
+def validate_setting_input(setting_data: dict[str, Any]) -> RuntimeSetting:
     runmeta = setting_data.get("runmeta")
     output = setting_data.get("output")
     analysis_project = setting_data.get("analysis_project")
@@ -156,13 +163,39 @@ def validate_setting_input(setting_data: dict[str, Any]) -> None:
     if analysis_project is not None and not isinstance(analysis_project, dict):
         raise ValueError("setting.analysis_project はテーブルで指定してください")
 
-    if isinstance(runmeta, dict):
+    sqlite_path = (
         _optional_non_empty_string(runmeta, key="sqlite_path", name="setting.runmeta.sqlite_path")
-    if isinstance(output, dict):
+        if isinstance(runmeta, dict)
+        else None
+    )
+    base_dir = (
         _optional_non_empty_string(output, key="base_dir", name="setting.output.base_dir")
-    if isinstance(analysis_project, dict):
-        _optional_non_empty_string(analysis_project, key="project_id", name="setting.analysis_project.project_id")
-        _optional_non_empty_string(analysis_project, key="project_path", name="setting.analysis_project.project_path")
+        if isinstance(output, dict)
+        else None
+    )
+    runmeta_setting = RunMetaSetting(sqlite_path=sqlite_path or ".runmeta/run_history.db")
+    output_setting = OutputSetting(base_dir=base_dir or "results")
+    analysis_project_setting = AnalysisProjectSetting(
+        project_id=_optional_non_empty_string(
+            analysis_project,
+            key="project_id",
+            name="setting.analysis_project.project_id",
+        )
+        if isinstance(analysis_project, dict)
+        else None,
+        project_path=_optional_non_empty_string(
+            analysis_project,
+            key="project_path",
+            name="setting.analysis_project.project_path",
+        )
+        if isinstance(analysis_project, dict)
+        else None,
+    )
+    return RuntimeSetting(
+        runmeta=runmeta_setting,
+        output=output_setting,
+        analysis_project=analysis_project_setting,
+    )
 
 
 def _optional_non_empty_string(container: dict[str, Any], *, key: str, name: str) -> str | None:
@@ -213,18 +246,14 @@ def finalize_shared_run() -> None:
         _SHARED_RUN_STATE = None
 
 
-def prepare_run_session(setting: dict[str, Any], command: str) -> tuple[RunSessionService, Any, sqlite3.Connection]:
+def prepare_run_session(setting: RuntimeSetting, command: str) -> tuple[RunSessionService, Any, sqlite3.Connection]:
     global _SHARED_RUN_STATE
     if _SHARED_RUN_MODE and _SHARED_RUN_STATE is not None:
         shared = _SHARED_RUN_STATE
         return _SharedRunSessionServiceProxy(shared.service, shared), shared.ctx, _NoCloseConnection(shared.conn)
 
-    runmeta = setting.get("runmeta", {}) if isinstance(setting.get("runmeta"), dict) else {}
-    output = setting.get("output", {}) if isinstance(setting.get("output"), dict) else {}
-    project = setting.get("analysis_project", {}) if isinstance(setting.get("analysis_project"), dict) else {}
-
-    db_path = str(runmeta.get("sqlite_path", ".runmeta/run_history.db"))
-    output_root = Path(str(output.get("base_dir", "results")))
+    db_path = setting.runmeta.sqlite_path
+    output_root = Path(setting.output.base_dir)
 
     conn = SQLiteConnectionFactory(db_path).connect()
     migrate(conn)
@@ -233,9 +262,9 @@ def prepare_run_session(setting: dict[str, Any], command: str) -> tuple[RunSessi
     runs = RunsRepository(conn)
     service = RunSessionService(runs_repository=runs, artifact_store=RunArtifactStore(output_root))
 
-    project_id = project.get("project_id") if isinstance(project.get("project_id"), str) and project.get("project_id") else None
+    project_id = setting.analysis_project.project_id
     project_id = _resolve_analysis_project_id(project_id)
-    project_path = project.get("project_path") if isinstance(project.get("project_path"), str) and project.get("project_path") else None
+    project_path = setting.analysis_project.project_path
     effective_project_path = _ensure_project_linkage(projects, project_id=project_id, project_path=project_path)
 
     ctx = service.start(command=command, project_id=project_id)
@@ -289,14 +318,19 @@ def write_input_snapshots(
     *,
     matrix_data: dict[str, Any],
     graph_data: dict[str, Any] | None,
-    setting_data: dict[str, Any],
+    setting_data: RuntimeSetting,
 ) -> None:
     input_dir = service.artifact_store.run_dir(run_id) / "input"
     input_dir.mkdir(parents=True, exist_ok=True)
     (input_dir / "matrix.toml").write_text(_to_toml(matrix_data), encoding="utf-8")
     if graph_data is not None:
         (input_dir / "graph.toml").write_text(_to_toml(graph_data), encoding="utf-8")
-    (input_dir / "setting.toml").write_text(_to_toml(setting_data), encoding="utf-8")
+    (input_dir / "setting.toml").write_text(_to_toml(setting_data.to_toml_payload()), encoding="utf-8")
+
+
+class TomlRuntimeSettingParser(RuntimeSettingParser):
+    def parse(self, raw_setting: dict[str, Any]) -> RuntimeSetting:
+        return validate_setting_input(raw_setting)
 
 
 def write_json(path: Path, payload: dict[str, Any]) -> None:

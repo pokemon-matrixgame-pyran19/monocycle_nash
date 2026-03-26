@@ -6,8 +6,12 @@ import pytest
 import monocycle_nash.runmeta.project_refs as project_refs_mod
 from monocycle_nash.runmeta.repositories import UNASSIGNED_PROJECT_ID
 
-from monocycle_nash.loader.runtime_common import prepare_run_session, write_input_snapshots
+from monocycle_nash.loader.runtime_common import TomlRuntimeSettingParser, prepare_run_session, write_input_snapshots
 from monocycle_nash.matrix.infra import build_characters, build_matrix_from_input
+
+
+def _parse_setting(raw: dict) -> object:
+    return TomlRuntimeSettingParser().parse(raw)
 
 
 def test_build_matrix_requires_exclusive_matrix_or_characters() -> None:
@@ -39,7 +43,7 @@ def test_prepare_run_session_creates_output_base_dir_run_folder(tmp_path: Path) 
         "output": {"base_dir": str(output_base)},
     }
 
-    service, ctx, conn = prepare_run_session(setting, "uv run main (solve_payoff) --run-config x")
+    service, ctx, conn = prepare_run_session(_parse_setting(setting), "uv run main (solve_payoff) --run-config x")
     conn.close()
 
     run_dir = output_base / str(ctx.run_id)
@@ -65,14 +69,14 @@ def test_write_input_snapshots_saves_resolved_split_toml_files(tmp_path: Path) -
         "output": {"base_dir": "result"},
     }
 
-    service, ctx, conn = prepare_run_session(setting, "uv run main (graph_payoff) --run-config x")
+    service, ctx, conn = prepare_run_session(_parse_setting(setting), "uv run main (graph_payoff) --run-config x")
     try:
         write_input_snapshots(
             service,
             ctx.run_id,
             matrix_data=matrix_data,
             graph_data=graph_data,
-            setting_data=setting_data,
+            setting_data=_parse_setting(setting_data),
         )
     finally:
         conn.close()
@@ -96,14 +100,14 @@ def test_write_input_snapshots_skips_graph_file_when_not_provided(tmp_path: Path
         "output": {"base_dir": str(output_base)},
     }
 
-    service, ctx, conn = prepare_run_session(setting, "uv run main (solve_payoff) --run-config x")
+    service, ctx, conn = prepare_run_session(_parse_setting(setting), "uv run main (solve_payoff) --run-config x")
     try:
         write_input_snapshots(
             service,
             ctx.run_id,
             matrix_data={"matrix": [[0.0]]},
             graph_data=None,
-            setting_data={"output": {"base_dir": "result"}},
+            setting_data=_parse_setting({"output": {"base_dir": "result"}}),
         )
     finally:
         conn.close()
@@ -126,7 +130,7 @@ def test_prepare_run_session_uses_analysis_project_for_runmeta_linkage(tmp_path:
         },
     }
 
-    service, ctx, conn = prepare_run_session(setting, "uv run main (solve_payoff) --run-config x")
+    service, ctx, conn = prepare_run_session(_parse_setting(setting), "uv run main (solve_payoff) --run-config x")
     try:
         run = service.runs_repository.find_by_id(ctx.run_id)
     finally:
@@ -166,13 +170,13 @@ def test_prepare_run_session_updates_existing_project_path(tmp_path: Path) -> No
     }
 
     _, first_ctx, first_conn = prepare_run_session(
-        first_setting,
+        _parse_setting(first_setting),
         "uv run main (solve_payoff) --run-config first",
     )
     first_conn.close()
 
     service, second_ctx, second_conn = prepare_run_session(
-        second_setting,
+        _parse_setting(second_setting),
         "uv run main (solve_payoff) --run-config second",
     )
     try:
@@ -206,7 +210,7 @@ def test_prepare_run_session_uses_unassigned_project_id_as_unlinked_mode(tmp_pat
         },
     }
 
-    service, ctx, conn = prepare_run_session(setting, "uv run main (solve_payoff) --run-config x")
+    service, ctx, conn = prepare_run_session(_parse_setting(setting), "uv run main (solve_payoff) --run-config x")
     try:
         run = service.runs_repository.find_by_id(ctx.run_id)
         project = service.runs_repository.conn.execute("SELECT * FROM projects").fetchall()
@@ -238,7 +242,7 @@ def test_prepare_run_session_writes_txt_when_symlink_and_junction_fail(tmp_path:
     monkeypatch.setattr(Path, "symlink_to", _raise_symlink)
     monkeypatch.setattr(project_refs_mod, "_try_create_windows_junction", lambda **_: False)
 
-    _, ctx, conn = prepare_run_session(setting, "uv run main (solve_payoff) --run-config txt")
+    _, ctx, conn = prepare_run_session(_parse_setting(setting), "uv run main (solve_payoff) --run-config txt")
     conn.close()
 
     txt_path = project_root / "experiment_refs" / f"{ctx.run_id}.txt"

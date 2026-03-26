@@ -121,7 +121,7 @@ def test_dominant_eigenpair_monocycle_approximation_quality_parameters_provides_
 
     parameters = approximation.quality_parameters(
         source,
-        config={"dominant_eigen_ratio_bin_edges": [1.5, 2.0, 3.0]},
+        dominant_eigen_ratio_bin_edges=(1.5, 2.0, 3.0),
     )
 
     assert parameters["dominant_eigen_ratio"] == pytest.approx(2.5)

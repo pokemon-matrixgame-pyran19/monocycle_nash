@@ -5,16 +5,17 @@ from dataclasses import dataclass
 from monocycle_nash.loader.data_loader import ExperimentDataLoader, SettingDataLoader
 from monocycle_nash.loader.main_config import MainConfigLoader
 from monocycle_nash.matrix.infra import build_characters
-from monocycle_nash.loader.runtime_common import validate_setting_input
+from monocycle_nash.loader.runtime_common import TomlRuntimeSettingParser
 from monocycle_nash.matrix import MatrixFileInfrastructure
 from monocycle_nash.matrix.base import PayoffMatrix
 from monocycle_nash.character.domain import Character
+from monocycle_nash.runmeta.setting_domain import RuntimeSetting
 
 
 @dataclass(frozen=True)
 class GraphPayoffFeatureConfig:
     matrix: PayoffMatrix
-    setting_data: dict
+    setting_data: RuntimeSetting
     threshold: float
     canvas_size: int
 
@@ -22,7 +23,7 @@ class GraphPayoffFeatureConfig:
 @dataclass(frozen=True)
 class PlotCharactersFeatureConfig:
     characters: list[Character]
-    setting_data: dict
+    setting_data: RuntimeSetting
     canvas_size: int
     margin: int
 
@@ -39,8 +40,9 @@ class GraphFeatureInfrastructure:
         graph_name = _require_non_empty_str(merged, key="graph", name="graph_payoff.graph")
 
         matrix = MatrixFileInfrastructure(base_dir=self._data_root).load_matrix(matrix_name)
-        setting = SettingDataLoader(base_dir=self._data_root / "setting").load(setting_name)
-        validate_setting_input(setting)
+        setting = TomlRuntimeSettingParser().parse(
+            SettingDataLoader(base_dir=self._data_root / "setting").load(setting_name)
+        )
 
         graph_data = ExperimentDataLoader(base_dir=self._data_root).load("graph", graph_name)
         section = _require_graph_section(graph_data, "payoff")
@@ -59,8 +61,9 @@ class GraphFeatureInfrastructure:
 
         matrix_input = MatrixFileInfrastructure(base_dir=self._data_root).load_matrix_input(matrix_name)
         characters = build_characters(matrix_input)
-        setting = SettingDataLoader(base_dir=self._data_root / "setting").load(setting_name)
-        validate_setting_input(setting)
+        setting = TomlRuntimeSettingParser().parse(
+            SettingDataLoader(base_dir=self._data_root / "setting").load(setting_name)
+        )
 
         graph_data = ExperimentDataLoader(base_dir=self._data_root).load("graph", graph_name)
         section = _require_graph_section(graph_data, "character")
