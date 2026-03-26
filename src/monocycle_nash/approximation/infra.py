@@ -1,53 +1,22 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
+from monocycle_nash.approximation.compare_approximation_app import (
+    ApproximationSettings,
+    CompareApproximationFeatureConfig,
+    CompareApproximationSettingLoader,
+)
+from monocycle_nash.approximation.compare_random_approximation_app import (
+    CompareRandomApproximationFeatureConfig,
+    CompareRandomApproximationSettingLoader,
+    RandomMatrixSettings,
+)
 from monocycle_nash.loader.data_loader import ExperimentDataLoader, SettingDataLoader
 from monocycle_nash.loader.main_config import MainConfigLoader
 from monocycle_nash.loader.runtime_common import TomlRuntimeSettingParser
 from monocycle_nash.matrix import MatrixFileInfrastructure
-from monocycle_nash.matrix.base import PayoffMatrix
-from monocycle_nash.runmeta.setting_domain import RuntimeSetting
 
 
-@dataclass(frozen=True)
-class ApproximationSettings:
-    source_matrix_name: str | None
-    reference_matrix_name: str | None
-    approximation_name: str
-    distance_name: str
-    dominant_eigen_ratio_bin_edges: tuple[float, ...] | None
-
-
-@dataclass(frozen=True)
-class RandomMatrixSettings:
-    size: int
-    generation_count: int
-    acceptance_condition: str
-    low: float
-    high: float
-    max_attempts: int
-    random_seed: int | None
-
-
-@dataclass(frozen=True)
-class CompareApproximationFeatureConfig:
-    matrix: PayoffMatrix
-    setting_data: RuntimeSetting
-    approximation: ApproximationSettings
-    source_matrix: PayoffMatrix
-    reference_matrix: PayoffMatrix
-
-
-@dataclass(frozen=True)
-class CompareRandomApproximationFeatureConfig:
-    matrix: PayoffMatrix
-    setting_data: RuntimeSetting
-    approximation: ApproximationSettings
-    random_matrix: RandomMatrixSettings
-
-
-class ApproximationFeatureInfrastructure:
+class ApproximationFeatureInfrastructure(CompareApproximationSettingLoader, CompareRandomApproximationSettingLoader):
     def __init__(self, config_loader: MainConfigLoader):
         self._config_loader = config_loader
         self._data_root = config_loader.data_root

@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from monocycle_nash.loader.main_config import MainConfigLoader
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
 import traceback
 
-from monocycle_nash.approximation.infra import ApproximationFeatureInfrastructure, ApproximationSettings
+from monocycle_nash.loader.main_config import MainConfigLoader
 from monocycle_nash.loader.runtime_common import _to_toml, matrix_to_toml_payload, prepare_run_session, write_input_snapshots, write_json
 from monocycle_nash.matrix import (
     ApproximationQualityEvaluator,
@@ -15,13 +16,42 @@ from monocycle_nash.matrix import (
     PayoffMatrixApproximation,
     PayoffMatrixDistance,
 )
+from monocycle_nash.matrix.base import PayoffMatrix
+from monocycle_nash.runmeta.setting_domain import RuntimeSetting
+
+
+@dataclass(frozen=True)
+class ApproximationSettings:
+    source_matrix_name: str | None
+    reference_matrix_name: str | None
+    approximation_name: str
+    distance_name: str
+    dominant_eigen_ratio_bin_edges: tuple[float, ...] | None
+
+
+@dataclass(frozen=True)
+class CompareApproximationFeatureConfig:
+    matrix: PayoffMatrix
+    setting_data: RuntimeSetting
+    approximation: ApproximationSettings
+    source_matrix: PayoffMatrix
+    reference_matrix: PayoffMatrix
+
+
+class CompareApproximationSettingLoader(ABC):
+    @abstractmethod
+    def load_compare_approximation(self) -> CompareApproximationFeatureConfig:
+        raise NotImplementedError
 
 
 FEATURE_NAME = "compare_approximation"
 
 
 def run(config_loader: MainConfigLoader) -> int:
-    feature_config = ApproximationFeatureInfrastructure(config_loader).load_compare_approximation()
+    from monocycle_nash.approximation.infra import ApproximationFeatureInfrastructure
+
+    setting_loader: CompareApproximationSettingLoader = ApproximationFeatureInfrastructure(config_loader)
+    feature_config = setting_loader.load_compare_approximation()
     approximation_config = feature_config.approximation
 
     service, ctx, conn = prepare_run_session(feature_config.setting_data, f"uv run main ({FEATURE_NAME})")
