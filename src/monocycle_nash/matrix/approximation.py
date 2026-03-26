@@ -1,55 +1,80 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Generic, TypeVar
+from dataclasses import dataclass, field
 
 import numpy as np
 
 from .base import PayoffMatrix
 from .general import GeneralPayoffMatrix
-from .monocycle import MonocyclePayoffMatrix
 from ..solver.selector import SolverSelector
 
-InputMatrixT = TypeVar("InputMatrixT", bound=PayoffMatrix)
-ApproxMatrixT = TypeVar("ApproxMatrixT", bound=PayoffMatrix)
-ReferenceMatrixT = TypeVar("ReferenceMatrixT", bound=PayoffMatrix)
+
+class ApproximationMethodDiagnostics(ABC):
+    """近似法固有の診断情報の基底。"""
 
 
-class PayoffMatrixApproximation(ABC, Generic[InputMatrixT, ApproxMatrixT]):
+@dataclass(frozen=True)
+class EmptyApproximationMethodDiagnostics(ApproximationMethodDiagnostics):
+    """近似法固有の診断情報を持たない場合の空オブジェクト。"""
+
+
+@dataclass(frozen=True)
+class DominantEigenpairMethodDiagnostics(ApproximationMethodDiagnostics):
+    dominant_eigen_ratio: float
+
+
+@dataclass(frozen=True)
+class ApproximationEvaluation:
+    """距離指標などに基づく客観評価。"""
+
+    quality: float | None = None
+
+
+@dataclass(frozen=True)
+class ApproximationDiagnostics:
+    """近似器固有の診断情報と評価時に付与される診断情報。"""
+
+    method: ApproximationMethodDiagnostics = field(default_factory=EmptyApproximationMethodDiagnostics)
+    evaluation: ApproximationEvaluation = field(default_factory=ApproximationEvaluation)
+
+
+@dataclass(frozen=True)
+class ApproximationResult:
+    """近似後の行列と診断情報。"""
+
+    matrix: PayoffMatrix
+    diagnostics: ApproximationDiagnostics = field(default_factory=ApproximationDiagnostics)
+
+
+class PayoffMatrixApproximation(ABC):
     """利得行列近似の抽象基底クラス。"""
 
     @abstractmethod
-    def approximate(self, matrix: InputMatrixT) -> ApproxMatrixT:
+    def approximate(self, matrix: PayoffMatrix) -> ApproximationResult:
         raise NotImplementedError
 
-    def quality_parameters(
-        self,
-        matrix: InputMatrixT,
-        *,
-        dominant_eigen_ratio_bin_edges: tuple[float, ...] | None = None,
-    ) -> dict[str, float | str]:
-        """精度評価時に付与する補助パラメータを返す。デフォルトは空。"""
-        return {}
 
-
-class MonocycleToGeneralApproximation(PayoffMatrixApproximation[MonocyclePayoffMatrix, GeneralPayoffMatrix]):
+class MonocycleToGeneralApproximation(PayoffMatrixApproximation):
     """MonocyclePayoffMatrix を GeneralPayoffMatrix へ変換する近似。"""
 
-    def approximate(self, matrix: MonocyclePayoffMatrix) -> GeneralPayoffMatrix:
-        return GeneralPayoffMatrix(
-            matrix=np.array(matrix.matrix, dtype=float, copy=True),
-            row_strategies=matrix.row_strategies,
-            col_strategies=matrix.col_strategies,
+    def approximate(self, matrix: PayoffMatrix) -> ApproximationResult:
+        return ApproximationResult(
+            matrix=GeneralPayoffMatrix(
+                matrix=np.array(matrix.matrix, dtype=float, copy=True),
+                row_strategies=matrix.row_strategies,
+                col_strategies=matrix.col_strategies,
+            )
         )
 
 
-class DominantEigenpairMonocycleApproximation(PayoffMatrixApproximation[PayoffMatrix, GeneralPayoffMatrix]):
+class DominantEigenpairMonocycleApproximation(PayoffMatrixApproximation):
     """交代行列から絶対値最大の純虚固有値ペアに対応するランク2成分を抽出する。"""
 
     def __init__(self, *, atol: float = 1e-8):
         self.atol = atol
 
-    def approximate(self, matrix: PayoffMatrix) -> GeneralPayoffMatrix:
+    def approximate(self, matrix: PayoffMatrix) -> ApproximationResult:
         source = np.asarray(matrix.matrix, dtype=float)
         if source.ndim != 2 or source.shape[0] != source.shape[1]:
             raise ValueError("正方行列が必要です")
@@ -57,25 +82,17 @@ class DominantEigenpairMonocycleApproximation(PayoffMatrixApproximation[PayoffMa
             raise ValueError("交代行列( A^T = -A )のみ対応しています")
 
         approx = self._extract_dominant_component(source)
-        return GeneralPayoffMatrix(
-            matrix=approx,
-            row_strategies=matrix.row_strategies,
-            col_strategies=matrix.col_strategies,
-        )
-
-    def quality_parameters(
-        self,
-        matrix: PayoffMatrix,
-        *,
-        dominant_eigen_ratio_bin_edges: tuple[float, ...] | None = None,
-    ) -> dict[str, float | str]:
-        source = np.asarray(matrix.matrix, dtype=float)
         ratio = self._dominant_eigen_ratio(source)
-        bin_edges = self._resolve_ratio_bin_edges(dominant_eigen_ratio_bin_edges)
-        return {
-            "dominant_eigen_ratio": ratio,
-            "dominant_eigen_ratio_bin": self._histogram_label(ratio, bin_edges),
-        }
+        return ApproximationResult(
+            matrix=GeneralPayoffMatrix(
+                matrix=approx,
+                row_strategies=matrix.row_strategies,
+                col_strategies=matrix.col_strategies,
+            ),
+            diagnostics=ApproximationDiagnostics(
+                method=DominantEigenpairMethodDiagnostics(dominant_eigen_ratio=ratio)
+            ),
+        )
 
     @staticmethod
     def _extract_dominant_component(source: np.ndarray) -> np.ndarray:
@@ -123,32 +140,14 @@ class DominantEigenpairMonocycleApproximation(PayoffMatrixApproximation[PayoffMa
             return float("inf")
         return float(unique_levels[0] / unique_levels[1])
 
-    @staticmethod
-    def _resolve_ratio_bin_edges(dominant_eigen_ratio_bin_edges: tuple[float, ...] | None) -> list[float]:
-        if dominant_eigen_ratio_bin_edges is None:
-            return [1.25, 1.5, 2.0, 3.0]
-        return list(dominant_eigen_ratio_bin_edges)
-
-    @staticmethod
-    def _histogram_label(value: float, edges: list[float]) -> str:
-        if not np.isfinite(value):
-            return "[inf]"
-        lower = 1.0
-        for edge in edges:
-            if value < edge:
-                return f"[{lower:.3f},{edge:.3f})"
-            lower = edge
-        return f"[{edges[-1]:.3f},inf)"
-
-
-class EquilibriumPreservingResidualMonocycleApproximation(PayoffMatrixApproximation[PayoffMatrix, GeneralPayoffMatrix]):
+class EquilibriumPreservingResidualMonocycleApproximation(PayoffMatrixApproximation):
     """A=J+R を B=J+(p_i-p_j) へ近似し、基準均衡 u に対する作用 Au を保つ。"""
 
     def __init__(self, *, solver_selector: SolverSelector | None = None, atol: float = 1e-8):
         self._solver_selector = solver_selector or SolverSelector()
         self.atol = atol
 
-    def approximate(self, matrix: PayoffMatrix) -> GeneralPayoffMatrix:
+    def approximate(self, matrix: PayoffMatrix) -> ApproximationResult:
         source = np.asarray(matrix.matrix, dtype=float)
         if source.ndim != 2 or source.shape[0] != source.shape[1]:
             raise ValueError("正方行列が必要です")
@@ -167,10 +166,12 @@ class EquilibriumPreservingResidualMonocycleApproximation(PayoffMatrixApproximat
         transformed_residual = np.outer(p, np.ones_like(p)) - np.outer(np.ones_like(p), p)
         approx = dominant + transformed_residual
 
-        return GeneralPayoffMatrix(
-            matrix=approx,
-            row_strategies=matrix.row_strategies,
-            col_strategies=matrix.col_strategies,
+        return ApproximationResult(
+            matrix=GeneralPayoffMatrix(
+                matrix=approx,
+                row_strategies=matrix.row_strategies,
+                col_strategies=matrix.col_strategies,
+            )
         )
 
     @staticmethod
@@ -181,15 +182,15 @@ class EquilibriumPreservingResidualMonocycleApproximation(PayoffMatrixApproximat
         return np.asarray(solution, dtype=float)
 
 
-class PayoffMatrixDistance(ABC, Generic[ApproxMatrixT, ReferenceMatrixT]):
+class PayoffMatrixDistance(ABC):
     """利得行列間距離の抽象基底クラス。"""
 
     @abstractmethod
-    def calculate(self, left: ApproxMatrixT, right: ReferenceMatrixT) -> float:
+    def calculate(self, left: PayoffMatrix, right: PayoffMatrix) -> float:
         raise NotImplementedError
 
 
-class MaxElementDifferenceDistance(PayoffMatrixDistance[PayoffMatrix, PayoffMatrix]):
+class MaxElementDifferenceDistance(PayoffMatrixDistance):
     """d(A, B) = max_ij |Aij - Bij|。"""
 
     def calculate(self, left: PayoffMatrix, right: PayoffMatrix) -> float:
@@ -198,7 +199,7 @@ class MaxElementDifferenceDistance(PayoffMatrixDistance[PayoffMatrix, PayoffMatr
         return float(np.max(np.abs(left.matrix - right.matrix)))
 
 
-class EquilibriumUStrategyDifferenceDistance(PayoffMatrixDistance[PayoffMatrix, PayoffMatrix]):
+class EquilibriumUStrategyDifferenceDistance(PayoffMatrixDistance):
     """d(A, B) = ||(A-B)u||∞, u は基準行列 B の均衡混合戦略。"""
 
     def __init__(self, *, solver_selector: SolverSelector | None = None):
@@ -220,17 +221,25 @@ class EquilibriumUStrategyDifferenceDistance(PayoffMatrixDistance[PayoffMatrix, 
         return float(np.max(np.abs(diff)))
 
 
-class ApproximationQualityEvaluator(Generic[InputMatrixT, ApproxMatrixT, ReferenceMatrixT]):
+class ApproximationQualityEvaluator:
     """近似器と距離指標を組み合わせて近似精度を評価する。"""
 
     def __init__(
         self,
-        approximation: PayoffMatrixApproximation[InputMatrixT, ApproxMatrixT],
-        distance: PayoffMatrixDistance[ApproxMatrixT, ReferenceMatrixT],
+        approximation: PayoffMatrixApproximation,
+        distance: PayoffMatrixDistance,
     ):
         self.approximation = approximation
         self.distance = distance
 
-    def evaluate(self, source: InputMatrixT, reference: ReferenceMatrixT) -> float:
+    def evaluate(self, source: PayoffMatrix, reference: PayoffMatrix) -> ApproximationResult:
         approximated = self.approximation.approximate(source)
-        return self.distance.calculate(approximated, reference)
+        score = self.distance.calculate(approximated.matrix, reference)
+        diagnostics = ApproximationDiagnostics(
+            method=approximated.diagnostics.method,
+            evaluation=ApproximationEvaluation(quality=score),
+        )
+        return ApproximationResult(
+            matrix=approximated.matrix,
+            diagnostics=diagnostics,
+        )

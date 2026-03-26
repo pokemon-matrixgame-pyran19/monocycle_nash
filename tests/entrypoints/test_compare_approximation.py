@@ -77,6 +77,8 @@ def test_compare_approximation_writes_quality_json(tmp_path: Path) -> None:
     assert payload["approximation"] == "MonocycleToGeneralApproximation"
     assert payload["distance"] == "MaxElementDifferenceDistance"
     assert payload["quality"] == 0.0
+    assert payload["diagnostics"]["method"] == {}
+    assert payload["diagnostics"]["evaluation"]["quality"] == 0.0
 
 
 def test_compare_approximation_returns_failure_code_for_invalid_config(tmp_path: Path) -> None:
@@ -177,6 +179,7 @@ def test_compare_approximation_supports_equilibrium_u_strategy_distance(tmp_path
 
     assert payload["distance"] == "EquilibriumUStrategyDifferenceDistance"
     assert payload["quality"] == 1.0
+    assert payload["diagnostics"]["evaluation"]["quality"] == 1.0
 
 
 def test_compare_approximation_supports_equilibrium_preserving_residual_approximation(tmp_path: Path) -> None:
@@ -228,3 +231,4 @@ def test_compare_approximation_supports_equilibrium_preserving_residual_approxim
     payload = json.loads(result_path.read_text(encoding="utf-8"))
 
     assert payload["approximation"] == "EquilibriumPreservingResidualMonocycleApproximation"
+    assert "diagnostics" in payload

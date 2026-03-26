@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 import traceback
 
 from monocycle_nash.loader.main_config import MainConfigLoader
@@ -77,7 +77,7 @@ def run(config_loader: MainConfigLoader) -> int:
         distance = _build_distance(approximation_config.distance_name)
         evaluator = ApproximationQualityEvaluator(approximation, distance)
 
-        score = evaluator.evaluate(source_matrix, reference_matrix)
+        result = evaluator.evaluate(source_matrix, reference_matrix)
 
         write_json(
             service.artifact_store.run_dir(ctx.run_id) / "output" / "approximation_quality.json",
@@ -86,7 +86,11 @@ def run(config_loader: MainConfigLoader) -> int:
                 "reference_matrix": approximation_config.reference_matrix_name or "<shared.matrix>",
                 "approximation": approximation.__class__.__name__,
                 "distance": distance.__class__.__name__,
-                "quality": score,
+                "quality": result.diagnostics.evaluation.quality,
+                "diagnostics": {
+                    "method": asdict(result.diagnostics.method),
+                    "evaluation": asdict(result.diagnostics.evaluation),
+                },
             },
         )
 

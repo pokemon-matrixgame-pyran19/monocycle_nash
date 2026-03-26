@@ -22,7 +22,9 @@ from monocycle_nash.loader.runtime_common import (
     write_json,
 )
 from monocycle_nash.matrix import (
+    ApproximationResult,
     ApproximationQualityEvaluator,
+    DominantEigenpairMethodDiagnostics,
     PayoffMatrixBuilder,
     RandomMatrixAcceptanceCondition,
     generate_random_skew_symmetric_matrix,
@@ -122,12 +124,12 @@ def run(config_loader: MainConfigLoader) -> int:
                 max_attempts=generation_cfg.max_attempts,
             )
             source = PayoffMatrixBuilder.from_general_matrix(raw_matrix)
-            score = evaluator.evaluate(source, source)
-            parameters = approximation.quality_parameters(
-                source,
+            result = evaluator.evaluate(source, source)
+            parameters = _flatten_diagnostics(
+                result,
                 dominant_eigen_ratio_bin_edges=approximation_config.dominant_eigen_ratio_bin_edges,
             )
-            statistics.add(score, parameters=parameters)
+            statistics.add(float(result.diagnostics.evaluation.quality or 0.0), parameters=parameters)
 
         overall = statistics.summarize()
         grouped = _build_grouped_summary(statistics)
@@ -169,6 +171,38 @@ def _build_grouped_summary(statistics: ApproximationQualityStatistics) -> dict[s
         return {}
     grouped = statistics.summarize_grouped(*group_keys)
     return {group_keys[0]: _serialize_grouped_summary(grouped)}
+
+
+def _flatten_diagnostics(
+    result: ApproximationResult,
+    *,
+    dominant_eigen_ratio_bin_edges: tuple[float, ...] | None = None,
+) -> dict[str, Any]:
+    parameters: dict[str, Any] = {
+        f"method.{key}": value for key, value in asdict(result.diagnostics.method).items()
+    }
+
+    quality = result.diagnostics.evaluation.quality
+    if quality is not None:
+        parameters["evaluation.quality"] = float(quality)
+
+    if dominant_eigen_ratio_bin_edges is not None and isinstance(result.diagnostics.method, DominantEigenpairMethodDiagnostics):
+        parameters["method.dominant_eigen_ratio_bin"] = _histogram_label(
+            float(result.diagnostics.method.dominant_eigen_ratio),
+            dominant_eigen_ratio_bin_edges,
+        )
+    return parameters
+
+
+def _histogram_label(value: float, edges: tuple[float, ...]) -> str:
+    if not np.isfinite(value):
+        return "[inf]"
+    lower = 1.0
+    for edge in edges:
+        if value < edge:
+            return f"[{lower:.3f},{edge:.3f})"
+        lower = edge
+    return f"[{edges[-1]:.3f},inf)"
 
 
 def _serialize_grouped_summary(data: Any) -> Any:

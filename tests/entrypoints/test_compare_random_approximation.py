@@ -77,7 +77,7 @@ def test_compare_random_approximation_writes_summary_json(tmp_path: Path) -> Non
     assert payload["quality"]["count"] == 8
     assert "mean" in payload["quality"]
     assert "stddev" in payload["quality"]
-    assert "dominant_eigen_ratio_bin" in payload["quality_by_parameters"]
+    assert "method.dominant_eigen_ratio_bin" in payload["quality_by_parameters"]
 
 
 def test_compare_random_approximation_returns_failure_for_invalid_condition(tmp_path: Path) -> None:
