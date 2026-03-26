@@ -1,22 +1,13 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
+from monocycle_nash.equilibrium.solve_payoff_app import EquilibriumSettingLoader, SolvePayoffFeatureConfig
 from monocycle_nash.loader.data_loader import SettingDataLoader
 from monocycle_nash.loader.main_config import MainConfigLoader
 from monocycle_nash.loader.runtime_common import TomlRuntimeSettingParser
 from monocycle_nash.matrix import MatrixFileInfrastructure
-from monocycle_nash.matrix.base import PayoffMatrix
-from monocycle_nash.runmeta.setting_domain import RuntimeSetting
 
 
-@dataclass(frozen=True)
-class SolvePayoffFeatureConfig:
-    matrix: PayoffMatrix
-    setting_data: RuntimeSetting
-
-
-class EquilibriumFeatureInfrastructure:
+class EquilibriumFeatureInfrastructure(EquilibriumSettingLoader):
     def __init__(self, config_loader: MainConfigLoader):
         self._config_loader = config_loader
         self._data_root = config_loader.data_root

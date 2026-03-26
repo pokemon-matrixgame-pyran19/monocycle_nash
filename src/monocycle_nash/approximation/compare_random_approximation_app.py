@@ -1,17 +1,17 @@
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
+from dataclasses import asdict, dataclass
 from monocycle_nash.loader.main_config import MainConfigLoader
 import traceback
-from dataclasses import asdict, dataclass
 from typing import Any
 
 import numpy as np
 
-from monocycle_nash.approximation.compare_approximation_app import _build_approximation, _build_distance
-from monocycle_nash.approximation.infra import (
-    ApproximationFeatureInfrastructure,
+from monocycle_nash.approximation.compare_approximation_app import (
     ApproximationSettings,
-    RandomMatrixSettings,
+    _build_approximation,
+    _build_distance,
 )
 from monocycle_nash.approximation.random_experiment_domain import ApproximationQualityStatistics, ApproximationQualitySummary
 from monocycle_nash.loader.runtime_common import (
@@ -27,6 +27,8 @@ from monocycle_nash.matrix import (
     RandomMatrixAcceptanceCondition,
     generate_random_skew_symmetric_matrix,
 )
+from monocycle_nash.matrix.base import PayoffMatrix
+from monocycle_nash.runmeta.setting_domain import RuntimeSetting
 
 
 FEATURE_NAME = "compare_random_approximation"
@@ -43,6 +45,31 @@ class RandomGenerationConfig:
     random_seed: int | None
 
 
+@dataclass(frozen=True)
+class RandomMatrixSettings:
+    size: int
+    generation_count: int
+    acceptance_condition: str
+    low: float
+    high: float
+    max_attempts: int
+    random_seed: int | None
+
+
+@dataclass(frozen=True)
+class CompareRandomApproximationFeatureConfig:
+    matrix: PayoffMatrix
+    setting_data: RuntimeSetting
+    approximation: ApproximationSettings
+    random_matrix: RandomMatrixSettings
+
+
+class CompareRandomApproximationSettingLoader(ABC):
+    @abstractmethod
+    def load_compare_random_approximation(self) -> CompareRandomApproximationFeatureConfig:
+        raise NotImplementedError
+
+
 class EvenSizeCondition(RandomMatrixAcceptanceCondition):
     def is_satisfied(self, matrix: np.ndarray) -> bool:
         return matrix.shape[0] % 2 == 0
@@ -54,7 +81,10 @@ class RankAtLeastFourCondition(RandomMatrixAcceptanceCondition):
 
 
 def run(config_loader: MainConfigLoader) -> int:
-    feature_config = ApproximationFeatureInfrastructure(config_loader).load_compare_random_approximation()
+    from monocycle_nash.approximation.infra import ApproximationFeatureInfrastructure
+
+    setting_loader: CompareRandomApproximationSettingLoader = ApproximationFeatureInfrastructure(config_loader)
+    feature_config = setting_loader.load_compare_random_approximation()
     approximation_config = feature_config.approximation
     random_matrix_config = feature_config.random_matrix
 
