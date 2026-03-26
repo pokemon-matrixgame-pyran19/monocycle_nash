@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from monocycle_nash.approximation.random_experiment_domain import ApproximationQualityStatistics
+from monocycle_nash.approximation.random_experiment_statistics import ApproximationQualityStatistics
 
 
 def test_approximation_quality_statistics_summarize() -> None:

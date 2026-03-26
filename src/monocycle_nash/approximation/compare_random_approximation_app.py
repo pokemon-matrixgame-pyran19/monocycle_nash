@@ -13,7 +13,10 @@ from monocycle_nash.approximation.compare_approximation_app import (
     _build_approximation,
     _build_distance,
 )
-from monocycle_nash.approximation.random_experiment_domain import ApproximationQualityStatistics, ApproximationQualitySummary
+from monocycle_nash.approximation.random_experiment_statistics import (
+    ApproximationQualityStatistics,
+    ApproximationQualitySummary,
+)
 from monocycle_nash.loader.runtime_common import (
     _to_toml,
     matrix_to_toml_payload,
