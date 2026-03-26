@@ -10,14 +10,14 @@ def _write(path: Path, text: str) -> None:
     path.write_text(text.strip() + "\n", encoding="utf-8")
 
 
-def test_matrix_file_infrastructure_loads_matrix_data(tmp_path: Path) -> None:
+def test_matrix_file_infrastructure_loads_matrix(tmp_path: Path) -> None:
     data_dir = tmp_path / "data"
     _write(data_dir / "matrix" / "rps3" / "data.toml", 'matrix = [[0, 1], [-1, 0]]')
 
     infra = MatrixFileInfrastructure(base_dir=data_dir)
-    matrix_data = infra.load_matrix_data("rps3")
+    matrix = infra.load_matrix("rps3")
 
-    assert matrix_data["matrix"] == [[0, 1], [-1, 0]]
+    assert matrix.matrix.tolist() == [[0.0, 1.0], [-1.0, 0.0]]
 
 
 def test_matrix_file_infrastructure_initializes_payoff_matrix(tmp_path: Path) -> None:

@@ -12,12 +12,17 @@ from monocycle_nash.approximation.infra import ApproximationFeatureInfrastructur
 from monocycle_nash.approximation.random_experiment_domain import ApproximationQualityStatistics, ApproximationQualitySummary
 from monocycle_nash.loader.runtime_common import (
     _to_toml,
-    build_matrix,
+    matrix_to_toml_payload,
     prepare_run_session,
     write_input_snapshots,
     write_json,
 )
-from monocycle_nash.matrix import ApproximationQualityEvaluator, RandomMatrixAcceptanceCondition, generate_random_skew_symmetric_matrix
+from monocycle_nash.matrix import (
+    ApproximationQualityEvaluator,
+    PayoffMatrixBuilder,
+    RandomMatrixAcceptanceCondition,
+    generate_random_skew_symmetric_matrix,
+)
 
 
 FEATURE_NAME = "compare_random_approximation"
@@ -54,7 +59,7 @@ def run(config_loader: MainConfigLoader) -> int:
         write_input_snapshots(
             service,
             ctx.run_id,
-            matrix_data=feature_config.matrix_data,
+            matrix_data=matrix_to_toml_payload(feature_config.matrix),
             graph_data=None,
             setting_data=feature_config.setting_data,
         )
@@ -79,7 +84,7 @@ def run(config_loader: MainConfigLoader) -> int:
                 rng=rng,
                 max_attempts=generation_cfg.max_attempts,
             )
-            source = build_matrix({"matrix": raw_matrix.tolist()})
+            source = PayoffMatrixBuilder.from_general_matrix(raw_matrix)
             score = evaluator.evaluate(source, source)
             parameters = approximation.quality_parameters(source, config=approximation_config.raw_input)
             statistics.add(score, parameters=parameters)
@@ -171,5 +176,4 @@ def _build_acceptance_condition(keyword: str) -> RandomMatrixAcceptanceCondition
     if keyword == "rank_at_least_4":
         return RankAtLeastFourCondition()
     raise ValueError(f"未対応の random_matrix.acceptance_condition です: {keyword}")
-
 
