@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass
 from monocycle_nash.loader.main_config import MainConfigLoader
 import traceback
+from typing import Any
 import numpy as np
 
 from monocycle_nash.approximation.compare_approximation_app import (
@@ -114,7 +115,8 @@ def run(config_loader: MainConfigLoader) -> int:
         generation_cfg = _parse_random_generation_config(random_matrix_config)
         rng = np.random.default_rng(generation_cfg.random_seed)
 
-        statistics = ApproximationQualityStatistics()
+        bin_label_keys = _build_bin_label_keys(approximation_config)
+        statistics = ApproximationQualityStatistics(*bin_label_keys)
         for _ in range(generation_cfg.generation_count):
             raw_matrix = generate_random_skew_symmetric_matrix(
                 size=generation_cfg.size,
@@ -126,11 +128,12 @@ def run(config_loader: MainConfigLoader) -> int:
             )
             source = PayoffMatrixBuilder.from_general_matrix(raw_matrix)
             result = evaluator.evaluate(source, source)
-            parameters = _flatten_diagnostics(
+            bin_labels = _build_bin_labels(
                 result,
+                bin_label_keys=bin_label_keys,
                 dominant_eigen_ratio_bin_edges=approximation_config.dominant_eigen_ratio_bin_edges,
             )
-            statistics.add(float(result.diagnostics.evaluation.quality or 0.0), parameters=parameters)
+            statistics.add(float(result.diagnostics.evaluation.quality or 0.0), *bin_labels)
 
         overall = statistics.summarize()
         grouped = _build_grouped_summary(statistics)
@@ -165,11 +168,9 @@ def run(config_loader: MainConfigLoader) -> int:
 
 
 def _build_grouped_summary(statistics: ApproximationQualityStatistics) -> dict[str, dict[str, float | int]]:
-    if not statistics.records:
+    if not statistics.records or not statistics.label_keys:
         return {}
-    group_keys = sorted({key for record in statistics.records for key in record.parameters.keys() if key.endswith("_bin")})
-    if not group_keys:
-        return {}
+    group_keys = list(statistics.label_keys)
     grouped = statistics.summarize_grouped(*group_keys)
     return {
         _format_group_label(group_keys, labels): asdict(summary)
@@ -177,25 +178,47 @@ def _build_grouped_summary(statistics: ApproximationQualityStatistics) -> dict[s
     }
 
 
-def _flatten_diagnostics(
+def _build_bin_label_keys(approximation_config: ApproximationSettings) -> tuple[str, ...]:
+    label_keys: list[str] = []
+    if approximation_config.dominant_eigen_ratio_bin_edges is not None:
+        label_keys.append("method.dominant_eigen_ratio_bin")
+    return tuple(label_keys)
+
+
+def _build_bin_labels(
     result: ApproximationResult,
     *,
+    bin_label_keys: tuple[str, ...],
     dominant_eigen_ratio_bin_edges: tuple[float, ...] | None = None,
-) -> dict[str, object]:
-    parameters: dict[str, object] = {
-        f"method.{key}": value for key, value in asdict(result.diagnostics.method).items()
-    }
+) -> tuple[str, ...]:
+    labels: list[str] = []
+    for label_key in bin_label_keys:
+        labels.append(
+            _resolve_bin_label(
+                label_key,
+                result,
+                dominant_eigen_ratio_bin_edges=dominant_eigen_ratio_bin_edges,
+            )
+        )
+    return tuple(labels)
 
-    quality = result.diagnostics.evaluation.quality
-    if quality is not None:
-        parameters["evaluation.quality"] = float(quality)
 
-    if dominant_eigen_ratio_bin_edges is not None and isinstance(result.diagnostics.method, DominantEigenpairMethodDiagnostics):
-        parameters["method.dominant_eigen_ratio_bin"] = _histogram_label(
+def _resolve_bin_label(
+    label_key: str,
+    result: ApproximationResult,
+    *,
+    dominant_eigen_ratio_bin_edges: tuple[float, ...] | None,
+) -> str:
+    if label_key == "method.dominant_eigen_ratio_bin":
+        if dominant_eigen_ratio_bin_edges is None:
+            raise ValueError("dominant_eigen_ratio_bin_edges が必要です")
+        if not isinstance(result.diagnostics.method, DominantEigenpairMethodDiagnostics):
+            raise ValueError("dominant_eigen_ratio_bin は DominantEigenpairMethodDiagnostics でのみ利用できます")
+        return _histogram_label(
             float(result.diagnostics.method.dominant_eigen_ratio),
             dominant_eigen_ratio_bin_edges,
         )
-    return parameters
+    raise ValueError(f"未対応の bin label です: {label_key}")
 
 
 def _histogram_label(value: float, edges: tuple[float, ...]) -> str:
