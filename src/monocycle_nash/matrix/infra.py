@@ -28,14 +28,14 @@ class MatrixFileInfrastructure:
         self._entry_file = entry_file
         self._tree_loader = tree_loader or TomlTreeLoader()
 
-    def load_matrix_data(self, matrix_name: str) -> dict[str, Any]:
+    def load_matrix_input(self, matrix_name: str) -> dict[str, Any]:
         matrix_path = self._base_dir / "matrix" / matrix_name / self._entry_file
         matrix_data = self._tree_loader.load(matrix_path)
         validate_matrix_input(matrix_data)
         return matrix_data
 
     def load_matrix(self, matrix_name: str) -> PayoffMatrix:
-        matrix_data = self.load_matrix_data(matrix_name)
+        matrix_data = self.load_matrix_input(matrix_name)
         return build_matrix_from_input(matrix_data)
 
 

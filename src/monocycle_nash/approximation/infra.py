@@ -6,6 +6,7 @@ from monocycle_nash.loader.data_loader import ExperimentDataLoader, SettingDataL
 from monocycle_nash.loader.main_config import MainConfigLoader
 from monocycle_nash.loader.runtime_common import validate_setting_input
 from monocycle_nash.matrix import MatrixFileInfrastructure
+from monocycle_nash.matrix.base import PayoffMatrix
 
 
 @dataclass(frozen=True)
@@ -31,16 +32,16 @@ class RandomMatrixSettings:
 
 @dataclass(frozen=True)
 class CompareApproximationFeatureConfig:
-    matrix_data: dict
+    matrix: PayoffMatrix
     setting_data: dict
     approximation: ApproximationSettings
-    source_matrix_data: dict
-    reference_matrix_data: dict
+    source_matrix: PayoffMatrix
+    reference_matrix: PayoffMatrix
 
 
 @dataclass(frozen=True)
 class CompareRandomApproximationFeatureConfig:
-    matrix_data: dict
+    matrix: PayoffMatrix
     setting_data: dict
     approximation: ApproximationSettings
     random_matrix: RandomMatrixSettings
@@ -58,30 +59,30 @@ class ApproximationFeatureInfrastructure:
         approximation_name = _require_non_empty_str(merged, key="approximation", name="compare_approximation.approximation")
 
         matrix_repo = MatrixFileInfrastructure(base_dir=self._data_root)
-        matrix_data = matrix_repo.load_matrix_data(matrix_name)
+        matrix = matrix_repo.load_matrix(matrix_name)
         setting = SettingDataLoader(base_dir=self._data_root / "setting").load(setting_name)
         validate_setting_input(setting)
 
         approximation_data = ExperimentDataLoader(base_dir=self._data_root).load("approximation", approximation_name)
         approximation = _build_approximation_settings(approximation_data)
 
-        source_matrix_data = (
-            matrix_repo.load_matrix_data(approximation.source_matrix_name)
+        source_matrix = (
+            matrix_repo.load_matrix(approximation.source_matrix_name)
             if approximation.source_matrix_name is not None
-            else matrix_data
+            else matrix
         )
-        reference_matrix_data = (
-            matrix_repo.load_matrix_data(approximation.reference_matrix_name)
+        reference_matrix = (
+            matrix_repo.load_matrix(approximation.reference_matrix_name)
             if approximation.reference_matrix_name is not None
-            else matrix_data
+            else matrix
         )
 
         return CompareApproximationFeatureConfig(
-            matrix_data=matrix_data,
+            matrix=matrix,
             setting_data=setting,
             approximation=approximation,
-            source_matrix_data=source_matrix_data,
-            reference_matrix_data=reference_matrix_data,
+            source_matrix=source_matrix,
+            reference_matrix=reference_matrix,
         )
 
     def load_compare_random_approximation(self) -> CompareRandomApproximationFeatureConfig:
@@ -99,7 +100,7 @@ class ApproximationFeatureInfrastructure:
             name="compare_random_approximation.random_matrix",
         )
 
-        matrix_data = MatrixFileInfrastructure(base_dir=self._data_root).load_matrix_data(matrix_name)
+        matrix = MatrixFileInfrastructure(base_dir=self._data_root).load_matrix(matrix_name)
         setting = SettingDataLoader(base_dir=self._data_root / "setting").load(setting_name)
         validate_setting_input(setting)
 
@@ -108,7 +109,7 @@ class ApproximationFeatureInfrastructure:
         random_matrix_data = exp_loader.load("random_matrix", random_matrix_name)
 
         return CompareRandomApproximationFeatureConfig(
-            matrix_data=matrix_data,
+            matrix=matrix,
             setting_data=setting,
             approximation=_build_approximation_settings(approximation_data),
             random_matrix=_build_random_matrix_settings(random_matrix_data),

@@ -6,7 +6,7 @@ import traceback
 import numpy as np
 
 from monocycle_nash.equilibrium.infra import EquilibriumFeatureInfrastructure
-from monocycle_nash.loader.runtime_common import build_matrix, prepare_run_session, write_input_snapshots, write_json
+from monocycle_nash.loader.runtime_common import matrix_to_toml_payload, prepare_run_session, write_input_snapshots, write_json
 from monocycle_nash.solver.selector import SolverSelector
 
 
@@ -15,14 +15,14 @@ FEATURE_NAME = "solve_payoff"
 
 def run(config_loader: MainConfigLoader) -> int:
     feature_config = EquilibriumFeatureInfrastructure(config_loader).load_solve_payoff()
-    matrix = build_matrix(feature_config.matrix_data)
+    matrix = feature_config.matrix
 
     service, ctx, conn = prepare_run_session(feature_config.setting_data, f"uv run main ({FEATURE_NAME})")
     try:
         write_input_snapshots(
             service,
             ctx.run_id,
-            matrix_data=feature_config.matrix_data,
+            matrix_data=matrix_to_toml_payload(matrix),
             graph_data=None,
             setting_data=feature_config.setting_data,
         )

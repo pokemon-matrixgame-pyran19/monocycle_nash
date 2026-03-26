@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Protocol
 
+from monocycle_nash.matrix.base import PayoffMatrix
+
 
 @dataclass(frozen=True)
 class ApproximationConfig:
@@ -39,7 +41,7 @@ class CharacterGraphConfig:
 
 @dataclass(frozen=True)
 class LoadedFeatureInputs:
-    matrix_data: dict
+    matrix: PayoffMatrix
     graph_config: PayoffGraphConfig | CharacterGraphConfig | None
     approximation_config: ApproximationConfig | None
     random_matrix_config: RandomMatrixConfig | None
@@ -51,4 +53,4 @@ class FeatureWorkflowInputPort(Protocol):
 
     def load_inputs_for_feature(self, feature: str) -> LoadedFeatureInputs: ...
 
-    def load_matrix_data(self, matrix_name: str) -> dict: ...
+    def load_matrix(self, matrix_name: str) -> PayoffMatrix: ...

@@ -4,13 +4,16 @@ from dataclasses import dataclass
 
 from monocycle_nash.loader.data_loader import ExperimentDataLoader, SettingDataLoader
 from monocycle_nash.loader.main_config import MainConfigLoader
+from monocycle_nash.matrix.infra import build_characters
 from monocycle_nash.loader.runtime_common import validate_setting_input
 from monocycle_nash.matrix import MatrixFileInfrastructure
+from monocycle_nash.matrix.base import PayoffMatrix
+from monocycle_nash.character.domain import Character
 
 
 @dataclass(frozen=True)
 class GraphPayoffFeatureConfig:
-    matrix_data: dict
+    matrix: PayoffMatrix
     setting_data: dict
     threshold: float
     canvas_size: int
@@ -18,7 +21,7 @@ class GraphPayoffFeatureConfig:
 
 @dataclass(frozen=True)
 class PlotCharactersFeatureConfig:
-    matrix_data: dict
+    characters: list[Character]
     setting_data: dict
     canvas_size: int
     margin: int
@@ -35,14 +38,14 @@ class GraphFeatureInfrastructure:
         setting_name = _require_non_empty_str(merged, key="setting", name="graph_payoff.setting")
         graph_name = _require_non_empty_str(merged, key="graph", name="graph_payoff.graph")
 
-        matrix_data = MatrixFileInfrastructure(base_dir=self._data_root).load_matrix_data(matrix_name)
+        matrix = MatrixFileInfrastructure(base_dir=self._data_root).load_matrix(matrix_name)
         setting = SettingDataLoader(base_dir=self._data_root / "setting").load(setting_name)
         validate_setting_input(setting)
 
         graph_data = ExperimentDataLoader(base_dir=self._data_root).load("graph", graph_name)
         section = _require_graph_section(graph_data, "payoff")
         return GraphPayoffFeatureConfig(
-            matrix_data=matrix_data,
+            matrix=matrix,
             setting_data=setting,
             threshold=float(section.get("threshold", 0.0)),
             canvas_size=int(section.get("canvas_size", 840)),
@@ -54,14 +57,15 @@ class GraphFeatureInfrastructure:
         setting_name = _require_non_empty_str(merged, key="setting", name="plot_characters.setting")
         graph_name = _require_non_empty_str(merged, key="graph", name="plot_characters.graph")
 
-        matrix_data = MatrixFileInfrastructure(base_dir=self._data_root).load_matrix_data(matrix_name)
+        matrix_input = MatrixFileInfrastructure(base_dir=self._data_root).load_matrix_input(matrix_name)
+        characters = build_characters(matrix_input)
         setting = SettingDataLoader(base_dir=self._data_root / "setting").load(setting_name)
         validate_setting_input(setting)
 
         graph_data = ExperimentDataLoader(base_dir=self._data_root).load("graph", graph_name)
         section = _require_graph_section(graph_data, "character")
         return PlotCharactersFeatureConfig(
-            matrix_data=matrix_data,
+            characters=characters,
             setting_data=setting,
             canvas_size=int(section.get("canvas_size", 840)),
             margin=int(section.get("margin", 90)),

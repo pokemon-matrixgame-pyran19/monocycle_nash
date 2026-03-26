@@ -11,12 +11,6 @@ from monocycle_nash.loader.data_loader import ExperimentDataLoader, SettingDataL
 from monocycle_nash.loader.toml_tree import TomlTreeLoader
 from monocycle_nash.matrix import MatrixFileInfrastructure
 from monocycle_nash.matrix.base import PayoffMatrix
-from monocycle_nash.matrix.infra import (
-    build_characters as _build_characters,
-    build_matrix_from_input,
-    has_matrix_input as _has_matrix_input,
-    validate_matrix_input as _validate_matrix_input,
-)
 from monocycle_nash.runmeta.artifact_store import RunArtifactStore
 from monocycle_nash.runmeta.clock import now_jst_iso
 from monocycle_nash.runmeta.db import SQLiteConnectionFactory, migrate
@@ -73,22 +67,21 @@ def load_inputs(
     *,
     require_graph: bool,
     graph_section: str | None = None,
-) -> tuple[dict[str, Any], dict[str, Any] | None, dict[str, Any], Path]:
+) -> tuple[PayoffMatrix, dict[str, Any] | None, dict[str, Any], Path]:
     data_root = Path(data_dir)
     cfg = _load_run_config(run_config, data_root)
     refs = _resolve_run_config_refs(cfg, require_graph=require_graph)
 
     matrix_loader = MatrixFileInfrastructure(base_dir=data_root)
-    matrix_data = matrix_loader.load_matrix_data(refs.matrix)
+    matrix = matrix_loader.load_matrix(refs.matrix)
 
     exp_loader = ExperimentDataLoader(base_dir=data_root)
     loaded_graph_data = exp_loader.load("graph", refs.graph) if refs.graph is not None else None
     graph_data = _select_graph_section(loaded_graph_data, graph_section=graph_section)
     setting = SettingDataLoader(base_dir=data_root / "setting").load(refs.setting)
-    validate_matrix_input(matrix_data)
     validate_graph_input(graph_data)
     validate_setting_input(setting)
-    return matrix_data, graph_data, setting, _run_config_path(run_config, data_root)
+    return matrix, graph_data, setting, _run_config_path(run_config, data_root)
 
 
 class _RunConfigRefs:
@@ -125,20 +118,8 @@ def _optional_run_config_str(cfg: dict[str, Any], *, key: str) -> str | None:
     return value
 
 
-def build_matrix(matrix_data: dict[str, Any]) -> PayoffMatrix:
-    return build_matrix_from_input(matrix_data)
-
-
-def has_matrix_input(matrix_data: dict[str, Any]) -> bool:
-    return _has_matrix_input(matrix_data)
-
-
-def build_characters(matrix_data: dict[str, Any]):
-    return _build_characters(matrix_data)
-
-
-def validate_matrix_input(matrix_data: dict[str, Any]) -> None:
-    _validate_matrix_input(matrix_data)
+def matrix_to_toml_payload(matrix: PayoffMatrix) -> dict[str, Any]:
+    return {"matrix": matrix.matrix.tolist(), "labels": matrix.labels}
 
 
 def validate_graph_input(graph_data: dict[str, Any] | None) -> None:

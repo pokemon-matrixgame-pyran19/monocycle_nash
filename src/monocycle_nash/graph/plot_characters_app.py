@@ -4,12 +4,7 @@ from monocycle_nash.loader.main_config import MainConfigLoader
 import traceback
 
 from monocycle_nash.graph.infra import GraphFeatureInfrastructure
-from monocycle_nash.loader.runtime_common import (
-    build_characters,
-    has_matrix_input,
-    prepare_run_session,
-    write_input_snapshots,
-)
+from monocycle_nash.loader.runtime_common import prepare_run_session, write_input_snapshots
 from monocycle_nash.visualization import CharacterVectorGraphPlotter
 
 
@@ -18,9 +13,7 @@ FEATURE_NAME = "plot_characters"
 
 def run(config_loader: MainConfigLoader) -> int:
     feature_config = GraphFeatureInfrastructure(config_loader).load_plot_characters()
-    if has_matrix_input(feature_config.matrix_data):
-        raise ValueError("plot_characters は matrix ではなく characters 入力が必須です")
-    characters = build_characters(feature_config.matrix_data)
+    characters = feature_config.characters
 
     canvas_size = feature_config.canvas_size
     margin = feature_config.margin
@@ -30,7 +23,12 @@ def run(config_loader: MainConfigLoader) -> int:
         write_input_snapshots(
             service,
             ctx.run_id,
-            matrix_data=feature_config.matrix_data,
+            matrix_data={
+                "characters": [
+                    {"label": character.label, "p": character.p, "v": [character.v.x, character.v.y]}
+                    for character in characters
+                ]
+            },
             graph_data={"canvas_size": canvas_size, "margin": margin},
             setting_data=feature_config.setting_data,
         )

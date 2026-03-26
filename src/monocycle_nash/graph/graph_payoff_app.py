@@ -4,7 +4,7 @@ from monocycle_nash.loader.main_config import MainConfigLoader
 import traceback
 
 from monocycle_nash.graph.infra import GraphFeatureInfrastructure
-from monocycle_nash.loader.runtime_common import build_matrix, prepare_run_session, write_input_snapshots
+from monocycle_nash.loader.runtime_common import matrix_to_toml_payload, prepare_run_session, write_input_snapshots
 from monocycle_nash.visualization import PayoffDirectedGraphPlotter
 
 
@@ -13,7 +13,7 @@ FEATURE_NAME = "graph_payoff"
 
 def run(config_loader: MainConfigLoader) -> int:
     feature_config = GraphFeatureInfrastructure(config_loader).load_graph_payoff()
-    matrix = build_matrix(feature_config.matrix_data)
+    matrix = feature_config.matrix
 
     threshold = feature_config.threshold
     canvas_size = feature_config.canvas_size
@@ -23,7 +23,7 @@ def run(config_loader: MainConfigLoader) -> int:
         write_input_snapshots(
             service,
             ctx.run_id,
-            matrix_data=feature_config.matrix_data,
+            matrix_data=matrix_to_toml_payload(matrix),
             graph_data={"threshold": threshold, "canvas_size": canvas_size},
             setting_data=feature_config.setting_data,
         )
