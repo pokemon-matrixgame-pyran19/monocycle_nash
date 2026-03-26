@@ -1,9 +1,8 @@
 from __future__ import annotations
 
+from monocycle_nash.application_ports import ApproximationConfig, FeatureWorkflowInputPort
 import traceback
 
-from monocycle_nash.loader.data_loader import ExperimentDataLoader
-from monocycle_nash.loader.main_config import MainConfigLoader
 from monocycle_nash.loader.runtime_common import _to_toml, build_matrix, prepare_run_session, write_input_snapshots, write_json
 from monocycle_nash.matrix import (
     ApproximationQualityEvaluator,
@@ -20,15 +19,15 @@ from monocycle_nash.matrix import (
 FEATURE_NAME = "compare_approximation"
 
 
-def run(config_loader: MainConfigLoader) -> int:
+def run(config_loader: FeatureWorkflowInputPort) -> int:
     loaded = config_loader.load_inputs_for_feature(FEATURE_NAME)
-    approximation_data = loaded.approximation_data
-    if approximation_data is None:
+    approximation_config = loaded.approximation_config
+    if approximation_config is None:
         raise ValueError("approximation 設定が必要です")
 
     service, ctx, conn = prepare_run_session(loaded.setting_data, f"uv run main ({FEATURE_NAME})")
     try:
-        source_matrix_data, reference_matrix_data = _load_source_and_reference_matrices(config_loader, loaded.matrix_data, approximation_data)
+        source_matrix_data, reference_matrix_data = _load_source_and_reference_matrices(config_loader, loaded.matrix_data, approximation_config)
 
         write_input_snapshots(
             service,
@@ -39,10 +38,10 @@ def run(config_loader: MainConfigLoader) -> int:
         )
         input_dir = service.artifact_store.run_dir(ctx.run_id) / "input"
         (input_dir / "reference_matrix.toml").write_text(_to_toml(reference_matrix_data), encoding="utf-8")
-        (input_dir / "approximation.toml").write_text(_to_toml(approximation_data), encoding="utf-8")
+        (input_dir / "approximation.toml").write_text(_to_toml(approximation_config.raw_input), encoding="utf-8")
 
-        approximation = _build_approximation(approximation_data)
-        distance = _build_distance(approximation_data)
+        approximation = _build_approximation(approximation_config.approximation_name)
+        distance = _build_distance(approximation_config.distance_name)
         evaluator = ApproximationQualityEvaluator(approximation, distance)
 
         source_matrix = build_matrix(source_matrix_data)
@@ -52,8 +51,8 @@ def run(config_loader: MainConfigLoader) -> int:
         write_json(
             service.artifact_store.run_dir(ctx.run_id) / "output" / "approximation_quality.json",
             {
-                "source_matrix": _resolve_matrix_name(approximation_data, key="source_matrix", default="<shared.matrix>"),
-                "reference_matrix": _resolve_matrix_name(approximation_data, key="reference_matrix", default="<shared.matrix>"),
+                "source_matrix": approximation_config.source_matrix_name or "<shared.matrix>",
+                "reference_matrix": approximation_config.reference_matrix_name or "<shared.matrix>",
                 "approximation": approximation.__class__.__name__,
                 "distance": distance.__class__.__name__,
                 "quality": score,
@@ -72,23 +71,19 @@ def run(config_loader: MainConfigLoader) -> int:
 
 
 def _load_source_and_reference_matrices(
-    config_loader: MainConfigLoader,
+    config_loader: FeatureWorkflowInputPort,
     default_matrix_data: dict,
-    approximation_data: dict,
+    approximation_config: ApproximationConfig,
 ) -> tuple[dict, dict]:
-    base_data_dir = config_loader._main_config_path.parent.parent
-    exp_loader = ExperimentDataLoader(base_dir=base_data_dir)
+    source_name = approximation_config.source_matrix_name
+    reference_name = approximation_config.reference_matrix_name
 
-    source_name = _resolve_matrix_name(approximation_data, key="source_matrix")
-    reference_name = _resolve_matrix_name(approximation_data, key="reference_matrix")
-
-    source_matrix_data = exp_loader.load("matrix", source_name) if source_name is not None else default_matrix_data
-    reference_matrix_data = exp_loader.load("matrix", reference_name) if reference_name is not None else default_matrix_data
+    source_matrix_data = config_loader.load_matrix_data(source_name) if source_name is not None else default_matrix_data
+    reference_matrix_data = config_loader.load_matrix_data(reference_name) if reference_name is not None else default_matrix_data
     return source_matrix_data, reference_matrix_data
 
 
-def _build_approximation(approximation_data: dict) -> PayoffMatrixApproximation:
-    approx_name = _resolve_algorithm_name(approximation_data, kind="approximation")
+def _build_approximation(approx_name: str) -> PayoffMatrixApproximation:
     if approx_name == "MonocycleToGeneralApproximation":
         return MonocycleToGeneralApproximation()
     if approx_name == "DominantEigenpairMonocycleApproximation":
@@ -98,37 +93,11 @@ def _build_approximation(approximation_data: dict) -> PayoffMatrixApproximation:
     raise ValueError(f"未対応の approximation です: {approx_name}")
 
 
-def _build_distance(approximation_data: dict) -> PayoffMatrixDistance:
-    distance_name = _resolve_algorithm_name(approximation_data, kind="distance")
+def _build_distance(distance_name: str) -> PayoffMatrixDistance:
     if distance_name == "MaxElementDifferenceDistance":
         return MaxElementDifferenceDistance()
     if distance_name == "EquilibriumUStrategyDifferenceDistance":
         return EquilibriumUStrategyDifferenceDistance()
     raise ValueError(f"未対応の distance です: {distance_name}")
 
-
-def _resolve_algorithm_name(approximation_data: dict, *, kind: str) -> str:
-    candidates = [
-        approximation_data,
-        approximation_data.get("approximation") if isinstance(approximation_data.get("approximation"), dict) else None,
-        approximation_data.get("approxmation") if isinstance(approximation_data.get("approxmation"), dict) else None,
-    ]
-    for container in candidates:
-        if container is None:
-            continue
-        value = container.get(kind)
-        if isinstance(value, str) and value:
-            return value
-    if kind == "approximation":
-        return "MonocycleToGeneralApproximation"
-    return "MaxElementDifferenceDistance"
-
-
-def _resolve_matrix_name(approximation_data: dict, *, key: str, default: str | None = None) -> str | None:
-    value = approximation_data.get(key)
-    if value is None:
-        return default
-    if not isinstance(value, str) or not value:
-        raise ValueError(f"{key} は空でない文字列で指定してください")
-    return value
 

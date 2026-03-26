@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from monocycle_nash.application_ports import FeatureWorkflowInputPort, RandomMatrixConfig
 import traceback
 from dataclasses import asdict, dataclass
 from typing import Any
@@ -8,7 +9,6 @@ import numpy as np
 
 from monocycle_nash.approximation.compare_approximation_app import _build_approximation, _build_distance
 from monocycle_nash.approximation.random_experiment_domain import ApproximationQualityStatistics, ApproximationQualitySummary
-from monocycle_nash.loader.main_config import MainConfigLoader
 from monocycle_nash.loader.runtime_common import (
     _to_toml,
     build_matrix,
@@ -43,13 +43,13 @@ class RankAtLeastFourCondition(RandomMatrixAcceptanceCondition):
         return int(np.linalg.matrix_rank(matrix)) >= 4
 
 
-def run(config_loader: MainConfigLoader) -> int:
+def run(config_loader: FeatureWorkflowInputPort) -> int:
     loaded = config_loader.load_inputs_for_feature(FEATURE_NAME)
-    approximation_data = loaded.approximation_data
-    random_matrix_data = loaded.random_matrix_data
-    if approximation_data is None:
+    approximation_config = loaded.approximation_config
+    random_matrix_config = loaded.random_matrix_config
+    if approximation_config is None:
         raise ValueError("approximation 設定が必要です")
-    if random_matrix_data is None:
+    if random_matrix_config is None:
         raise ValueError("random_matrix 設定が必要です")
 
     service, ctx, conn = prepare_run_session(loaded.setting_data, f"uv run main ({FEATURE_NAME})")
@@ -62,14 +62,14 @@ def run(config_loader: MainConfigLoader) -> int:
             setting_data=loaded.setting_data,
         )
         input_dir = service.artifact_store.run_dir(ctx.run_id) / "input"
-        (input_dir / "approximation.toml").write_text(_to_toml(approximation_data), encoding="utf-8")
-        (input_dir / "random_matrix.toml").write_text(_to_toml(random_matrix_data), encoding="utf-8")
+        (input_dir / "approximation.toml").write_text(_to_toml(approximation_config.raw_input), encoding="utf-8")
+        (input_dir / "random_matrix.toml").write_text(_to_toml(random_matrix_config.raw_input), encoding="utf-8")
 
-        approximation = _build_approximation(approximation_data)
-        distance = _build_distance(approximation_data)
+        approximation = _build_approximation(approximation_config.approximation_name)
+        distance = _build_distance(approximation_config.distance_name)
         evaluator = ApproximationQualityEvaluator(approximation, distance)
 
-        generation_cfg = _parse_random_generation_config(random_matrix_data)
+        generation_cfg = _parse_random_generation_config(random_matrix_config)
         rng = np.random.default_rng(generation_cfg.random_seed)
 
         statistics = ApproximationQualityStatistics()
@@ -84,7 +84,7 @@ def run(config_loader: MainConfigLoader) -> int:
             )
             source = build_matrix({"matrix": raw_matrix.tolist()})
             score = evaluator.evaluate(source, source)
-            parameters = approximation.quality_parameters(source, config=approximation_data)
+            parameters = approximation.quality_parameters(source, config=approximation_config.raw_input)
             statistics.add(score, parameters=parameters)
 
         overall = statistics.summarize()
@@ -147,35 +147,22 @@ def _condition_keyword(condition: RandomMatrixAcceptanceCondition | None) -> str
     raise ValueError("未対応の acceptance_condition です")
 
 
-def _parse_random_generation_config(config: dict) -> RandomGenerationConfig:
-    size = _required_int(config, key="size", default=None)
-    generation_count = _required_int(config, key="generation_count", default=100)
-    low = _required_float(config, key="low", default=-1.0)
-    high = _required_float(config, key="high", default=1.0)
-    max_attempts = _required_int(config, key="max_attempts", default=10_000)
-    random_seed = _optional_int(config, key="random_seed")
+def _parse_random_generation_config(config: RandomMatrixConfig) -> RandomGenerationConfig:
+    acceptance_condition = _build_acceptance_condition(config.acceptance_condition)
 
-    condition_keyword = config.get("acceptance_condition")
-    if condition_keyword is None:
-        condition_keyword = ""
-    if not isinstance(condition_keyword, str):
-        raise ValueError("random_matrix.acceptance_condition は文字列で指定してください")
-
-    acceptance_condition = _build_acceptance_condition(condition_keyword)
-
-    if size <= 0:
+    if config.size <= 0:
         raise ValueError("random_matrix.size は1以上で指定してください")
-    if generation_count <= 0:
+    if config.generation_count <= 0:
         raise ValueError("random_matrix.generation_count は1以上で指定してください")
 
     return RandomGenerationConfig(
-        size=size,
-        generation_count=generation_count,
+        size=config.size,
+        generation_count=config.generation_count,
         acceptance_condition=acceptance_condition,
-        low=low,
-        high=high,
-        max_attempts=max_attempts,
-        random_seed=random_seed,
+        low=config.low,
+        high=config.high,
+        max_attempts=config.max_attempts,
+        random_seed=config.random_seed,
     )
 
 
@@ -189,24 +176,3 @@ def _build_acceptance_condition(keyword: str) -> RandomMatrixAcceptanceCondition
     raise ValueError(f"未対応の random_matrix.acceptance_condition です: {keyword}")
 
 
-def _required_int(config: dict, *, key: str, default: int | None) -> int:
-    raw = config.get(key, default)
-    if not isinstance(raw, int):
-        raise ValueError(f"random_matrix.{key} は整数で指定してください")
-    return raw
-
-
-def _optional_int(config: dict, *, key: str) -> int | None:
-    raw = config.get(key)
-    if raw is None:
-        return None
-    if not isinstance(raw, int):
-        raise ValueError(f"random_matrix.{key} は整数で指定してください")
-    return raw
-
-
-def _required_float(config: dict, *, key: str, default: float) -> float:
-    raw = config.get(key, default)
-    if not isinstance(raw, (int, float)):
-        raise ValueError(f"random_matrix.{key} は数値で指定してください")
-    return float(raw)

@@ -1,10 +1,10 @@
 from __future__ import annotations
 
+from monocycle_nash.application_ports import FeatureWorkflowInputPort
 import traceback
 
 import numpy as np
 
-from monocycle_nash.loader.main_config import MainConfigLoader
 from monocycle_nash.loader.runtime_common import build_matrix, prepare_run_session, write_input_snapshots, write_json
 from monocycle_nash.solver.selector import SolverSelector
 
@@ -12,7 +12,7 @@ from monocycle_nash.solver.selector import SolverSelector
 FEATURE_NAME = "solve_payoff"
 
 
-def run(config_loader: MainConfigLoader) -> int:
+def run(config_loader: FeatureWorkflowInputPort) -> int:
     loaded = config_loader.load_inputs_for_feature(FEATURE_NAME)
     matrix = build_matrix(loaded.matrix_data)
 
