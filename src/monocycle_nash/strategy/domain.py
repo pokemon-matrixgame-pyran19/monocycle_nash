@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Iterator, Protocol
+from typing import TYPE_CHECKING, Iterator, Protocol, Sequence
 
 from ..character.domain import Character, MatchupVector
 
@@ -129,7 +129,7 @@ class MonocyclePureStrategy(PureStrategy):
 class PureStrategySet:
     """利得行列に紐づく純粋戦略の集合。"""
 
-    strategies: list[PureStrategy]
+    strategies: Sequence[PureStrategy]
     player_name: str = ""
 
     def __post_init__(self) -> None:
