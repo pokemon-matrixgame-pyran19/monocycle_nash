@@ -9,8 +9,8 @@ TheoryTestBuilderの理論値を使用して、均衡解計算が正しいか検
 import numpy as np
 import pytest
 
-from monocycle_nash.matrix.monocycle import MonocyclePayoffMatrix
-from monocycle_nash.character.domain import Character, MatchupVector
+from monocycle_nash.game.domain.matrix.monocycle import MonocyclePayoffMatrix
+from monocycle_nash.game.domain.character import Character, MatchupVector
 
 from theory import TheoryTestBuilder, TestVariant
 

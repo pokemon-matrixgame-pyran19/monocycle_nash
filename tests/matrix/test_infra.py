@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from monocycle_nash.matrix.infra import MatrixFileInfrastructure
+from monocycle_nash.game.infra.matrix import MatrixFileInfrastructure
 
 
 def _write(path: Path, text: str) -> None:

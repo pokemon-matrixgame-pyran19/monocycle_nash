@@ -3,11 +3,11 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-import monocycle_nash.runmeta.project_refs as project_refs_mod
-from monocycle_nash.runmeta.repositories import UNASSIGNED_PROJECT_ID
+import monocycle_nash.runtime.infra.runmeta.project_refs as project_refs_mod
+from monocycle_nash.runtime.infra.runmeta.repositories import UNASSIGNED_PROJECT_ID
 
-from monocycle_nash.loader.runtime_common import TomlRuntimeSettingParser, prepare_run_session, write_input_snapshots
-from monocycle_nash.matrix.infra import build_characters, build_matrix_from_input
+from monocycle_nash.runtime.infra.loader.runtime_common import TomlRuntimeSettingParser, prepare_run_session, write_input_snapshots
+from monocycle_nash.game.infra.matrix import build_characters, build_matrix_from_input
 
 
 def _parse_setting(raw: dict) -> object:

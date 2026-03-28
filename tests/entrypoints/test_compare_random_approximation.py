@@ -3,8 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from monocycle_nash.approximation.compare_random_approximation_app import run
-from monocycle_nash.loader.main_config import MainConfigLoader
+from monocycle_nash.analysis.app.compare_random_approximation import run
+from monocycle_nash.runtime.infra.loader.main_config import MainConfigLoader
 
 
 def _write(path: Path, text: str) -> None:

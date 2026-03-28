@@ -1,0 +1,306 @@
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
+from dataclasses import asdict, dataclass
+from monocycle_nash.runtime.infra.loader.main_config import MainConfigLoader
+import traceback
+from typing import Any
+import numpy as np
+
+from monocycle_nash.analysis.app.compare_approximation import (
+    ApproximationSettings,
+    _build_approximation,
+    _build_distance,
+)
+from monocycle_nash.analysis.domain.random_experiment_statistics import (
+    ApproximationQualityStatistics,
+    ApproximationQualitySummary,
+)
+from monocycle_nash.runtime.infra.loader.runtime_common import (
+    _to_toml,
+    matrix_to_toml_payload,
+    prepare_run_session,
+    write_input_snapshots,
+    write_json,
+)
+from monocycle_nash.game.domain.matrix.approximation import (
+    ApproximationResult,
+    ApproximationQualityEvaluator,
+    DominantEigenpairMethodDiagnostics,
+)
+from monocycle_nash.game.domain.matrix.builder import PayoffMatrixBuilder
+from monocycle_nash.game.domain.matrix.random import (
+    RandomMatrixAcceptanceCondition,
+    generate_random_skew_symmetric_matrix,
+)
+from monocycle_nash.game.domain.matrix.base import PayoffMatrix
+from monocycle_nash.runtime.infra.runmeta.setting_domain import RuntimeSetting
+
+
+FEATURE_NAME = "compare_random_approximation"
+
+
+@dataclass(frozen=True)
+class RandomGenerationConfig:
+    size: int
+    generation_count: int
+    acceptance_condition: RandomMatrixAcceptanceCondition | None
+    low: float
+    high: float
+    max_attempts: int
+    random_seed: int | None
+
+
+@dataclass(frozen=True)
+class RandomMatrixSettings:
+    size: int
+    generation_count: int
+    acceptance_condition: str
+    low: float
+    high: float
+    max_attempts: int
+    random_seed: int | None
+
+
+@dataclass(frozen=True)
+class CompareRandomApproximationFeatureConfig:
+    matrix: PayoffMatrix
+    setting_data: RuntimeSetting
+    approximation: ApproximationSettings
+    random_matrix: RandomMatrixSettings
+
+
+class CompareRandomApproximationSettingLoader(ABC):
+    @abstractmethod
+    def load_compare_random_approximation(self) -> CompareRandomApproximationFeatureConfig:
+        raise NotImplementedError
+
+
+class EvenSizeCondition(RandomMatrixAcceptanceCondition):
+    def is_satisfied(self, matrix: np.ndarray) -> bool:
+        return matrix.shape[0] % 2 == 0
+
+
+class RankAtLeastFourCondition(RandomMatrixAcceptanceCondition):
+    def is_satisfied(self, matrix: np.ndarray) -> bool:
+        return int(np.linalg.matrix_rank(matrix)) >= 4
+
+
+def run(config_loader: MainConfigLoader) -> int:
+    from monocycle_nash.analysis.infra.approximation import ApproximationFeatureInfrastructure
+
+    setting_loader: CompareRandomApproximationSettingLoader = ApproximationFeatureInfrastructure(config_loader)
+    feature_config = setting_loader.load_compare_random_approximation()
+    approximation_config = feature_config.approximation
+    random_matrix_config = feature_config.random_matrix
+
+    service, ctx, conn = prepare_run_session(feature_config.setting_data, f"uv run main ({FEATURE_NAME})")
+    try:
+        write_input_snapshots(
+            service,
+            ctx.run_id,
+            matrix_data=matrix_to_toml_payload(feature_config.matrix),
+            graph_data=None,
+            setting_data=feature_config.setting_data,
+        )
+        input_dir = service.artifact_store.run_dir(ctx.run_id) / "input"
+        (input_dir / "approximation.toml").write_text(
+            _to_toml(_approximation_to_toml_payload(approximation_config)),
+            encoding="utf-8",
+        )
+        (input_dir / "random_matrix.toml").write_text(_to_toml(_random_matrix_to_toml_payload(random_matrix_config)), encoding="utf-8")
+
+        approximation = _build_approximation(approximation_config.approximation_name)
+        distance = _build_distance(approximation_config.distance_name)
+        evaluator = ApproximationQualityEvaluator(approximation, distance)
+
+        generation_cfg = _parse_random_generation_config(random_matrix_config)
+        rng = np.random.default_rng(generation_cfg.random_seed)
+
+        bin_label_keys = _build_bin_label_keys(approximation_config)
+        statistics = ApproximationQualityStatistics(*bin_label_keys)
+        for _ in range(generation_cfg.generation_count):
+            raw_matrix = generate_random_skew_symmetric_matrix(
+                size=generation_cfg.size,
+                low=generation_cfg.low,
+                high=generation_cfg.high,
+                acceptance_condition=generation_cfg.acceptance_condition,
+                rng=rng,
+                max_attempts=generation_cfg.max_attempts,
+            )
+            source = PayoffMatrixBuilder.from_general_matrix(raw_matrix)
+            result = evaluator.evaluate(source, source)
+            bin_labels = _build_bin_labels(
+                result,
+                bin_label_keys=bin_label_keys,
+                dominant_eigen_ratio_bin_edges=approximation_config.dominant_eigen_ratio_bin_edges,
+            )
+            statistics.add(float(result.diagnostics.evaluation.quality or 0.0), *bin_labels)
+
+        overall = statistics.summarize()
+        grouped = _build_grouped_summary(statistics)
+        write_json(
+            service.artifact_store.run_dir(ctx.run_id) / "output" / "random_approximation_quality.json",
+            {
+                "generation_count": overall.count,
+                "approximation": approximation.__class__.__name__,
+                "distance": distance.__class__.__name__,
+                "random_matrix": {
+                    "size": generation_cfg.size,
+                    "low": generation_cfg.low,
+                    "high": generation_cfg.high,
+                    "max_attempts": generation_cfg.max_attempts,
+                    "acceptance_condition": _condition_keyword(generation_cfg.acceptance_condition),
+                    "random_seed": generation_cfg.random_seed,
+                },
+                "quality": asdict(overall),
+                "quality_by_parameters": grouped,
+            },
+        )
+
+        service.finish_success(ctx, extra_meta={"output_files": ["output/random_approximation_quality.json"]})
+        return 0
+    except Exception as exc:  # noqa: BLE001
+        err = traceback.format_exc()
+        (service.artifact_store.run_dir(ctx.run_id) / "logs" / "stderr.log").write_text(err, encoding="utf-8")
+        service.finish_fail(ctx, extra_meta={"error": str(exc)})
+        return 1
+    finally:
+        conn.close()
+
+
+def _build_grouped_summary(statistics: ApproximationQualityStatistics) -> dict[str, dict[str, float | int]]:
+    if not statistics.records or not statistics.label_keys:
+        return {}
+    group_keys = list(statistics.label_keys)
+    grouped = statistics.summarize_grouped(*group_keys)
+    return {
+        _format_group_label(group_keys, labels): asdict(summary)
+        for labels, summary in grouped.items()
+    }
+
+
+def _build_bin_label_keys(approximation_config: ApproximationSettings) -> tuple[str, ...]:
+    label_keys: list[str] = []
+    if approximation_config.dominant_eigen_ratio_bin_edges is not None:
+        label_keys.append("method.dominant_eigen_ratio_bin")
+    return tuple(label_keys)
+
+
+def _build_bin_labels(
+    result: ApproximationResult,
+    *,
+    bin_label_keys: tuple[str, ...],
+    dominant_eigen_ratio_bin_edges: tuple[float, ...] | None = None,
+) -> tuple[str, ...]:
+    labels: list[str] = []
+    for label_key in bin_label_keys:
+        labels.append(
+            _resolve_bin_label(
+                label_key,
+                result,
+                dominant_eigen_ratio_bin_edges=dominant_eigen_ratio_bin_edges,
+            )
+        )
+    return tuple(labels)
+
+
+def _resolve_bin_label(
+    label_key: str,
+    result: ApproximationResult,
+    *,
+    dominant_eigen_ratio_bin_edges: tuple[float, ...] | None,
+) -> str:
+    if label_key == "method.dominant_eigen_ratio_bin":
+        if dominant_eigen_ratio_bin_edges is None:
+            raise ValueError("dominant_eigen_ratio_bin_edges が必要です")
+        if not isinstance(result.diagnostics.method, DominantEigenpairMethodDiagnostics):
+            raise ValueError("dominant_eigen_ratio_bin は DominantEigenpairMethodDiagnostics でのみ利用できます")
+        return _histogram_label(
+            float(result.diagnostics.method.dominant_eigen_ratio),
+            dominant_eigen_ratio_bin_edges,
+        )
+    raise ValueError(f"未対応の bin label です: {label_key}")
+
+
+def _histogram_label(value: float, edges: tuple[float, ...]) -> str:
+    if not np.isfinite(value):
+        return "[inf]"
+    lower = 1.0
+    for edge in edges:
+        if value < edge:
+            return f"[{lower:.3f},{edge:.3f})"
+        lower = edge
+    return f"[{edges[-1]:.3f},inf)"
+
+
+def _format_group_label(group_keys: list[str], labels: tuple[str, ...]) -> str:
+    return ", ".join(f"{group_key}={label}" for group_key, label in zip(group_keys, labels, strict=True))
+
+
+def _condition_keyword(condition: RandomMatrixAcceptanceCondition | None) -> str:
+    if condition is None:
+        return ""
+    if isinstance(condition, EvenSizeCondition):
+        return "even_size"
+    if isinstance(condition, RankAtLeastFourCondition):
+        return "rank_at_least_4"
+    raise ValueError("未対応の acceptance_condition です")
+
+
+def _parse_random_generation_config(config: RandomMatrixSettings) -> RandomGenerationConfig:
+    acceptance_condition = _build_acceptance_condition(config.acceptance_condition)
+
+    if config.size <= 0:
+        raise ValueError("random_matrix.size は1以上で指定してください")
+    if config.generation_count <= 0:
+        raise ValueError("random_matrix.generation_count は1以上で指定してください")
+
+    return RandomGenerationConfig(
+        size=config.size,
+        generation_count=config.generation_count,
+        acceptance_condition=acceptance_condition,
+        low=config.low,
+        high=config.high,
+        max_attempts=config.max_attempts,
+        random_seed=config.random_seed,
+    )
+
+
+def _build_acceptance_condition(keyword: str) -> RandomMatrixAcceptanceCondition | None:
+    if keyword == "":
+        return None
+    if keyword == "even_size":
+        return EvenSizeCondition()
+    if keyword == "rank_at_least_4":
+        return RankAtLeastFourCondition()
+    raise ValueError(f"未対応の random_matrix.acceptance_condition です: {keyword}")
+
+
+def _approximation_to_toml_payload(approximation: ApproximationSettings) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "approximation": approximation.approximation_name,
+        "distance": approximation.distance_name,
+    }
+    if approximation.source_matrix_name is not None:
+        payload["source_matrix"] = approximation.source_matrix_name
+    if approximation.reference_matrix_name is not None:
+        payload["reference_matrix"] = approximation.reference_matrix_name
+    if approximation.dominant_eigen_ratio_bin_edges is not None:
+        payload["dominant_eigen_ratio_bin_edges"] = list(approximation.dominant_eigen_ratio_bin_edges)
+    return payload
+
+
+def _random_matrix_to_toml_payload(config: RandomMatrixSettings) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "size": config.size,
+        "generation_count": config.generation_count,
+        "low": config.low,
+        "high": config.high,
+        "max_attempts": config.max_attempts,
+    }
+    if config.acceptance_condition:
+        payload["acceptance_condition"] = config.acceptance_condition
+    if config.random_seed is not None:
+        payload["random_seed"] = config.random_seed
+    return payload

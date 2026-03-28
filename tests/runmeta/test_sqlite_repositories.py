@@ -1,6 +1,6 @@
-from monocycle_nash.runmeta.clock import now_jst_iso
-from monocycle_nash.runmeta.db import SQLiteConnectionFactory, migrate
-from monocycle_nash.runmeta.repositories import UNASSIGNED_PROJECT_ID, ProjectsRepository, RunsRepository
+from monocycle_nash.runtime.infra.runmeta.clock import now_jst_iso
+from monocycle_nash.runtime.infra.runmeta.db import SQLiteConnectionFactory, migrate
+from monocycle_nash.runtime.infra.runmeta.repositories import UNASSIGNED_PROJECT_ID, ProjectsRepository, RunsRepository
 
 
 def test_connection_enables_foreign_keys() -> None:

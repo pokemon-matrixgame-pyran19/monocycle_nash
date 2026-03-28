@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from monocycle_nash.loader import ExperimentDataLoader, SettingDataLoader, TomlTreeLoader
+from monocycle_nash.runtime.infra.loader import ExperimentDataLoader, SettingDataLoader, TomlTreeLoader
 
 
 def _write(path: Path, text: str) -> None:
