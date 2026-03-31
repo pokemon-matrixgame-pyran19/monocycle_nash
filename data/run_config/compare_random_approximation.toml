@@ -1,0 +1,4 @@
+matrix = "janken_matrix"
+setting = "local"
+approximation = "default"
+random_matrix = "default"

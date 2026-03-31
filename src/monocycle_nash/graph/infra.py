@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 
 from monocycle_nash.loader.data_loader import ExperimentDataLoader, SettingDataLoader
-from monocycle_nash.loader.main_config import MainConfigLoader
 from monocycle_nash.matrix.infra import build_characters
 from monocycle_nash.loader.runtime_common import TomlRuntimeSettingParser
+from monocycle_nash.loader.toml_tree import TomlTreeLoader
 from monocycle_nash.matrix import MatrixFileInfrastructure
 from monocycle_nash.matrix.base import PayoffMatrix
 from monocycle_nash.character.domain import Character
@@ -29,12 +30,13 @@ class PlotCharactersFeatureConfig:
 
 
 class GraphFeatureInfrastructure:
-    def __init__(self, config_loader: MainConfigLoader):
-        self._config_loader = config_loader
-        self._data_root = config_loader.data_root
+    def __init__(self, feature_config_path: Path | str):
+        self._config_path = Path(feature_config_path)
+        self._data_root = self._config_path.parent.parent
+        self._tree_loader = TomlTreeLoader()
 
     def load_graph_payoff(self) -> GraphPayoffFeatureConfig:
-        merged = self._config_loader.load_feature_config("graph_payoff")
+        merged = self._tree_loader.load(self._config_path)
         matrix_name = _require_non_empty_str(merged, key="matrix", name="graph_payoff.matrix")
         setting_name = _require_non_empty_str(merged, key="setting", name="graph_payoff.setting")
         graph_name = _require_non_empty_str(merged, key="graph", name="graph_payoff.graph")
@@ -54,7 +56,7 @@ class GraphFeatureInfrastructure:
         )
 
     def load_plot_characters(self) -> PlotCharactersFeatureConfig:
-        merged = self._config_loader.load_feature_config("plot_characters")
+        merged = self._tree_loader.load(self._config_path)
         matrix_name = _require_non_empty_str(merged, key="matrix", name="plot_characters.matrix")
         setting_name = _require_non_empty_str(merged, key="setting", name="plot_characters.setting")
         graph_name = _require_non_empty_str(merged, key="graph", name="plot_characters.graph")

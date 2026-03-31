@@ -1,21 +1,9 @@
 features = ["solve_payoff", "graph_payoff", "compare_approximation"]
 
-[shared]
-matrix = "janken_matrix"
-setting = "local"
-
-[solve_payoff]
-
-[graph_payoff]
-graph = "default"
-
-[compare_approximation]
-approximation = "default"
-
-[compare_random_approximation]
-approximation = "default"
-random_matrix = "default"
-
-[plot_characters]
-matrix = "janken_characters"
-graph = "default"
+[configs]
+solve_payoff = "solve_payoff.toml"
+compare_payoff = "compare_payoff.toml"
+compare_approximation = "compare_approximation.toml"
+compare_random_approximation = "compare_random_approximation.toml"
+graph_payoff = "graph_payoff.toml"
+plot_characters = "plot_characters.toml"

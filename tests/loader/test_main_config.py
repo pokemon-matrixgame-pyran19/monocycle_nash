@@ -27,31 +27,32 @@ def test_main_config_loader_resolves_shared_and_feature_override(tmp_path: Path)
         '''
         features = ["graph_payoff"]
 
-        [shared]
-        matrix = "rps3"
-        setting = "local"
-
-        [graph_payoff]
-        graph = "default"
+        [configs]
+        graph_payoff = "graph_payoff.toml"
+        ''',
+    )
+    _write(
+        data_dir / "run_config" / "graph_payoff.toml",
+        '''
         matrix = "janken"
+        setting = "local"
+        graph = "default"
         ''',
     )
 
     loader = MainConfigLoader(data_dir / "run_config" / "main.toml")
-    merged = loader.load_feature_config("graph_payoff")
+    config_path = loader.resolve_feature_config_path("graph_payoff")
 
-    assert merged["matrix"] == "janken"
-    assert merged["setting"] == "local"
-    assert merged["graph"] == "default"
+    assert config_path == data_dir / "run_config" / "graph_payoff.toml"
 
 
 def test_main_config_loader_requires_declared_feature_section(tmp_path: Path) -> None:
     data_dir = tmp_path / "data"
-    _write(data_dir / "run_config" / "main.toml", 'features = ["solve_payoff"]\n[shared]\nmatrix = "rps3"\nsetting = "local"')
+    _write(data_dir / "run_config" / "main.toml", 'features = ["solve_payoff"]\n[configs]\n')
 
     loader = MainConfigLoader(data_dir / "run_config" / "main.toml")
-    with pytest.raises(ValueError, match="main_config.solve_payoff"):
-        loader.load_feature_config("solve_payoff")
+    with pytest.raises(ValueError, match="main_config.configs.solve_payoff"):
+        loader.resolve_feature_config_path("solve_payoff")
 
 
 def test_main_config_loader_exposes_data_root(tmp_path: Path) -> None:
@@ -61,3 +62,28 @@ def test_main_config_loader_exposes_data_root(tmp_path: Path) -> None:
 
     assert loader.main_config_path == data_dir / "run_config" / "main.toml"
     assert loader.data_root == data_dir
+
+
+def test_main_config_loader_builds_feature_run_plans(tmp_path: Path) -> None:
+    data_dir = tmp_path / "data"
+    _write(
+        data_dir / "run_config" / "main.toml",
+        '''
+        features = ["solve_payoff", "graph_payoff"]
+
+        [configs]
+        solve_payoff = "solve_payoff.toml"
+        graph_payoff = "graph_payoff.toml"
+        ''',
+    )
+    _write(data_dir / "run_config" / "solve_payoff.toml", 'matrix = "m"\nsetting = "local"')
+    _write(data_dir / "run_config" / "graph_payoff.toml", 'matrix = "m"\nsetting = "local"\ngraph = "default"')
+
+    loader = MainConfigLoader(data_dir / "run_config" / "main.toml")
+    plans = loader.load_feature_run_plans()
+
+    assert [x.feature for x in plans] == ["solve_payoff", "graph_payoff"]
+    assert [x.config_path for x in plans] == [
+        data_dir / "run_config" / "solve_payoff.toml",
+        data_dir / "run_config" / "graph_payoff.toml",
+    ]

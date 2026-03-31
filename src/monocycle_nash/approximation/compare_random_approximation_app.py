@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass
-from monocycle_nash.loader.main_config import MainConfigLoader
+from pathlib import Path
 import traceback
 from typing import Any
 import numpy as np
@@ -84,10 +84,10 @@ class RankAtLeastFourCondition(RandomMatrixAcceptanceCondition):
         return int(np.linalg.matrix_rank(matrix)) >= 4
 
 
-def run(config_loader: MainConfigLoader) -> int:
+def run(feature_config_path: Path | str) -> int:
     from monocycle_nash.approximation.infra import ApproximationFeatureInfrastructure
 
-    setting_loader: CompareRandomApproximationSettingLoader = ApproximationFeatureInfrastructure(config_loader)
+    setting_loader: CompareRandomApproximationSettingLoader = ApproximationFeatureInfrastructure(feature_config_path)
     feature_config = setting_loader.load_compare_random_approximation()
     approximation_config = feature_config.approximation
     random_matrix_config = feature_config.random_matrix

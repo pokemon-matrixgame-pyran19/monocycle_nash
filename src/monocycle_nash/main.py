@@ -12,8 +12,8 @@ from monocycle_nash.loader.runtime_common import finalize_shared_run, set_shared
 
 def main() -> int:
     config_loader = MainConfigLoader()
-    features = config_loader.load_features()
-    shared_mode = len(features) > 1
+    feature_plans = config_loader.load_feature_run_plans()
+    shared_mode = len(feature_plans) > 1
     set_shared_run_mode(shared_mode)
 
     runners = {
@@ -26,11 +26,11 @@ def main() -> int:
     }
 
     try:
-        for feature in features:
-            runner = runners.get(feature)
+        for feature_plan in feature_plans:
+            runner = runners.get(feature_plan.feature)
             if runner is None:
-                raise ValueError(f"未対応の feature です: {feature}")
-            code = runner(config_loader)
+                raise ValueError(f"未対応の feature です: {feature_plan.feature}")
+            code = runner(feature_plan.config_path)
             if code != 0:
                 return code
         return 0

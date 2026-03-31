@@ -4,7 +4,6 @@ import json
 from pathlib import Path
 
 from monocycle_nash.equilibrium.solve_payoff_app import run
-from monocycle_nash.loader.main_config import MainConfigLoader
 
 
 def _write(path: Path, text: str) -> None:
@@ -36,14 +35,14 @@ def test_solve_payoff_outputs_eigenvalues_for_alternating_matrix(tmp_path: Path)
     )
     _write_setting(data_dir, tmp_path)
 
-    _write(data_dir / "run_config" / "main.toml", """
-features=["solve_payoff"]
-[shared]
-matrix="rps3"
-setting="local"
-[solve_payoff]
-""")
-    code = run(MainConfigLoader(data_dir / "run_config" / "main.toml"))
+    _write(
+        data_dir / "run_config" / "solve_payoff.toml",
+        """
+        matrix="rps3"
+        setting="local"
+        """,
+    )
+    code = run(data_dir / "run_config" / "solve_payoff.toml")
 
     assert code == 0
 
@@ -72,14 +71,14 @@ def test_solve_payoff_skips_eigenvalues_for_non_alternating_matrix(tmp_path: Pat
     )
     _write_setting(data_dir, tmp_path)
 
-    _write(data_dir / "run_config" / "main.toml", """
-features=["solve_payoff"]
-[shared]
-matrix="non_alt"
-setting="local"
-[solve_payoff]
-""")
-    code = run(MainConfigLoader(data_dir / "run_config" / "main.toml"))
+    _write(
+        data_dir / "run_config" / "solve_payoff.toml",
+        """
+        matrix="non_alt"
+        setting="local"
+        """,
+    )
+    code = run(data_dir / "run_config" / "solve_payoff.toml")
 
     assert code == 0
 

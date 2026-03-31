@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from monocycle_nash.approximation.compare_approximation_app import (
     ApproximationSettings,
     CompareApproximationFeatureConfig,
@@ -11,18 +13,19 @@ from monocycle_nash.approximation.compare_random_approximation_app import (
     RandomMatrixSettings,
 )
 from monocycle_nash.loader.data_loader import ExperimentDataLoader, SettingDataLoader
-from monocycle_nash.loader.main_config import MainConfigLoader
 from monocycle_nash.loader.runtime_common import TomlRuntimeSettingParser
+from monocycle_nash.loader.toml_tree import TomlTreeLoader
 from monocycle_nash.matrix import MatrixFileInfrastructure
 
 
 class ApproximationFeatureInfrastructure(CompareApproximationSettingLoader, CompareRandomApproximationSettingLoader):
-    def __init__(self, config_loader: MainConfigLoader):
-        self._config_loader = config_loader
-        self._data_root = config_loader.data_root
+    def __init__(self, feature_config_path: Path | str):
+        self._config_path = Path(feature_config_path)
+        self._data_root = self._config_path.parent.parent
+        self._tree_loader = TomlTreeLoader()
 
     def load_compare_approximation(self) -> CompareApproximationFeatureConfig:
-        merged = self._config_loader.load_feature_config("compare_approximation")
+        merged = self._load_feature_config()
         matrix_name = _require_non_empty_str(merged, key="matrix", name="compare_approximation.matrix")
         setting_name = _require_non_empty_str(merged, key="setting", name="compare_approximation.setting")
         approximation_name = _require_non_empty_str(merged, key="approximation", name="compare_approximation.approximation")
@@ -56,7 +59,7 @@ class ApproximationFeatureInfrastructure(CompareApproximationSettingLoader, Comp
         )
 
     def load_compare_random_approximation(self) -> CompareRandomApproximationFeatureConfig:
-        merged = self._config_loader.load_feature_config("compare_random_approximation")
+        merged = self._load_feature_config()
         matrix_name = _require_non_empty_str(merged, key="matrix", name="compare_random_approximation.matrix")
         setting_name = _require_non_empty_str(merged, key="setting", name="compare_random_approximation.setting")
         approximation_name = _require_non_empty_str(
@@ -85,6 +88,9 @@ class ApproximationFeatureInfrastructure(CompareApproximationSettingLoader, Comp
             approximation=_build_approximation_settings(approximation_data),
             random_matrix=_build_random_matrix_settings(random_matrix_data),
         )
+
+    def _load_feature_config(self) -> dict:
+        return self._tree_loader.load(self._config_path)
 
 
 def _build_approximation_settings(data: dict) -> ApproximationSettings:

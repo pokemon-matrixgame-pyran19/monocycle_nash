@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from monocycle_nash.loader.main_config import MainConfigLoader
+from pathlib import Path
 import traceback
 
 from monocycle_nash.graph.infra import GraphFeatureInfrastructure
@@ -11,8 +11,8 @@ from monocycle_nash.visualization import CharacterVectorGraphPlotter
 FEATURE_NAME = "plot_characters"
 
 
-def run(config_loader: MainConfigLoader) -> int:
-    feature_config = GraphFeatureInfrastructure(config_loader).load_plot_characters()
+def run(feature_config_path: Path | str) -> int:
+    feature_config = GraphFeatureInfrastructure(feature_config_path).load_plot_characters()
     characters = feature_config.characters
 
     canvas_size = feature_config.canvas_size

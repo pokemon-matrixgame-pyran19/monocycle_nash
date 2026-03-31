@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass
+from pathlib import Path
 import traceback
 
-from monocycle_nash.loader.main_config import MainConfigLoader
 from monocycle_nash.loader.runtime_common import _to_toml, matrix_to_toml_payload, prepare_run_session, write_input_snapshots, write_json
 from monocycle_nash.matrix import (
     ApproximationQualityEvaluator,
@@ -47,10 +47,10 @@ class CompareApproximationSettingLoader(ABC):
 FEATURE_NAME = "compare_approximation"
 
 
-def run(config_loader: MainConfigLoader) -> int:
+def run(feature_config_path: Path | str) -> int:
     from monocycle_nash.approximation.infra import ApproximationFeatureInfrastructure
 
-    setting_loader: CompareApproximationSettingLoader = ApproximationFeatureInfrastructure(config_loader)
+    setting_loader: CompareApproximationSettingLoader = ApproximationFeatureInfrastructure(feature_config_path)
     feature_config = setting_loader.load_compare_approximation()
     approximation_config = feature_config.approximation
 

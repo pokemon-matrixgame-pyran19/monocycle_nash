@@ -4,7 +4,6 @@ import json
 from pathlib import Path
 
 from monocycle_nash.approximation.compare_approximation_app import run
-from monocycle_nash.loader.main_config import MainConfigLoader
 
 
 def _write(path: Path, text: str) -> None:
@@ -28,15 +27,10 @@ def _write_setting(data_dir: Path, tmp_path: Path) -> None:
 def test_compare_approximation_writes_quality_json(tmp_path: Path) -> None:
     data_dir = tmp_path / "data"
     _write(
-        data_dir / "run_config" / "main.toml",
+        data_dir / "run_config" / "compare_approximation.toml",
         '''
-        features = ["compare_approximation"]
-
-        [shared]
         matrix = "source_chars"
         setting = "local"
-
-        [compare_approximation]
         approximation = "default"
         ''',
     )
@@ -63,7 +57,7 @@ def test_compare_approximation_writes_quality_json(tmp_path: Path) -> None:
     )
     _write_setting(data_dir, tmp_path)
 
-    code = run(MainConfigLoader(data_dir / "run_config" / "main.toml"))
+    code = run(data_dir / "run_config" / "compare_approximation.toml")
 
     assert code == 0
 
@@ -84,15 +78,10 @@ def test_compare_approximation_writes_quality_json(tmp_path: Path) -> None:
 def test_compare_approximation_returns_failure_code_for_invalid_config(tmp_path: Path) -> None:
     data_dir = tmp_path / "data"
     _write(
-        data_dir / "run_config" / "main.toml",
+        data_dir / "run_config" / "compare_approximation.toml",
         '''
-        features = ["compare_approximation"]
-
-        [shared]
         matrix = "source_chars"
         setting = "local"
-
-        [compare_approximation]
         approximation = "default"
         ''',
     )
@@ -116,7 +105,7 @@ def test_compare_approximation_returns_failure_code_for_invalid_config(tmp_path:
     )
     _write_setting(data_dir, tmp_path)
 
-    code = run(MainConfigLoader(data_dir / "run_config" / "main.toml"))
+    code = run(data_dir / "run_config" / "compare_approximation.toml")
 
     assert code == 1
 
@@ -124,15 +113,10 @@ def test_compare_approximation_returns_failure_code_for_invalid_config(tmp_path:
 def test_compare_approximation_supports_equilibrium_u_strategy_distance(tmp_path: Path) -> None:
     data_dir = tmp_path / "data"
     _write(
-        data_dir / "run_config" / "main.toml",
+        data_dir / "run_config" / "compare_approximation.toml",
         '''
-        features = ["compare_approximation"]
-
-        [shared]
         matrix = "source_matrix"
         setting = "local"
-
-        [compare_approximation]
         approximation = "default"
         ''',
     )
@@ -167,7 +151,7 @@ def test_compare_approximation_supports_equilibrium_u_strategy_distance(tmp_path
     )
     _write_setting(data_dir, tmp_path)
 
-    code = run(MainConfigLoader(data_dir / "run_config" / "main.toml"))
+    code = run(data_dir / "run_config" / "compare_approximation.toml")
 
     assert code == 0
 
@@ -185,15 +169,10 @@ def test_compare_approximation_supports_equilibrium_u_strategy_distance(tmp_path
 def test_compare_approximation_supports_equilibrium_preserving_residual_approximation(tmp_path: Path) -> None:
     data_dir = tmp_path / "data"
     _write(
-        data_dir / "run_config" / "main.toml",
+        data_dir / "run_config" / "compare_approximation.toml",
         """
-        features = ["compare_approximation"]
-
-        [shared]
         matrix = "source_matrix"
         setting = "local"
-
-        [compare_approximation]
         approximation = "default"
         """,
     )
@@ -220,7 +199,7 @@ def test_compare_approximation_supports_equilibrium_preserving_residual_approxim
     )
     _write_setting(data_dir, tmp_path)
 
-    code = run(MainConfigLoader(data_dir / "run_config" / "main.toml"))
+    code = run(data_dir / "run_config" / "compare_approximation.toml")
 
     assert code == 0
 

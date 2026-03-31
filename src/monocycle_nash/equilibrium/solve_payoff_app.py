@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from pathlib import Path
 import traceback
 
 import numpy as np
 
-from monocycle_nash.loader.main_config import MainConfigLoader
 from monocycle_nash.loader.runtime_common import matrix_to_toml_payload, prepare_run_session, write_input_snapshots, write_json
 from monocycle_nash.matrix.base import PayoffMatrix
 from monocycle_nash.runmeta.setting_domain import RuntimeSetting
@@ -32,10 +32,10 @@ class EquilibriumSettingLoader(ABC):
         raise NotImplementedError
 
 
-def run(config_loader: MainConfigLoader) -> int:
+def run(feature_config_path: Path | str) -> int:
     from monocycle_nash.equilibrium.infra import EquilibriumFeatureInfrastructure
 
-    setting_loader: EquilibriumSettingLoader = EquilibriumFeatureInfrastructure(config_loader)
+    setting_loader: EquilibriumSettingLoader = EquilibriumFeatureInfrastructure(feature_config_path)
     feature_config = setting_loader.load_solve_payoff()
     matrix = feature_config.matrix
 

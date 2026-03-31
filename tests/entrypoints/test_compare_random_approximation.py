@@ -4,7 +4,6 @@ import json
 from pathlib import Path
 
 from monocycle_nash.approximation.compare_random_approximation_app import run
-from monocycle_nash.loader.main_config import MainConfigLoader
 
 
 def _write(path: Path, text: str) -> None:
@@ -28,15 +27,10 @@ def _write_setting(data_dir: Path, tmp_path: Path) -> None:
 def test_compare_random_approximation_writes_summary_json(tmp_path: Path) -> None:
     data_dir = tmp_path / "data"
     _write(
-        data_dir / "run_config" / "main.toml",
+        data_dir / "run_config" / "compare_random_approximation.toml",
         '''
-        features = ["compare_random_approximation"]
-
-        [shared]
         matrix = "base"
         setting = "local"
-
-        [compare_random_approximation]
         approximation = "default"
         random_matrix = "r4"
         ''',
@@ -61,7 +55,7 @@ def test_compare_random_approximation_writes_summary_json(tmp_path: Path) -> Non
     )
     _write_setting(data_dir, tmp_path)
 
-    code = run(MainConfigLoader(data_dir / "run_config" / "main.toml"))
+    code = run(data_dir / "run_config" / "compare_random_approximation.toml")
 
     assert code == 0
 
@@ -83,15 +77,10 @@ def test_compare_random_approximation_writes_summary_json(tmp_path: Path) -> Non
 def test_compare_random_approximation_returns_failure_for_invalid_condition(tmp_path: Path) -> None:
     data_dir = tmp_path / "data"
     _write(
-        data_dir / "run_config" / "main.toml",
+        data_dir / "run_config" / "compare_random_approximation.toml",
         '''
-        features = ["compare_random_approximation"]
-
-        [shared]
         matrix = "base"
         setting = "local"
-
-        [compare_random_approximation]
         approximation = "default"
         random_matrix = "invalid"
         ''',
@@ -113,6 +102,6 @@ def test_compare_random_approximation_returns_failure_for_invalid_condition(tmp_
     )
     _write_setting(data_dir, tmp_path)
 
-    code = run(MainConfigLoader(data_dir / "run_config" / "main.toml"))
+    code = run(data_dir / "run_config" / "compare_random_approximation.toml")
 
     assert code == 1
