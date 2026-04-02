@@ -53,9 +53,12 @@ class TeamStrictSpectrumSettingLoader(ABC):
 def run(config_loader: MainConfigLoader) -> int:
     from monocycle_nash.analysis.infra.approximation import ApproximationFeatureInfrastructure
 
-    setting_loader: TeamStrictSpectrumSettingLoader = ApproximationFeatureInfrastructure(config_loader)
-    feature_config = setting_loader.load_experiment_team_strict_spectrum()
-    settings = feature_config.experiment
+    try:
+        setting_loader: TeamStrictSpectrumSettingLoader = ApproximationFeatureInfrastructure(config_loader)
+        feature_config = setting_loader.load_experiment_team_strict_spectrum()
+        settings = feature_config.experiment
+    except Exception:  # noqa: BLE001
+        return 1
 
     service, ctx, conn = prepare_run_session(feature_config.setting_data, f"uv run main ({FEATURE_NAME})")
     try:
