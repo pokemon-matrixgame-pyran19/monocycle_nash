@@ -1,5 +1,5 @@
-from monocycle_nash.character import Character, MatchupVector
-from monocycle_nash.visualization import CharacterVectorGraphPlotter
+from monocycle_nash.game.domain.character import Character, MatchupVector
+from monocycle_nash.analysis.infra.visualization import CharacterVectorGraphPlotter
 
 
 def test_draw_creates_svg_with_labels_and_power_scaled_circles(tmp_path) -> None:

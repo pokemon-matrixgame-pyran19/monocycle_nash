@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from monocycle_nash.matrix.general import GeneralPayoffMatrix
+from monocycle_nash.game.domain.matrix.general import GeneralPayoffMatrix
 
 
 def test_eigenvalues_returns_imaginary_magnitudes_for_alternating_matrix() -> None:

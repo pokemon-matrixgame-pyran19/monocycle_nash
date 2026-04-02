@@ -8,7 +8,7 @@ import pytest
 import numpy as np
 import random
 
-from monocycle_nash.character.domain import MatchupVector, Character, get_characters
+from monocycle_nash.game.domain.character import MatchupVector, Character, get_characters
 
 
 # =============================================================================

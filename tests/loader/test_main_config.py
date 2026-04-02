@@ -4,12 +4,20 @@ from pathlib import Path
 
 import pytest
 
-from monocycle_nash.loader.main_config import MainConfigLoader
+from monocycle_nash.runtime.infra.loader.main_config import MainConfigLoader
 
 
 def _write(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text.strip() + "\n", encoding="utf-8")
+
+
+def test_main_config_loader_load_features(tmp_path: Path) -> None:
+    data_dir = tmp_path / "data"
+    _write(data_dir / "run_config" / "main.toml", 'features = ["graph_payoff", "solve_payoff"]')
+
+    loader = MainConfigLoader(data_dir / "run_config" / "main.toml")
+    assert loader.load_features() == ["graph_payoff", "solve_payoff"]
 
 
 def test_main_config_loader_resolves_shared_and_feature_override(tmp_path: Path) -> None:
@@ -25,19 +33,16 @@ def test_main_config_loader_resolves_shared_and_feature_override(tmp_path: Path)
 
         [graph_payoff]
         graph = "default"
+        matrix = "janken"
         ''',
     )
-    _write(data_dir / "matrix" / "rps3" / "data.toml", 'matrix = [[0, 1], [-1, 0]]')
-    _write(data_dir / "graph" / "default" / "data.toml", '[payoff]\ncanvas_size = 840')
-    _write(data_dir / "setting" / "local.toml", '[output]\nbase_dir = "result"')
 
     loader = MainConfigLoader(data_dir / "run_config" / "main.toml")
-    loaded = loader.load_inputs_for_feature("graph_payoff", graph_section="payoff")
+    merged = loader.load_feature_config("graph_payoff")
 
-    assert loader.load_features() == ["graph_payoff"]
-    assert loaded.matrix_data["matrix"] == [[0, 1], [-1, 0]]
-    assert loaded.graph_data is not None
-    assert loaded.graph_data["canvas_size"] == 840
+    assert merged["matrix"] == "janken"
+    assert merged["setting"] == "local"
+    assert merged["graph"] == "default"
 
 
 def test_main_config_loader_requires_declared_feature_section(tmp_path: Path) -> None:
@@ -46,103 +51,13 @@ def test_main_config_loader_requires_declared_feature_section(tmp_path: Path) ->
 
     loader = MainConfigLoader(data_dir / "run_config" / "main.toml")
     with pytest.raises(ValueError, match="main_config.solve_payoff"):
-        loader.load_inputs_for_feature("solve_payoff")
+        loader.load_feature_config("solve_payoff")
 
 
-def test_main_config_loader_loads_approximation_for_compare_feature(tmp_path: Path) -> None:
+def test_main_config_loader_exposes_data_root(tmp_path: Path) -> None:
     data_dir = tmp_path / "data"
-    _write(
-        data_dir / "run_config" / "main.toml",
-        '''
-        features = ["compare_approximation"]
-
-        [shared]
-        matrix = "rps3"
-        setting = "local"
-
-        [compare_approximation]
-        approximation = "default"
-        ''',
-    )
-    _write(data_dir / "matrix" / "rps3" / "data.toml", 'matrix = [[0, 1], [-1, 0]]')
-    _write(data_dir / "approximation" / "default" / "data.toml", 'alpha = 0.5')
-    _write(data_dir / "setting" / "local.toml", '[output]\nbase_dir = "result"')
-
+    _write(data_dir / "run_config" / "main.toml", 'features = ["solve_payoff"]')
     loader = MainConfigLoader(data_dir / "run_config" / "main.toml")
-    loaded = loader.load_inputs_for_feature("compare_approximation")
 
-    assert loaded.approximation_data is not None
-    assert loaded.approximation_data["alpha"] == 0.5
-
-
-def test_main_config_loader_requires_approximation_for_compare_feature(tmp_path: Path) -> None:
-    data_dir = tmp_path / "data"
-    _write(
-        data_dir / "run_config" / "main.toml",
-        '''
-        features = ["compare_approximation"]
-
-        [shared]
-        matrix = "rps3"
-        setting = "local"
-
-        [compare_approximation]
-        ''',
-    )
-    _write(data_dir / "matrix" / "rps3" / "data.toml", 'matrix = [[0, 1], [-1, 0]]')
-    _write(data_dir / "setting" / "local.toml", '[output]\nbase_dir = "result"')
-
-    loader = MainConfigLoader(data_dir / "run_config" / "main.toml")
-    with pytest.raises(ValueError, match="compare_approximation.approximation"):
-        loader.load_inputs_for_feature("compare_approximation")
-
-
-def test_main_config_loader_loads_random_matrix_for_random_compare_feature(tmp_path: Path) -> None:
-    data_dir = tmp_path / "data"
-    _write(
-        data_dir / "run_config" / "main.toml",
-        '''
-        features = ["compare_random_approximation"]
-
-        [shared]
-        matrix = "rps3"
-        setting = "local"
-
-        [compare_random_approximation]
-        approximation = "default"
-        random_matrix = "r4"
-        ''',
-    )
-    _write(data_dir / "matrix" / "rps3" / "data.toml", 'matrix = [[0, 1], [-1, 0]]')
-    _write(data_dir / "approximation" / "default" / "data.toml", 'alpha = 0.5')
-    _write(data_dir / "random_matrix" / "r4" / "data.toml", 'size = 4')
-    _write(data_dir / "setting" / "local.toml", '[output]\nbase_dir = "result"')
-
-    loader = MainConfigLoader(data_dir / "run_config" / "main.toml")
-    loaded = loader.load_inputs_for_feature("compare_random_approximation")
-
-    assert loaded.random_matrix_data is not None
-    assert loaded.random_matrix_data["size"] == 4
-
-
-def test_main_config_loader_requires_random_matrix_for_random_compare_feature(tmp_path: Path) -> None:
-    data_dir = tmp_path / "data"
-    _write(
-        data_dir / "run_config" / "main.toml",
-        '''
-        features = ["compare_random_approximation"]
-
-        [shared]
-        matrix = "rps3"
-        setting = "local"
-
-        [compare_random_approximation]
-        approximation = "default"
-        ''',
-    )
-    _write(data_dir / "matrix" / "rps3" / "data.toml", 'matrix = [[0, 1], [-1, 0]]')
-    _write(data_dir / "setting" / "local.toml", '[output]\nbase_dir = "result"')
-
-    loader = MainConfigLoader(data_dir / "run_config" / "main.toml")
-    with pytest.raises(ValueError, match="compare_random_approximation.random_matrix"):
-        loader.load_inputs_for_feature("compare_random_approximation")
+    assert loader.main_config_path == data_dir / "run_config" / "main.toml"
+    assert loader.data_root == data_dir

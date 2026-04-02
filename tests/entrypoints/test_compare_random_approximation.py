@@ -3,8 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from monocycle_nash.approximation.compare_random_approximation_app import run
-from monocycle_nash.loader.main_config import MainConfigLoader
+from monocycle_nash.analysis.app.compare_random_approximation import run
+from monocycle_nash.runtime.infra.loader.main_config import MainConfigLoader
 
 
 def _write(path: Path, text: str) -> None:
@@ -77,7 +77,7 @@ def test_compare_random_approximation_writes_summary_json(tmp_path: Path) -> Non
     assert payload["quality"]["count"] == 8
     assert "mean" in payload["quality"]
     assert "stddev" in payload["quality"]
-    assert "dominant_eigen_ratio_bin" in payload["quality_by_parameters"]
+    assert any(key.startswith("method.dominant_eigen_ratio_bin=") for key in payload["quality_by_parameters"])
 
 
 def test_compare_random_approximation_returns_failure_for_invalid_condition(tmp_path: Path) -> None:

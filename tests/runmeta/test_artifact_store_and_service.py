@@ -3,10 +3,10 @@ from pathlib import Path
 
 import pytest
 
-from monocycle_nash.runmeta.artifact_store import RunArtifactStore
-from monocycle_nash.runmeta.db import SQLiteConnectionFactory, migrate
-from monocycle_nash.runmeta.repositories import ProjectsRepository, RunsRepository
-from monocycle_nash.runmeta.service import RunSessionService
+from monocycle_nash.runtime.infra.runmeta.artifact_store import RunArtifactStore
+from monocycle_nash.runtime.infra.runmeta.db import SQLiteConnectionFactory, migrate
+from monocycle_nash.runtime.infra.runmeta.repositories import ProjectsRepository, RunsRepository
+from monocycle_nash.runtime.infra.runmeta.service import RunSessionService
 
 
 def test_artifact_store_snapshot_and_meta(tmp_path: Path) -> None:

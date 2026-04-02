@@ -1,19 +1,22 @@
 import numpy as np
 import pytest
 
-from monocycle_nash.character.domain import Character, MatchupVector
-from monocycle_nash.matrix.approximation import (
+from monocycle_nash.game.domain.character import Character, MatchupVector
+from monocycle_nash.game.domain.matrix.approximation import (
     ApproximationQualityEvaluator,
+    ApproximationEvaluation,
+    DominantEigenpairMethodDiagnostics,
+    EmptyApproximationMethodDiagnostics,
     MaxElementDifferenceDistance,
     MonocycleToGeneralApproximation,
     DominantEigenpairMonocycleApproximation,
     EquilibriumPreservingResidualMonocycleApproximation,
     EquilibriumUStrategyDifferenceDistance,
 )
-from monocycle_nash.matrix.builder import PayoffMatrixBuilder
-from monocycle_nash.matrix.general import GeneralPayoffMatrix
+from monocycle_nash.game.domain.matrix.builder import PayoffMatrixBuilder
+from monocycle_nash.game.domain.matrix.general import GeneralPayoffMatrix
 
-from monocycle_nash.equilibrium.domain import MixedStrategy
+from monocycle_nash.equilibrium.domain.mixed_strategy import MixedStrategy
 
 
 class _StubSolverSelector:
@@ -39,9 +42,11 @@ def test_monocycle_to_general_approximation_returns_general_matrix(sample_monocy
 
     result = approx.approximate(sample_monocycle_matrix)
 
-    assert isinstance(result, GeneralPayoffMatrix)
-    assert np.array_equal(result.matrix, sample_monocycle_matrix.matrix)
-    assert result.row_strategies is sample_monocycle_matrix.row_strategies
+    assert isinstance(result.matrix, GeneralPayoffMatrix)
+    assert np.array_equal(result.matrix.matrix, sample_monocycle_matrix.matrix)
+    assert result.matrix.row_strategies is sample_monocycle_matrix.row_strategies
+    assert isinstance(result.diagnostics.method, EmptyApproximationMethodDiagnostics)
+    assert result.diagnostics.evaluation == ApproximationEvaluation()
 
 
 
@@ -71,7 +76,7 @@ def test_approximation_quality_evaluator_combines_approximation_and_distance(sam
 
     quality = evaluator.evaluate(sample_monocycle_matrix, reference)
 
-    assert quality == pytest.approx(0.5)
+    assert quality.diagnostics.evaluation.quality == pytest.approx(0.5)
 
 
 def test_dominant_eigenpair_monocycle_approximation_extracts_largest_pair_component():
@@ -96,7 +101,7 @@ def test_dominant_eigenpair_monocycle_approximation_extracts_largest_pair_compon
             [0.0, 0.0, 0.0, 0.0],
         ]
     )
-    assert np.allclose(result.matrix, expected, atol=1e-7)
+    assert np.allclose(result.matrix.matrix, expected, atol=1e-7)
 
 
 def test_dominant_eigenpair_monocycle_approximation_rejects_non_alternating_matrix():
@@ -107,7 +112,7 @@ def test_dominant_eigenpair_monocycle_approximation_rejects_non_alternating_matr
         approximation.approximate(source)
 
 
-def test_dominant_eigenpair_monocycle_approximation_quality_parameters_provides_histogram_bin():
+def test_dominant_eigenpair_monocycle_approximation_exposes_method_diagnostics():
     approximation = DominantEigenpairMonocycleApproximation()
     matrix = np.array(
         [
@@ -119,13 +124,11 @@ def test_dominant_eigenpair_monocycle_approximation_quality_parameters_provides_
     )
     source = GeneralPayoffMatrix(matrix)
 
-    parameters = approximation.quality_parameters(
-        source,
-        config={"dominant_eigen_ratio_bin_edges": [1.5, 2.0, 3.0]},
-    )
+    result = approximation.approximate(source)
 
-    assert parameters["dominant_eigen_ratio"] == pytest.approx(2.5)
-    assert parameters["dominant_eigen_ratio_bin"] == "[2.000,3.000)"
+    assert isinstance(result.diagnostics.method, DominantEigenpairMethodDiagnostics)
+    assert result.diagnostics.method.dominant_eigen_ratio == pytest.approx(2.5)
+    assert result.diagnostics.evaluation == ApproximationEvaluation()
 
 
 def test_equilibrium_u_strategy_difference_distance_uses_sup_norm_on_expected_payoff_gap():
@@ -164,8 +167,8 @@ def test_equilibrium_preserving_residual_monocycle_approximation_matches_equilib
     )
     result = approximation.approximate(source)
 
-    assert np.allclose(result.matrix + result.matrix.T, 0.0, atol=1e-8)
-    assert np.allclose(result.matrix @ u, source.matrix @ u, atol=1e-7)
+    assert np.allclose(result.matrix.matrix + result.matrix.matrix.T, 0.0, atol=1e-8)
+    assert np.allclose(result.matrix.matrix @ u, source.matrix @ u, atol=1e-7)
 
 
 def test_equilibrium_preserving_residual_monocycle_approximation_rejects_non_alternating_matrix():
