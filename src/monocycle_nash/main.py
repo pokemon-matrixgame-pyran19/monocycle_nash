@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from monocycle_nash.analysis.app.compare_approximation import run as run_compare_approximation
 from monocycle_nash.analysis.app.compare_random_approximation import run as run_compare_random_approximation
+from monocycle_nash.analysis.app.experiment_team_strict_spectrum import run as run_experiment_team_strict_spectrum
 from monocycle_nash.equilibrium.app.compare_payoff import run as run_compare_payoff
 from monocycle_nash.equilibrium.app.solve_payoff import run as run_solve_payoff
 from monocycle_nash.analysis.app.graph_payoff import run as run_graph_payoff
@@ -21,6 +22,7 @@ def main() -> int:
         "compare_payoff": run_compare_payoff,
         "compare_approximation": run_compare_approximation,
         "compare_random_approximation": run_compare_random_approximation,
+        "experiment_team_strict_spectrum": run_experiment_team_strict_spectrum,
         "graph_payoff": run_graph_payoff,
         "plot_characters": run_plot_characters,
     }

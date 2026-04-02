@@ -19,3 +19,6 @@ random_matrix = "default"
 [plot_characters]
 matrix = "janken_characters"
 graph = "default"
+
+[experiment_team_strict_spectrum]
+experiment = "default"
