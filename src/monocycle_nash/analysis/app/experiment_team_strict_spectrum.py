@@ -150,8 +150,8 @@ def _run_single_trial(
 
 
 def _build_matrix_input(rng: np.random.Generator, settings: TeamStrictExperimentSettings) -> dict[str, Any]:
-    if settings.character_count != 6:
-        raise ValueError("experiment_team_strict_spectrum.character_count は 6 固定です")
+    if settings.character_count < 2:
+        raise ValueError("experiment_team_strict_spectrum.character_count は 2 以上で指定してください")
     if settings.team_size != 2:
         raise ValueError("experiment_team_strict_spectrum.team_size は 2 固定です")
 
@@ -225,6 +225,11 @@ def _summarize_trials(trials: list[dict[str, Any]]) -> tuple[dict[str, Any], dic
         if count > 0
         else None
     )
+    support_size_le_3_rate = (
+        float(sum(1 for size in support_sizes if size <= 3) / count)
+        if count > 0
+        else None
+    )
 
     summary = {
         "count": count,
@@ -236,6 +241,8 @@ def _summarize_trials(trials: list[dict[str, Any]]) -> tuple[dict[str, Any], dic
         "dominant_gap_std": float(np.std(dominant_gap_values)) if dominant_gap_values else None,
         "support_size_histogram": histogram,
         "support_size_eq_3_rate": support_size_eq_3_rate,
+        "support_size_le_3_rate": support_size_le_3_rate,
+        "support_size_gt_3_rate": (1.0 - support_size_le_3_rate) if support_size_le_3_rate is not None else None,
         "corr_dominant_gap_vs_support_size": corr,
         "support3_rate_gap_ge_2": _support3_rate_for_gap(trials, lower=2.0, upper=None),
         "support3_rate_gap_lt_2": _support3_rate_for_gap(trials, lower=None, upper=2.0),

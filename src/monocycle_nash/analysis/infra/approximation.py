@@ -158,8 +158,8 @@ def _build_team_strict_experiment_settings(data: dict) -> TeamStrictExperimentSe
         support_threshold=_required_float(data, key="support_threshold", default=1e-6),
         solver=_optional_str(data, key="solver", default=""),
     )
-    if settings.character_count != 6:
-        raise ValueError("experiment_team_strict_spectrum.character_count は 6 で指定してください")
+    if settings.character_count < 2:
+        raise ValueError("experiment_team_strict_spectrum.character_count は 2 以上で指定してください")
     if settings.team_size != 2:
         raise ValueError("experiment_team_strict_spectrum.team_size は 2 で指定してください")
     if settings.generation_count <= 0:

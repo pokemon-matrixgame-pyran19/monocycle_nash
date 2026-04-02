@@ -45,6 +45,8 @@ def _write_experiment(
     data_dir: Path,
     *,
     name: str,
+    character_count: int = 6,
+    team_size: int = 2,
     generation_count: int = 5,
     power_low: float = -1.0,
     power_high: float = 1.0,
@@ -54,6 +56,8 @@ def _write_experiment(
     _write(
         data_dir / "experiment" / "team_strict_spectrum" / name / "data.toml",
         f'''
+        character_count = {character_count}
+        team_size = {team_size}
         generation_count = {generation_count}
         power_low = {power_low}
         power_high = {power_high}
@@ -89,6 +93,7 @@ def test_experiment_team_strict_spectrum_writes_result_json(tmp_path: Path) -> N
         assert "support_size" in trial
 
     assert "support_size_histogram" in payload["summary"]
+    assert "support_size_le_3_rate" in payload["summary"]
 
 
 def test_experiment_team_strict_spectrum_fails_when_generation_count_is_non_positive(tmp_path: Path) -> None:
@@ -128,6 +133,22 @@ def test_experiment_team_strict_spectrum_fails_for_invalid_vector_range(tmp_path
         generation_count=5,
         vector_low=0.5,
         vector_high=0.5,
+    )
+    _write_setting(data_dir, tmp_path)
+
+    code = run(MainConfigLoader(data_dir / "run_config" / "main.toml"))
+
+    assert code == 1
+
+
+def test_experiment_team_strict_spectrum_fails_for_invalid_character_count(tmp_path: Path) -> None:
+    data_dir = tmp_path / "data"
+    _write_main_config(data_dir, experiment_name="invalid_character_count")
+    _write_experiment(
+        data_dir,
+        name="invalid_character_count",
+        character_count=1,
+        generation_count=1,
     )
     _write_setting(data_dir, tmp_path)
 
