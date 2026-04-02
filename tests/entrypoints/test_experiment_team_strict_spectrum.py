@@ -89,6 +89,7 @@ def test_experiment_team_strict_spectrum_writes_result_json(tmp_path: Path) -> N
         assert "support_size" in trial
 
     assert "support_size_histogram" in payload["summary"]
+    assert "support_size_le_3_rate" in payload["summary"]
 
 
 def test_experiment_team_strict_spectrum_fails_when_generation_count_is_non_positive(tmp_path: Path) -> None:
