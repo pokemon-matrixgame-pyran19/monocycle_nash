@@ -10,13 +10,22 @@ from monocycle_nash.analysis.app.compare_random_approximation import (
     CompareRandomApproximationSettingLoader,
     RandomMatrixSettings,
 )
+from monocycle_nash.analysis.app.experiment_team_strict_spectrum import (
+    TeamStrictExperimentSettings,
+    TeamStrictSpectrumFeatureConfig,
+    TeamStrictSpectrumSettingLoader,
+)
 from monocycle_nash.runtime.infra.loader.data_loader import ExperimentDataLoader, SettingDataLoader
 from monocycle_nash.runtime.infra.loader.main_config import MainConfigLoader
 from monocycle_nash.runtime.infra.loader.runtime_common import TomlRuntimeSettingParser
 from monocycle_nash.game.infra.matrix import MatrixFileInfrastructure
 
 
-class ApproximationFeatureInfrastructure(CompareApproximationSettingLoader, CompareRandomApproximationSettingLoader):
+class ApproximationFeatureInfrastructure(
+    CompareApproximationSettingLoader,
+    CompareRandomApproximationSettingLoader,
+    TeamStrictSpectrumSettingLoader,
+):
     def __init__(self, config_loader: MainConfigLoader):
         self._config_loader = config_loader
         self._data_root = config_loader.data_root
@@ -86,6 +95,33 @@ class ApproximationFeatureInfrastructure(CompareApproximationSettingLoader, Comp
             random_matrix=_build_random_matrix_settings(random_matrix_data),
         )
 
+    def load_experiment_team_strict_spectrum(self) -> TeamStrictSpectrumFeatureConfig:
+        merged = self._config_loader.load_feature_config("experiment_team_strict_spectrum")
+        setting_name = _require_non_empty_str(
+            merged,
+            key="setting",
+            name="experiment_team_strict_spectrum.setting",
+        )
+        experiment_name = _require_non_empty_str(
+            merged,
+            key="experiment",
+            name="experiment_team_strict_spectrum.experiment",
+        )
+
+        setting = TomlRuntimeSettingParser().parse(
+            SettingDataLoader(base_dir=self._data_root / "setting").load(setting_name)
+        )
+        experiment_data = ExperimentDataLoader(base_dir=self._data_root).load(
+            "experiment/team_strict_spectrum",
+            experiment_name,
+        )
+
+        return TeamStrictSpectrumFeatureConfig(
+            setting_data=setting,
+            experiment=_build_team_strict_experiment_settings(experiment_data),
+        )
+
+
 
 def _build_approximation_settings(data: dict) -> ApproximationSettings:
     return ApproximationSettings(
@@ -107,6 +143,34 @@ def _build_random_matrix_settings(data: dict) -> RandomMatrixSettings:
         max_attempts=_required_int(data, key="max_attempts", default=10_000),
         random_seed=_optional_int(data, key="random_seed"),
     )
+
+
+def _build_team_strict_experiment_settings(data: dict) -> TeamStrictExperimentSettings:
+    settings = TeamStrictExperimentSettings(
+        character_count=_required_int(data, key="character_count", default=6),
+        team_size=_required_int(data, key="team_size", default=2),
+        generation_count=_required_int(data, key="generation_count", default=100),
+        random_seed=_optional_int(data, key="random_seed"),
+        power_low=_required_float(data, key="power_low", default=-1.0),
+        power_high=_required_float(data, key="power_high", default=1.0),
+        vector_low=_required_float(data, key="vector_low", default=-1.0),
+        vector_high=_required_float(data, key="vector_high", default=1.0),
+        support_threshold=_required_float(data, key="support_threshold", default=1e-6),
+        solver=_optional_str(data, key="solver", default=""),
+    )
+    if settings.character_count != 6:
+        raise ValueError("experiment_team_strict_spectrum.character_count は 6 で指定してください")
+    if settings.team_size != 2:
+        raise ValueError("experiment_team_strict_spectrum.team_size は 2 で指定してください")
+    if settings.generation_count <= 0:
+        raise ValueError("experiment_team_strict_spectrum.generation_count は 1 以上で指定してください")
+    if settings.power_low >= settings.power_high:
+        raise ValueError("experiment_team_strict_spectrum.power_low は power_high より小さくしてください")
+    if settings.vector_low >= settings.vector_high:
+        raise ValueError("experiment_team_strict_spectrum.vector_low は vector_high より小さくしてください")
+    if settings.support_threshold < 0:
+        raise ValueError("experiment_team_strict_spectrum.support_threshold は 0 以上で指定してください")
+    return settings
 
 
 def _optional_float_tuple(container: dict, *, key: str) -> tuple[float, ...] | None:
