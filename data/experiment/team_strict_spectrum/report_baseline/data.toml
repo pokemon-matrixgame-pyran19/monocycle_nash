@@ -1,0 +1,9 @@
+character_count = 6
+team_size = 2
+generation_count = 50
+power_low = -1.0
+power_high = 1.0
+vector_low = -1.0
+vector_high = 1.0
+random_seed = 42
+support_threshold = 1e-6
