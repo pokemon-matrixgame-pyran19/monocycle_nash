@@ -150,8 +150,8 @@ def _run_single_trial(
 
 
 def _build_matrix_input(rng: np.random.Generator, settings: TeamStrictExperimentSettings) -> dict[str, Any]:
-    if settings.character_count != 6:
-        raise ValueError("experiment_team_strict_spectrum.character_count は 6 固定です")
+    if settings.character_count < 2:
+        raise ValueError("experiment_team_strict_spectrum.character_count は 2 以上で指定してください")
     if settings.team_size != 2:
         raise ValueError("experiment_team_strict_spectrum.team_size は 2 固定です")
 

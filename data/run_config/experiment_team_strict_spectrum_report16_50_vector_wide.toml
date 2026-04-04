@@ -1,0 +1,7 @@
+features = ["experiment_team_strict_spectrum"]
+
+[shared]
+setting = "local"
+
+[experiment_team_strict_spectrum]
+experiment = "report16_50_vector_wide"
