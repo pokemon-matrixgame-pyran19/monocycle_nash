@@ -41,5 +41,7 @@ uv run python scripts/run_team_strict_spectrum_report16_gen50.py --only vector_w
 
 - 以前の `character_count=16, generation_count=3` 実行時の観測では、おおむね **1試行 ≒ 20秒**。
 - そのため、`generation_count=50` は **1条件あたり約1000秒（約16〜17分）**、3条件合計で約50分を見込んでください。
-- 出力は `results/<run_id>/output/team_strict_spectrum_experiment.json` に保存されます。
-
+- 各条件は別runとして保存されるため、出力は `results/<run_id>/output/team_strict_spectrum_experiment.json` が3つ作られます（1ファイルに追記されません）。
+- スクリプトは3条件分の集約JSONも書き出します。
+  - `results/team_strict_spectrum_report16_gen50_latest.json`
+  - `results/team_strict_spectrum_report16_gen50_<timestamp>.json`
