@@ -1,4 +1,4 @@
-features = ["solve_payoff", "graph_payoff", "compare_approximation"]
+features = ["compare_product_formula"]
 
 [shared]
 matrix = "janken_matrix"
@@ -9,8 +9,8 @@ setting = "local"
 [graph_payoff]
 graph = "default"
 
-[compare_approximation]
-approximation = "default"
+[compare_product_formula]
+cauchy_like = "cauchy_5d_b1379"
 
 [compare_random_approximation]
 approximation = "default"
