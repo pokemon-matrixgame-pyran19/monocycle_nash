@@ -10,7 +10,7 @@ setting = "local"
 graph = "default"
 
 [compare_product_formula]
-cauchy_like = "cauchy_5d_b1379"
+cauchy_like = "cauchy_5d_alt_b1379"
 
 [compare_random_approximation]
 approximation = "default"
