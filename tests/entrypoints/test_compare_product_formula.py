@@ -98,7 +98,9 @@ def test_compare_product_formula_3d_exact_sums_to_one(tmp_path: Path) -> None:
 
     run(MainConfigLoader(data_dir / "run_config" / "main.toml"))
 
-    result_path = next((tmp_path / "result").iterdir()) / "output" / "compare_product_formula.json"
+    run_dirs = [x for x in (tmp_path / "result").iterdir() if x.is_dir()]
+    assert len(run_dirs) == 1
+    result_path = run_dirs[0] / "output" / "compare_product_formula.json"
     payload = json.loads(result_path.read_text(encoding="utf-8"))
     probs = payload["exact_equilibrium"]["probabilities"]
     assert abs(sum(probs) - 1.0) < 1e-6
@@ -113,7 +115,9 @@ def test_compare_product_formula_3d_normalized_valid(tmp_path: Path) -> None:
 
     run(MainConfigLoader(data_dir / "run_config" / "main.toml"))
 
-    result_path = next((tmp_path / "result").iterdir()) / "output" / "compare_product_formula.json"
+    run_dirs = [x for x in (tmp_path / "result").iterdir() if x.is_dir()]
+    assert len(run_dirs) == 1
+    result_path = run_dirs[0] / "output" / "compare_product_formula.json"
     payload = json.loads(result_path.read_text(encoding="utf-8"))
     norm = payload["product_formula_normalized"]
     assert norm["is_valid"] is True
@@ -147,7 +151,9 @@ def test_compare_product_formula_5d_residual_small(tmp_path: Path) -> None:
 
     run(MainConfigLoader(data_dir / "run_config" / "main.toml"))
 
-    result_path = next((tmp_path / "result").iterdir()) / "output" / "compare_product_formula.json"
+    run_dirs = [x for x in (tmp_path / "result").iterdir() if x.is_dir()]
+    assert len(run_dirs) == 1
+    result_path = run_dirs[0] / "output" / "compare_product_formula.json"
     payload = json.loads(result_path.read_text(encoding="utf-8"))
     assert payload["exact_equilibrium"]["max_residual"] < 1e-6
 
@@ -165,7 +171,9 @@ def test_compare_product_formula_5d_normalized_not_exact(tmp_path: Path) -> None
 
     run(MainConfigLoader(data_dir / "run_config" / "main.toml"))
 
-    result_path = next((tmp_path / "result").iterdir()) / "output" / "compare_product_formula.json"
+    run_dirs = [x for x in (tmp_path / "result").iterdir() if x.is_dir()]
+    assert len(run_dirs) == 1
+    result_path = run_dirs[0] / "output" / "compare_product_formula.json"
     payload = json.loads(result_path.read_text(encoding="utf-8"))
     norm = payload["product_formula_normalized"]
     assert norm["is_valid"] is True
