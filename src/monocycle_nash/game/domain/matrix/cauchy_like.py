@@ -206,52 +206,16 @@ class CauchyLikePayoffMatrix(PayoffMatrix):
 
     def theoretical_equilibrium(self) -> np.ndarray:
         """
-        コーシー型行列の理論的なナッシュ均衡確率を返す。
+        コーシー型行列のナッシュ均衡確率を返す。
 
-        導出:
-            均衡条件 Σ_j B_ij x_j = 0 は u_j = a_j x_j とおくと
-            Σ_{j≠i} u_j / (b_i - b_j) = 0 に帰着する。
-            これは M_ij = 1/(b_i - b_j) の零空間 (null space) を求める問題となる。
-            M は奇数次元の歪対称行列なので零空間は1次元であり、
-            SVD を用いて零ベクトル u を求め、x_j = u_j / a_j と変換する。
+        一般行列に対するナッシュ均衡ソルバー（nashpy）を呼び出して厳密解を計算する。
+        これは既存の solve_equilibrium() と本質的に同じ計算であり、
+        特殊構造（M の零空間）を利用した近似的な導出を経由しない。
 
-            注意: 良く誤答される式「v_i = Π_{j≠i}(b_i - b_j)」は n=3 でのみ
-            零ベクトルに比例し、n≥5 では一般に均衡解を与えない（product_formula() 参照）。
+        注意: 良く誤答される式「v_i = Π_{j≠i}(b_i - b_j)」は n=3 でのみ
+        零ベクトルに比例し、n≥5 では一般に均衡解を与えない（product_formula() 参照）。
 
         Returns:
             正規化された均衡確率の配列。
-
-        Raises:
-            ValueError: パラメータが不適切で非負の確率を構成できない場合。
         """
-        b = self.get_b_values()
-        a = self.get_a_values()
-        n = len(b)
-
-        # M_ij = 1/(b_i - b_j) の歪対称行列を構築
-        M = np.zeros((n, n), dtype=float)
-        for i in range(n):
-            for j in range(n):
-                if i != j:
-                    M[i, j] = 1.0 / (b[i] - b[j])
-
-        # SVD で最小特異値に対応する右特異ベクトルを零ベクトルとして取得
-        _, _, Vt = np.linalg.svd(M)
-        u = Vt[-1]
-
-        # x_j = u_j / a_j
-        weights = u / a
-
-        # 符号を統一（全成分を正にする）
-        if np.all(weights <= 0):
-            weights = -weights
-
-        if np.any(weights < -1e-10):
-            raise ValueError(
-                "零ベクトルから計算した x = u / a の成分に負の値が含まれます。"
-                "全サポートの均衡を持つには a_i の符号を適切に設定する必要があります。\n"
-                f"u = {u}\na = {a}\nx = {weights}"
-            )
-
-        weights = np.maximum(weights, 0.0)
-        return weights / weights.sum()
+        return np.asarray(self.solve_equilibrium().probabilities, dtype=float)

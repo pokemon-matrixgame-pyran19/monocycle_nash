@@ -247,12 +247,12 @@ class TestTheoreticalEquilibrium:
         x = m.theoretical_equilibrium()
         assert np.all(x > 0)
 
-    def test_theoretical_equilibrium_invalid_sign_raises(self) -> None:
-        """a_i の符号が不適切な場合は ValueError。"""
-        # a = [1, 1, 1] では u_2 < 0 だが a_2 > 0 なので x_2 = u_2/a_2 < 0 → エラー
+    def test_theoretical_equilibrium_sign_independent(self) -> None:
+        """a = [1, 1, 1] (全正符号) でも general ソルバー経由で有効な確率分布が返る。"""
         m = CauchyLikePayoffMatrix.from_ab_lists([1.0, 1.0, 1.0], B_3)
-        with pytest.raises(ValueError, match="負の値"):
-            m.theoretical_equilibrium()
+        x = m.theoretical_equilibrium()
+        assert x.sum() == pytest.approx(1.0, abs=1e-6)
+        assert np.all(x >= -1e-10)
 
     def test_theory_satisfies_equilibrium_condition_3d(self) -> None:
         """理論式が均衡条件 Bx = 0 を満たすことを直接検証。"""
