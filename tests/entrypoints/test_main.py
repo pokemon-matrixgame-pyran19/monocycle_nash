@@ -3,87 +3,56 @@ from __future__ import annotations
 import pytest
 
 import monocycle_nash.main as main_mod
+from monocycle_nash.presentation import cli as cli_mod
 
 
-class _FakeConfigLoader:
-    def __init__(self, features: list[str]) -> None:
-        self._features = features
+def test_main_delegates_to_cli_main(monkeypatch: pytest.MonkeyPatch) -> None:
+    """main.main() は cli_main() に委譲する。"""
+    called = []
 
-    def load_features(self) -> list[str]:
-        return self._features
-
-
-def test_main_runs_compare_payoff_and_returns_non_zero_code(monkeypatch: pytest.MonkeyPatch) -> None:
-    fake_loader = _FakeConfigLoader(["compare_payoff"])
-    monkeypatch.setattr(main_mod, "MainConfigLoader", lambda: fake_loader)
-
-    called: list[_FakeConfigLoader] = []
-
-    def _fake_compare_run(config_loader: _FakeConfigLoader) -> int:
-        called.append(config_loader)
-        return 7
-
-    monkeypatch.setattr(main_mod, "run_compare_payoff", _fake_compare_run)
-
-    assert main_mod.main() == 7
-    assert called == [fake_loader]
-
-
-def test_main_raises_value_error_with_unsupported_feature_name(monkeypatch: pytest.MonkeyPatch) -> None:
-    unsupported_feature = "compare_payoff_next"
-    monkeypatch.setattr(main_mod, "MainConfigLoader", lambda: _FakeConfigLoader([unsupported_feature]))
-
-    with pytest.raises(ValueError, match=unsupported_feature):
-        main_mod.main()
-
-
-def test_main_runs_compare_random_approximation(monkeypatch: pytest.MonkeyPatch) -> None:
-    fake_loader = _FakeConfigLoader(["compare_random_approximation"])
-    monkeypatch.setattr(main_mod, "MainConfigLoader", lambda: fake_loader)
-
-    called: list[_FakeConfigLoader] = []
-
-    def _fake_run(config_loader: _FakeConfigLoader) -> int:
-        called.append(config_loader)
+    def _fake_cli_main(argv: list[str] | None = None) -> int:
+        called.append(argv)
         return 0
 
-    monkeypatch.setattr(main_mod, "run_compare_random_approximation", _fake_run)
+    monkeypatch.setattr(cli_mod, "main", _fake_cli_main)
+    monkeypatch.setattr(main_mod, "cli_main", _fake_cli_main)
 
     assert main_mod.main() == 0
-    assert called == [fake_loader]
+    assert len(called) == 1
 
 
-def test_main_enables_shared_run_mode_for_multiple_features(monkeypatch: pytest.MonkeyPatch) -> None:
-    fake_loader = _FakeConfigLoader(["compare_payoff", "compare_random_approximation"])
-    monkeypatch.setattr(main_mod, "MainConfigLoader", lambda: fake_loader)
+def test_cli_version_flag(capsys: pytest.CaptureFixture[str]) -> None:
+    """--version フラグでバージョンを出力して終了する。"""
+    with pytest.raises(SystemExit, match="0"):
+        cli_mod.main(["--version"])
+    captured = capsys.readouterr()
+    assert "0.2.0" in captured.out
 
-    run_calls: list[str] = []
-    shared_mode_calls: list[bool] = []
-    finalize_calls = 0
 
-    def _fake_compare_run(config_loader: _FakeConfigLoader) -> int:
-        run_calls.append("compare_payoff")
-        assert config_loader is fake_loader
-        return 0
+def test_cli_missing_config(monkeypatch: pytest.MonkeyPatch) -> None:
+    """存在しない設定ファイルを指定するとエラーコード1を返す。"""
+    result = cli_mod.main(["--config", "/nonexistent/path.toml"])
+    assert result == 1
 
-    def _fake_random_run(config_loader: _FakeConfigLoader) -> int:
-        run_calls.append("compare_random_approximation")
-        assert config_loader is fake_loader
-        return 0
 
-    def _fake_set_shared_mode(enabled: bool) -> None:
-        shared_mode_calls.append(enabled)
+def test_cli_unsupported_feature(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: pytest.TempPathFactory,
+) -> None:
+    """未対応の feature 名はエラーコード1を返す。"""
+    from pathlib import Path
 
-    def _fake_finalize() -> None:
-        nonlocal finalize_calls
-        finalize_calls += 1
+    fake_config = tmp_path / "fake.toml"  # type: ignore[operator]
+    fake_config.write_text("")
 
-    monkeypatch.setattr(main_mod, "run_compare_payoff", _fake_compare_run)
-    monkeypatch.setattr(main_mod, "run_compare_random_approximation", _fake_random_run)
-    monkeypatch.setattr(main_mod, "set_shared_run_mode", _fake_set_shared_mode)
-    monkeypatch.setattr(main_mod, "finalize_shared_run", _fake_finalize)
+    def _fake_load(path: object) -> dict:
+        return {"features": ["unknown_feature_xyz"], "shared": {}}
 
-    assert main_mod.main() == 0
-    assert run_calls == ["compare_payoff", "compare_random_approximation"]
-    assert shared_mode_calls == [True, False]
-    assert finalize_calls == 1
+    monkeypatch.setattr(cli_mod, "_load_run_config", _fake_load)
+    monkeypatch.setattr(cli_mod, "_DEFAULT_CONFIG", fake_config)
+
+    result = cli_mod.main([])
+    assert result == 1
+    captured = capsys.readouterr()
+    assert "未対応" in captured.err
