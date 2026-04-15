@@ -9,8 +9,9 @@ TheoryTestBuilderの理論値を使用して、均衡解計算が正しいか検
 import numpy as np
 import pytest
 
-from monocycle_nash.game.domain.matrix.monocycle import MonocyclePayoffMatrix
-from monocycle_nash.game.domain.character import Character, MatchupVector
+from monocycle_nash.domain.matrix.monocycle import MonocyclePayoffMatrix
+from monocycle_nash.domain.character import Character, MatchupVector
+from monocycle_nash.domain.solver.selector import SolverSelector
 
 from theory import TheoryTestBuilder, TestVariant
 
@@ -43,7 +44,7 @@ class TestEquilibriumCalculation:
                 payoff = MonocyclePayoffMatrix(characters)
                 
                 # 均衡解を計算
-                equilibrium = payoff.solve_equilibrium()
+                equilibrium = SolverSelector().solve(payoff)
                 
                 # 出力: equilibrium が理論値と一致することを検証
                 np.testing.assert_array_almost_equal(
@@ -64,7 +65,7 @@ class TestEquilibriumCalculation:
                 characters = self._build_characters(variant)
                 payoff = MonocyclePayoffMatrix(characters)
                 
-                equilibrium = payoff.solve_equilibrium()
+                equilibrium = SolverSelector().solve(payoff)
                 
                 # 確率の合計が1に近いことを検証
                 prob_sum = np.sum(equilibrium.probabilities)
@@ -86,7 +87,7 @@ class TestEquilibriumCalculation:
                 characters = self._build_characters(variant)
                 payoff = MonocyclePayoffMatrix(characters)
                 
-                equilibrium = payoff.solve_equilibrium()
+                equilibrium = SolverSelector().solve(payoff)
                 support = equilibrium.get_support(threshold=1e-6)
                 
                 # サポートのサイズが3以下であることを検証
@@ -105,12 +106,12 @@ class TestEquilibriumCalculation:
             
             # 最初のvariantの均衡解を基準とする
             first_characters = self._build_characters(case.variants[0])
-            first_equilibrium = MonocyclePayoffMatrix(first_characters).solve_equilibrium()
+            first_equilibrium = SolverSelector().solve(MonocyclePayoffMatrix(first_characters))
             
             # 残りのvariantも同じ均衡解になることを検証
             for variant in case.variants[1:]:
                 characters = self._build_characters(variant)
-                equilibrium = MonocyclePayoffMatrix(characters).solve_equilibrium()
+                equilibrium = SolverSelector().solve(MonocyclePayoffMatrix(characters))
                 
                 np.testing.assert_array_almost_equal(
                     equilibrium.probabilities,

@@ -1,1 +1,0 @@
-"""Payoff matrix domain package."""

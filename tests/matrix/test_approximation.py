@@ -1,8 +1,8 @@
 import numpy as np
 import pytest
 
-from monocycle_nash.game.domain.character import Character, MatchupVector
-from monocycle_nash.game.domain.matrix.approximation import (
+from monocycle_nash.domain.character import Character, MatchupVector
+from monocycle_nash.domain.matrix.approximation import (
     ApproximationQualityEvaluator,
     ApproximationEvaluation,
     DominantEigenpairMethodDiagnostics,
@@ -13,10 +13,10 @@ from monocycle_nash.game.domain.matrix.approximation import (
     EquilibriumPreservingResidualMonocycleApproximation,
     EquilibriumUStrategyDifferenceDistance,
 )
-from monocycle_nash.game.domain.matrix.builder import PayoffMatrixBuilder
-from monocycle_nash.game.domain.matrix.general import GeneralPayoffMatrix
+from monocycle_nash.domain.matrix.builder import PayoffMatrixBuilder
+from monocycle_nash.domain.matrix.general import GeneralPayoffMatrix
 
-from monocycle_nash.equilibrium.domain.mixed_strategy import MixedStrategy
+from monocycle_nash.domain.equilibrium import MixedStrategy
 
 
 class _StubSolverSelector:

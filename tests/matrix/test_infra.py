@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from monocycle_nash.game.infra.matrix import MatrixFileInfrastructure
+from monocycle_nash.infrastructure.input.matrix_reader import FileMatrixDataReader
+from monocycle_nash.application.matrix_construction import MatrixConstructionUseCase
+from monocycle_nash.application.dto import MatrixInputDTO
 
 
 def _write(path: Path, text: str) -> None:
@@ -10,17 +12,31 @@ def _write(path: Path, text: str) -> None:
     path.write_text(text.strip() + "\n", encoding="utf-8")
 
 
-def test_matrix_file_infrastructure_loads_matrix(tmp_path: Path) -> None:
+def test_file_matrix_data_reader_loads_raw(tmp_path: Path) -> None:
     data_dir = tmp_path / "data"
     _write(data_dir / "matrix" / "rps3" / "data.toml", 'matrix = [[0, 1], [-1, 0]]')
 
-    infra = MatrixFileInfrastructure(base_dir=data_dir)
-    matrix = infra.load_matrix("rps3")
+    reader = FileMatrixDataReader(data_dir=data_dir)
+    data = reader.load_matrix_data("rps3")
+
+    assert data["matrix"] == [[0, 1], [-1, 0]]
+
+
+def test_file_matrix_data_reader_builds_matrix(tmp_path: Path) -> None:
+    data_dir = tmp_path / "data"
+    _write(data_dir / "matrix" / "rps3" / "data.toml", 'matrix = [[0, 1], [-1, 0]]')
+
+    reader = FileMatrixDataReader(data_dir=data_dir)
+    data = reader.load_matrix_data("rps3")
+
+    dto = MatrixInputDTO(raw_matrix=data.get("matrix"), labels=data.get("labels"))
+    uc = MatrixConstructionUseCase()
+    matrix, _ = uc.build(dto)
 
     assert matrix.matrix.tolist() == [[0.0, 1.0], [-1.0, 0.0]]
 
 
-def test_matrix_file_infrastructure_initializes_payoff_matrix(tmp_path: Path) -> None:
+def test_file_matrix_data_reader_characters(tmp_path: Path) -> None:
     data_dir = tmp_path / "data"
     _write(
         data_dir / "matrix" / "character_model" / "data.toml",
@@ -37,8 +53,12 @@ def test_matrix_file_infrastructure_initializes_payoff_matrix(tmp_path: Path) ->
         ''',
     )
 
-    infra = MatrixFileInfrastructure(base_dir=data_dir)
-    matrix = infra.load_matrix("character_model")
+    reader = FileMatrixDataReader(data_dir=data_dir)
+    data = reader.load_matrix_data("character_model")
+
+    dto = MatrixInputDTO(characters=data.get("characters"))
+    uc = MatrixConstructionUseCase()
+    matrix, _ = uc.build(dto)
 
     assert matrix.matrix.shape == (2, 2)
     assert matrix.labels == ["rock", "paper"]

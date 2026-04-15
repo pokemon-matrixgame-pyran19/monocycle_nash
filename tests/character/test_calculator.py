@@ -7,8 +7,8 @@ PowerVectorCalculator クラスのテストを提供します。
 import pytest
 import numpy as np
 
-from monocycle_nash.game.domain.character_calculator import PowerVectorCalculator
-from monocycle_nash.game.domain.character import MatchupVector, Character, get_characters
+from monocycle_nash.domain.character_calculator import PowerVectorCalculator
+from monocycle_nash.domain.character import MatchupVector, Character, get_characters
 
 
 class TestPowerVectorCalculator:
