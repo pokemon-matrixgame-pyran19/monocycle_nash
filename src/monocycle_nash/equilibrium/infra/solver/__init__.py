@@ -1,0 +1,1 @@
+"""Equilibrium solver package."""

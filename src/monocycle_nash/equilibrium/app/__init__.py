@@ -1,0 +1,1 @@
+"""Equilibrium application package."""

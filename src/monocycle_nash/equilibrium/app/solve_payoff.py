@@ -1,0 +1,97 @@
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+import traceback
+
+import numpy as np
+
+from monocycle_nash.runtime.infra.loader.main_config import MainConfigLoader
+from monocycle_nash.runtime.infra.loader.runtime_common import matrix_to_toml_payload, prepare_run_session, write_input_snapshots, write_json
+from monocycle_nash.game.domain.matrix.base import PayoffMatrix
+from monocycle_nash.runtime.infra.runmeta.setting_domain import RuntimeSetting
+from monocycle_nash.equilibrium.infra.solver.selector import SolverSelector
+
+
+FEATURE_NAME = "solve_payoff"
+
+
+@dataclass(frozen=True)
+class SolvePayoffFeatureConfig:
+    matrix: PayoffMatrix
+    setting_data: RuntimeSetting
+
+
+class EquilibriumSettingLoader(ABC):
+    @abstractmethod
+    def load_compare_payoff(self) -> SolvePayoffFeatureConfig:
+        raise NotImplementedError
+
+    @abstractmethod
+    def load_solve_payoff(self) -> SolvePayoffFeatureConfig:
+        raise NotImplementedError
+
+
+def run(config_loader: MainConfigLoader) -> int:
+    from monocycle_nash.equilibrium.infra.feature import EquilibriumFeatureInfrastructure
+
+    setting_loader: EquilibriumSettingLoader = EquilibriumFeatureInfrastructure(config_loader)
+    feature_config = setting_loader.load_solve_payoff()
+    matrix = feature_config.matrix
+
+    service, ctx, conn = prepare_run_session(feature_config.setting_data, f"uv run main ({FEATURE_NAME})")
+    try:
+        write_input_snapshots(
+            service,
+            ctx.run_id,
+            matrix_data=matrix_to_toml_payload(matrix),
+            graph_data=None,
+            setting_data=feature_config.setting_data,
+        )
+
+        eq = SolverSelector().solve(matrix)
+        out_dir = service.artifact_store.run_dir(ctx.run_id) / "output"
+
+        write_json(
+            out_dir / "equilibrium.json",
+            {"strategy_ids": eq.strategy_ids, "probabilities": eq.probabilities.tolist()},
+        )
+
+        pure_payoff = np.asarray(matrix.matrix, dtype=float) @ np.asarray(eq.probabilities, dtype=float)
+        write_json(
+            out_dir / "pure_strategy.json",
+            {
+                "strategy_ids": matrix.row_strategies.ids,
+                "labels": matrix.labels,
+                "payoffs": pure_payoff.tolist(),
+            },
+        )
+
+        best = float(np.max(pure_payoff)) if pure_payoff.size else 0.0
+        divergence = [float(best - x) for x in pure_payoff.tolist()]
+        write_json(
+            out_dir / "divergence.json",
+            {
+                "strategy_ids": matrix.row_strategies.ids,
+                "divergence": divergence,
+            },
+        )
+
+        output_files = [
+            "output/equilibrium.json",
+            "output/pure_strategy.json",
+            "output/divergence.json",
+        ]
+        if matrix.is_alternating():
+            write_json(out_dir / "eigenvalues.json", {"eigenvalues": matrix.eigenvalues().tolist()})
+            output_files.append("output/eigenvalues.json")
+
+        service.finish_success(ctx, extra_meta={"output_files": output_files})
+        return 0
+    except Exception as exc:  # noqa: BLE001
+        err = traceback.format_exc()
+        (service.artifact_store.run_dir(ctx.run_id) / "logs" / "stderr.log").write_text(err, encoding="utf-8")
+        service.finish_fail(ctx, extra_meta={"error": str(exc)})
+        return 1
+    finally:
+        conn.close()
