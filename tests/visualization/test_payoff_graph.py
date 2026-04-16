@@ -1,6 +1,6 @@
 import numpy as np
 
-from monocycle_nash.infrastructure.visualization.payoff_graph import PayoffDirectedGraphPlotter
+from monocycle_nash.domain.visualization.payoff_graph import PayoffDirectedGraphPlotter
 
 
 def test_extract_edges_respects_positive_and_threshold() -> None:

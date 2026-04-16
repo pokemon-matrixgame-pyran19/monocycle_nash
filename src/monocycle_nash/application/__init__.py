@@ -1,1 +1,1 @@
-"""monocycle_nash application layer - use case orchestration."""
+"""Application layer (rebuild in progress)."""

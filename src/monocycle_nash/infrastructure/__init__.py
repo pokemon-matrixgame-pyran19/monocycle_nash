@@ -1,1 +1,1 @@
-"""monocycle_nash infrastructure layer - I/O implementations."""
+"""Infrastructure layer (rebuild in progress)."""
