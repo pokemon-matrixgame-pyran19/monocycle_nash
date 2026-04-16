@@ -6,8 +6,8 @@ aCalculatorクラスのテスト
 """
 
 import pytest
-from monocycle_nash.game.domain.isopower.calc_a import aCalculator
-from monocycle_nash.game.domain.character import Character, MatchupVector
+from monocycle_nash.domain.isopower.calc_a import aCalculator
+from monocycle_nash.domain.character import Character, MatchupVector
 from theory.builder import TheoryTestBuilder
 
 

@@ -1,11 +1,11 @@
 import numpy as np
 import pytest
 
-from monocycle_nash.game.domain.matrix.random import (
+from monocycle_nash.domain.matrix.random import (
     RandomMatrixAcceptanceCondition,
     generate_random_skew_symmetric_matrix,
 )
-from monocycle_nash.game.domain.matrix.builder import PayoffMatrixBuilder
+from monocycle_nash.domain.matrix.builder import PayoffMatrixBuilder
 
 
 class RankFourCondition(RandomMatrixAcceptanceCondition):

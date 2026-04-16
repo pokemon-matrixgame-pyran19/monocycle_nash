@@ -6,9 +6,9 @@ OptimalTriangleFinderクラスのテスト
 
 import pytest
 import numpy as np
-from monocycle_nash.game.domain.isopower.triangle import OptimalTriangleFinder, OptimalTriangleResult
-from monocycle_nash.game.domain.matrix.monocycle import MonocyclePayoffMatrix
-from monocycle_nash.game.domain.character import Character, MatchupVector
+from monocycle_nash.domain.isopower.triangle import OptimalTriangleFinder, OptimalTriangleResult
+from monocycle_nash.domain.matrix.monocycle import MonocyclePayoffMatrix
+from monocycle_nash.domain.character import Character, MatchupVector
 from theory.builder import TheoryTestBuilder
 
 

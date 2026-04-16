@@ -1,11 +1,11 @@
 import numpy as np
 
-from monocycle_nash.game.domain.character import Character, MatchupVector
-from monocycle_nash.game.domain.matrix.builder import PayoffMatrixBuilder
-from monocycle_nash.game.domain.matrix.monocycle import MonocyclePayoffMatrix
-from monocycle_nash.game.domain.strategy import PureStrategySet
-from monocycle_nash.game.domain.team import Team
-from monocycle_nash.game.domain.team_matrix import (
+from monocycle_nash.domain.character import Character, MatchupVector
+from monocycle_nash.domain.matrix.builder import PayoffMatrixBuilder
+from monocycle_nash.domain.matrix.monocycle import MonocyclePayoffMatrix
+from monocycle_nash.domain.strategy import PureStrategySet
+from monocycle_nash.domain.team import Team
+from monocycle_nash.domain.team_matrix import (
     MonocycleFormulaCalculator,
     TwoByTwoGameValueCalculator,
     TwoPlayerTeamMatrixCalculator,

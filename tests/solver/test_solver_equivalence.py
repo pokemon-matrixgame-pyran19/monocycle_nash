@@ -7,10 +7,10 @@ NashpySolver（汎用）とIsopowerSolver（単相性モデル専用）で
 
 import pytest
 import numpy as np
-from monocycle_nash.equilibrium.infra.solver.nashpy_solver import NashpySolver
-from monocycle_nash.equilibrium.infra.solver.isopower_solver import IsopowerSolver
-from monocycle_nash.game.domain.matrix.monocycle import MonocyclePayoffMatrix
-from monocycle_nash.game.domain.character import Character, MatchupVector
+from monocycle_nash.domain.solver.nashpy_solver import NashpySolver
+from monocycle_nash.domain.solver.isopower_solver import IsopowerSolver
+from monocycle_nash.domain.matrix.monocycle import MonocyclePayoffMatrix
+from monocycle_nash.domain.character import Character, MatchupVector
 
 
 ROOT3 = 1.7320508075688772
@@ -147,7 +147,7 @@ class TestSolverEquivalence:
         nash_result = NashpySolver().solve(matrix)
         isopower_result = IsopowerSolver().solve(matrix)
         
-        from monocycle_nash.equilibrium.domain.mixed_strategy import MixedStrategy
+        from monocycle_nash.domain.equilibrium import MixedStrategy
         assert isinstance(nash_result, MixedStrategy)
         assert isinstance(isopower_result, MixedStrategy)
 
