@@ -1,11 +1,5 @@
-"""monocycle_nash - 単相性モデルのナッシュ均衡ソルバー"""
-
-from monocycle_nash.presentation.cli import main as cli_main
+"""Application entrypoint (rebuild in progress)."""
 
 
-def main() -> int:
-    return cli_main()
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
+def main() -> None:
+    raise NotImplementedError("Application layer is being rebuilt; use archived code under old/src/monocycle_nash for reference.")
