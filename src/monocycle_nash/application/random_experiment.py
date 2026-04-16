@@ -15,14 +15,10 @@ from monocycle_nash.domain.team import Team
 from monocycle_nash.domain.team_matrix import ExactTeamPayoffCalculator
 
 from .dto import RandomExperimentConfig, RandomExperimentResultDTO
-from .single_analysis import SingleAnalysisUseCase
 
 
 class RandomExperimentUseCase:
     """ランダム実験ユースケース"""
-
-    def __init__(self, analyzer: SingleAnalysisUseCase):
-        self._analyzer = analyzer
 
     def run_team_experiment(
         self, config: RandomExperimentConfig,

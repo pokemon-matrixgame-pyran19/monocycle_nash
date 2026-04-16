@@ -3,8 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 
 from monocycle_nash.infrastructure.input.matrix_reader import FileMatrixDataReader
-from monocycle_nash.application.matrix_construction import MatrixConstructionUseCase
-from monocycle_nash.application.dto import MatrixInputDTO
+from monocycle_nash.application.matrix_build_from_raw import BuildMatrixFromRawUseCase
+from monocycle_nash.application.matrix_build_from_characters import BuildMatrixFromCharactersUseCase
 
 
 def _write(path: Path, text: str) -> None:
@@ -29,9 +29,8 @@ def test_file_matrix_data_reader_builds_matrix(tmp_path: Path) -> None:
     reader = FileMatrixDataReader(data_dir=data_dir)
     data = reader.load_matrix_data("rps3")
 
-    dto = MatrixInputDTO(raw_matrix=data.get("matrix"), labels=data.get("labels"))
-    uc = MatrixConstructionUseCase()
-    matrix, _ = uc.build(dto)
+    uc = BuildMatrixFromRawUseCase()
+    matrix = uc.execute(data)
 
     assert matrix.matrix.tolist() == [[0.0, 1.0], [-1.0, 0.0]]
 
@@ -56,9 +55,8 @@ def test_file_matrix_data_reader_characters(tmp_path: Path) -> None:
     reader = FileMatrixDataReader(data_dir=data_dir)
     data = reader.load_matrix_data("character_model")
 
-    dto = MatrixInputDTO(characters=data.get("characters"))
-    uc = MatrixConstructionUseCase()
-    matrix, _ = uc.build(dto)
+    uc = BuildMatrixFromCharactersUseCase()
+    matrix = uc.execute(data)
 
     assert matrix.matrix.shape == (2, 2)
     assert matrix.labels == ["rock", "paper"]

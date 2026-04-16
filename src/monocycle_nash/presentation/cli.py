@@ -18,14 +18,14 @@ import numpy as np
 from monocycle_nash import __version__
 from monocycle_nash.application.comparison import ComparisonUseCase
 from monocycle_nash.application.direct_analysis import DirectAnalysisUseCase
-from monocycle_nash.application.dto import (
-    AnalysisConfig,
-    MatrixInputDTO,
-    RandomExperimentConfig,
-)
-from monocycle_nash.application.matrix_construction import MatrixConstructionUseCase
+from monocycle_nash.application.draw_character_plot import DrawCharacterPlotUseCase
+from monocycle_nash.application.draw_payoff_graph import DrawPayoffGraphUseCase
+from monocycle_nash.application.dto import RandomExperimentConfig
+from monocycle_nash.application.matrix_build import MatrixBuildUseCase
+from monocycle_nash.application.matrix_build_from_characters import BuildMatrixFromCharactersUseCase
+from monocycle_nash.application.matrix_build_from_raw import BuildMatrixFromRawUseCase
 from monocycle_nash.application.random_experiment import RandomExperimentUseCase
-from monocycle_nash.application.single_analysis import SingleAnalysisUseCase
+from monocycle_nash.application.solve_equilibrium import SolveEquilibriumUseCase
 from monocycle_nash.infrastructure.input.config_reader import (
     FileExperimentDataReader,
     FileGraphConfigReader,
@@ -38,25 +38,6 @@ from monocycle_nash.infrastructure.visualization.adapter import SvgVisualization
 _PROJECT_ROOT = Path(__file__).resolve().parents[3]
 _DEFAULT_CONFIG = _PROJECT_ROOT / "data" / "run_config" / "main.toml"
 _HISTORY_FILE = _PROJECT_ROOT / ".monocycle_nash_history"
-
-# Feature name → required analysis flags
-_FEATURE_ANALYSIS: dict[str, dict[str, bool]] = {
-    "solve_payoff": {
-        "solve_equilibrium": True,
-        "generate_payoff_graph": False,
-        "generate_character_plot": False,
-    },
-    "graph_payoff": {
-        "solve_equilibrium": False,
-        "generate_payoff_graph": True,
-        "generate_character_plot": False,
-    },
-    "plot_characters": {
-        "solve_equilibrium": False,
-        "generate_payoff_graph": False,
-        "generate_character_plot": True,
-    },
-}
 
 
 # ---------------------------------------------------------------------------
@@ -154,9 +135,25 @@ class UseCaseRunner:
         self._output = FileOutputAdapter(result_dir)
         self._visualization = SvgVisualizationAdapter()
 
-        # Mini use-cases
-        self._matrix_builder = MatrixConstructionUseCase()
-        self._analyzer = SingleAnalysisUseCase(visualization=self._visualization)
+        # Mini use cases - matrix construction
+        self._raw_uc = BuildMatrixFromRawUseCase()
+        self._chars_uc = BuildMatrixFromCharactersUseCase()
+        self._matrix_build_uc = MatrixBuildUseCase(
+            port=self._matrix_reader,
+            raw_uc=self._raw_uc,
+            chars_uc=self._chars_uc,
+        )
+
+        # Mini use cases - analysis
+        self._equilibrium_uc = SolveEquilibriumUseCase()
+        self._payoff_graph_uc = DrawPayoffGraphUseCase(
+            visualization=self._visualization,
+            config_port=self._graph_reader,
+        )
+        self._character_plot_uc = DrawCharacterPlotUseCase(
+            visualization=self._visualization,
+            config_port=self._graph_reader,
+        )
 
     # ------------------------------------------------------------------
     # Public API
@@ -191,17 +188,25 @@ class UseCaseRunner:
             print("設定に matrix が指定されていません", file=sys.stderr)
             return 1
 
-        matrix_input = self._build_matrix_input(matrix_id)
-        analysis_config = self._build_analysis_config(feature_name, config)
+        graph_id: str | None = config.get("graph")
+
+        # 依存性注入でどの分析を行うかを決定する（AnalysisConfig フラグは使わない）
+        equilibrium_uc = self._equilibrium_uc if feature_name == "solve_payoff" else None
+        payoff_graph_uc = self._payoff_graph_uc if feature_name == "graph_payoff" else None
+        character_plot_uc = (
+            self._character_plot_uc if feature_name == "plot_characters" else None
+        )
 
         uc = DirectAnalysisUseCase(
-            matrix_builder=self._matrix_builder,
-            analyzer=self._analyzer,
+            matrix_build_uc=self._matrix_build_uc,
             output=self._output,
+            equilibrium_uc=equilibrium_uc,
+            payoff_graph_uc=payoff_graph_uc,
+            character_plot_uc=character_plot_uc,
         )
 
         start = time.time()
-        results = uc.execute(matrix_input, analysis_config)
+        results = uc.execute(matrix_id, graph_id=graph_id)
         elapsed = time.time() - start
 
         for r in results:
@@ -247,10 +252,9 @@ class UseCaseRunner:
         approx_result = approximation.approximate(source_matrix)
         reference_matrix = approx_result.approximated_matrix
 
-        analysis_config = AnalysisConfig(solve_equilibrium=True)
-        comparison_uc = ComparisonUseCase(analyzer=self._analyzer)
+        comparison_uc = ComparisonUseCase(equilibrium_uc=self._equilibrium_uc)
         result = comparison_uc.compare_with_approximation(
-            source_matrix, reference_matrix, approximation, distance, analysis_config,
+            source_matrix, reference_matrix, approximation, distance,
         )
 
         ctx = self._output.create_run_context("compare_approximation")
@@ -287,17 +291,13 @@ class UseCaseRunner:
         params = list(zip(a, b, strict=True))
         cauchy_matrix = CauchyLikePayoffMatrix(params, labels=labels)
 
-        analysis_config = AnalysisConfig(solve_equilibrium=True)
-
         # If a base matrix is provided, compare against it
         if matrix_id is not None:
             matrix_data = self._matrix_reader.load_matrix_data(matrix_id)
             source_matrix = self._data_to_payoff_matrix(matrix_data)
 
-            comparison_uc = ComparisonUseCase(analyzer=self._analyzer)
-            result = comparison_uc.compare(
-                source_matrix, cauchy_matrix, analysis_config,
-            )
+            comparison_uc = ComparisonUseCase(equilibrium_uc=self._equilibrium_uc)
+            result = comparison_uc.compare(source_matrix, cauchy_matrix)
 
             ctx = self._output.create_run_context("compare_product_formula")
             self._write_comparison_result(ctx, result)
@@ -306,15 +306,13 @@ class UseCaseRunner:
             print(f"均衡距離: {result.equilibrium_distance}")
         else:
             # Analyze the cauchy matrix alone
-            result = self._analyzer.analyze(cauchy_matrix, analysis_config)
+            eq_result = self._equilibrium_uc.execute(cauchy_matrix)
             ctx = self._output.create_run_context("compare_product_formula")
-            if result.equilibrium is not None:
-                eq = result.equilibrium
-                self._output.write_json(ctx, "equilibrium.json", {
-                    "strategy_ids": eq.mixed_strategy.strategy_ids,
-                    "probabilities": eq.mixed_strategy.probabilities.tolist(),
-                })
-                print(f"均衡解: {dict(zip(eq.mixed_strategy.strategy_ids, eq.mixed_strategy.probabilities.tolist(), strict=False))}")
+            self._output.write_json(ctx, "equilibrium.json", {
+                "strategy_ids": eq_result.mixed_strategy.strategy_ids,
+                "probabilities": eq_result.mixed_strategy.probabilities.tolist(),
+            })
+            print(f"均衡解: {dict(zip(eq_result.mixed_strategy.strategy_ids, eq_result.mixed_strategy.probabilities.tolist(), strict=False))}")
 
             if hasattr(cauchy_matrix, "theoretical_equilibrium"):
                 theoretical = cauchy_matrix.theoretical_equilibrium()
@@ -359,10 +357,9 @@ class UseCaseRunner:
         approx_result = approximation.approximate(source_matrix)
         reference_matrix = approx_result.approximated_matrix
 
-        analysis_config = AnalysisConfig(solve_equilibrium=True)
-        comparison_uc = ComparisonUseCase(analyzer=self._analyzer)
+        comparison_uc = ComparisonUseCase(equilibrium_uc=self._equilibrium_uc)
         result = comparison_uc.compare_with_approximation(
-            source_matrix, reference_matrix, approximation, distance, analysis_config,
+            source_matrix, reference_matrix, approximation, distance,
         )
 
         ctx = self._output.create_run_context("compare_random_approximation")
@@ -402,7 +399,7 @@ class UseCaseRunner:
             support_threshold=float(experiment_data.get("support_threshold", 1e-6)),
         )
 
-        uc = RandomExperimentUseCase(analyzer=self._analyzer)
+        uc = RandomExperimentUseCase()
 
         start = time.time()
         result = uc.run_team_experiment(experiment_config)
@@ -426,62 +423,14 @@ class UseCaseRunner:
     # Helpers
     # ------------------------------------------------------------------
 
-    def _build_matrix_input(self, matrix_id: str) -> MatrixInputDTO:
-        """matrix_id からデータを読み込み MatrixInputDTO を構築する。"""
-        data = self._matrix_reader.load_matrix_data(matrix_id)
-
-        if "characters" in data:
-            return MatrixInputDTO(
-                characters=data["characters"],
-                labels=data.get("labels"),
-                team_mode=data.get("team_mode"),
-                teams=data.get("teams"),
-            )
-
-        return MatrixInputDTO(
-            raw_matrix=data["matrix"],
-            labels=data.get("labels"),
-            team_mode=data.get("team_mode"),
-            teams=data.get("teams"),
-        )
-
-    def _build_analysis_config(
-        self, feature_name: str, config: dict[str, Any],
-    ) -> AnalysisConfig:
-        """feature_name とグラフ設定から AnalysisConfig を構築する。"""
-        flags = _FEATURE_ANALYSIS.get(feature_name, {})
-        graph_id = config.get("graph")
-        graph_cfg: dict[str, Any] = {}
-        if graph_id is not None:
-            graph_cfg = self._graph_reader.load_graph_config(graph_id)
-
-        payoff_cfg = graph_cfg.get("payoff", {})
-        character_cfg = graph_cfg.get("character", {})
-
-        return AnalysisConfig(
-            solve_equilibrium=flags.get("solve_equilibrium", True),
-            generate_payoff_graph=flags.get("generate_payoff_graph", False),
-            generate_character_plot=flags.get("generate_character_plot", False),
-            graph_threshold=float(payoff_cfg.get("threshold", 0.0)),
-            graph_canvas_size=int(payoff_cfg.get("canvas_size", 840)),
-            character_canvas_size=int(character_cfg.get("canvas_size", 840)),
-            character_margin=int(character_cfg.get("margin", 90)),
-        )
-
     def _data_to_payoff_matrix(self, data: dict[str, Any]) -> Any:
         """data dict から PayoffMatrix を構築する。"""
-        matrix_input = MatrixInputDTO(
-            raw_matrix=data.get("matrix"),
-            labels=data.get("labels"),
-            characters=data.get("characters"),
-        )
-        main_matrix, _ = self._matrix_builder.build(matrix_input)
-        return main_matrix
+        if "characters" in data:
+            return self._chars_uc.execute(data)
+        return self._raw_uc.execute(data)
 
     def _write_comparison_result(self, ctx: Any, result: Any) -> None:
         """比較結果を出力する。"""
-        from monocycle_nash.application.ports import RunContext
-
         if result.source_analysis.equilibrium is not None:
             eq = result.source_analysis.equilibrium
             self._output.write_json(ctx, "source_equilibrium.json", {

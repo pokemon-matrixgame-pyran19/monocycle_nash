@@ -1,47 +1,70 @@
-"""Composite UC: 直接分析 - Build matrix(es) and analyze each."""
+"""Composite UC: 直接分析 - 行列を構築し、注入された各分析ユースケースを実行する。"""
 
 from __future__ import annotations
 
-from .dto import AnalysisConfig, AnalysisResultDTO, MatrixInputDTO
-from .matrix_construction import MatrixConstructionUseCase
+from monocycle_nash.domain.matrix.monocycle import MonocyclePayoffMatrix
+
+from .draw_character_plot import DrawCharacterPlotUseCase
+from .draw_payoff_graph import DrawPayoffGraphUseCase
+from .dto import AnalysisResultDTO
+from .matrix_build import MatrixBuildUseCase
 from .ports import OutputPort, RunContext
-from .single_analysis import SingleAnalysisUseCase
+from .solve_equilibrium import SolveEquilibriumUseCase
 
 
 class DirectAnalysisUseCase:
-    """直接分析ユースケース = 行列構築 + 単体分析"""
+    """
+    直接分析ユースケース。
+
+    注入された分析ユースケース（SolveEquilibrium, DrawPayoffGraph, DrawCharacterPlot）の
+    うち None でないものを実行する。どの分析を行うかは依存性注入によって決定し、
+    このクラス自身はフラグで分岐しない。
+    """
 
     def __init__(
         self,
-        matrix_builder: MatrixConstructionUseCase,
-        analyzer: SingleAnalysisUseCase,
+        matrix_build_uc: MatrixBuildUseCase,
         output: OutputPort,
-    ):
-        self._matrix_builder = matrix_builder
-        self._analyzer = analyzer
+        equilibrium_uc: SolveEquilibriumUseCase | None = None,
+        payoff_graph_uc: DrawPayoffGraphUseCase | None = None,
+        character_plot_uc: DrawCharacterPlotUseCase | None = None,
+    ) -> None:
+        self._matrix_build_uc = matrix_build_uc
         self._output = output
+        self._equilibrium_uc = equilibrium_uc
+        self._payoff_graph_uc = payoff_graph_uc
+        self._character_plot_uc = character_plot_uc
 
     def execute(
-        self, input_dto: MatrixInputDTO, config: AnalysisConfig,
+        self,
+        matrix_id: str,
+        graph_id: str | None = None,
     ) -> list[AnalysisResultDTO]:
-        """行列を構築し、全ての関連行列について分析を実行する。"""
-        main_matrix, intermediate_matrices = self._matrix_builder.build(input_dto)
+        """
+        行列を構築し、注入された全分析ユースケースを実行する。
+
+        Args:
+            matrix_id: MatrixDataPort に渡す行列識別子
+            graph_id: グラフ生成系ユースケースに渡すグラフ設定識別子
+
+        Returns:
+            各行列（中間行列 + メイン行列）の分析結果リスト
+        """
+        main_matrix, intermediate_matrices = self._matrix_build_uc.execute(matrix_id)
 
         ctx = self._output.create_run_context("direct_analysis")
         self._output.save_input_snapshot(
-            ctx, "matrix_input.json", self._serialize_input(input_dto),
+            ctx, "matrix_input.json", {"matrix_id": matrix_id},
         )
 
         results: list[AnalysisResultDTO] = []
 
-        # Analyze intermediate matrices first (e.g., character matrix before team matrix)
         for idx, inter_matrix in enumerate(intermediate_matrices):
-            result = self._analyzer.analyze(inter_matrix, config)
+            result = self._run_analysis(inter_matrix, graph_id)
             results.append(result)
             self._write_analysis_result(ctx, result, prefix=f"intermediate_{idx}")
 
-        # Analyze main matrix
-        main_result = self._analyzer.analyze(main_matrix, config)
+        main_result = self._run_analysis(main_matrix, graph_id)
         results.append(main_result)
         self._write_analysis_result(ctx, main_result, prefix="main")
 
@@ -51,6 +74,37 @@ class DirectAnalysisUseCase:
         })
 
         return results
+
+    def _run_analysis(
+        self,
+        matrix: object,
+        graph_id: str | None,
+    ) -> AnalysisResultDTO:
+        from monocycle_nash.domain.matrix.base import PayoffMatrix
+        assert isinstance(matrix, PayoffMatrix)
+
+        equilibrium = (
+            self._equilibrium_uc.execute(matrix) if self._equilibrium_uc else None
+        )
+
+        payoff_graph_svg: str | None = None
+        if self._payoff_graph_uc is not None and graph_id is not None:
+            payoff_graph_svg = self._payoff_graph_uc.execute(matrix, graph_id)
+
+        character_plot_svg: str | None = None
+        if (
+            self._character_plot_uc is not None
+            and graph_id is not None
+            and isinstance(matrix, MonocyclePayoffMatrix)
+        ):
+            character_plot_svg = self._character_plot_uc.execute(matrix, graph_id)
+
+        return AnalysisResultDTO(
+            matrix=matrix,
+            equilibrium=equilibrium,
+            payoff_graph_svg=payoff_graph_svg,
+            character_plot_svg=character_plot_svg,
+        )
 
     def _write_analysis_result(
         self,
@@ -86,17 +140,3 @@ class DirectAnalysisUseCase:
                 ctx, f"{prefix}_character_vector.svg", result.character_plot_svg,
             )
 
-    @staticmethod
-    def _serialize_input(input_dto: MatrixInputDTO) -> dict:
-        data: dict = {}
-        if input_dto.raw_matrix is not None:
-            data["raw_matrix"] = input_dto.raw_matrix
-        if input_dto.labels is not None:
-            data["labels"] = input_dto.labels
-        if input_dto.characters is not None:
-            data["characters"] = input_dto.characters
-        if input_dto.team_mode is not None:
-            data["team_mode"] = input_dto.team_mode
-        if input_dto.teams is not None:
-            data["teams"] = input_dto.teams
-        return data

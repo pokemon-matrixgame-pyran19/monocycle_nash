@@ -4,24 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-import numpy as np
-
 from monocycle_nash.domain.equilibrium import MixedStrategy
 from monocycle_nash.domain.matrix.base import PayoffMatrix
-
-
-@dataclass(frozen=True)
-class MatrixInputDTO:
-    """行列構築の入力DTO"""
-
-    # General matrix input
-    raw_matrix: list[list[float]] | None = None
-    labels: list[str] | None = None
-    # Character input
-    characters: list[dict] | None = None  # [{"label": "A", "p": 1.0, "v": [0.5, 0.3]}, ...]
-    # Team input
-    team_mode: str | None = None  # "strict" | "2by2" | "monocycle" | None
-    teams: list[dict] | None = None  # [{"label": "T1", "members": [0, 1]}, ...]
 
 
 @dataclass(frozen=True)
@@ -32,19 +16,6 @@ class EquilibriumResultDTO:
     pure_payoffs: list[float]
     divergence: list[float]
     eigenvalues: list[float] | None = None
-
-
-@dataclass(frozen=True)
-class AnalysisConfig:
-    """分析設定"""
-
-    solve_equilibrium: bool = True
-    generate_payoff_graph: bool = False
-    generate_character_plot: bool = False
-    graph_threshold: float = 0.0
-    graph_canvas_size: int = 840
-    character_canvas_size: int = 840
-    character_margin: int = 90
 
 
 @dataclass(frozen=True)

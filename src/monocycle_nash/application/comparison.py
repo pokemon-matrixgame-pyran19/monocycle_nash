@@ -1,4 +1,4 @@
-"""Composite UC: 比較分析 - Compare two matrices."""
+"""Composite UC: 比較分析 - 二つの行列を比較する。"""
 
 from __future__ import annotations
 
@@ -12,25 +12,24 @@ from monocycle_nash.domain.matrix.approximation import (
     PayoffMatrixDistance,
 )
 
-from .dto import AnalysisConfig, AnalysisResultDTO, ComparisonResultDTO
-from .single_analysis import SingleAnalysisUseCase
+from .dto import AnalysisResultDTO, ComparisonResultDTO
+from .solve_equilibrium import SolveEquilibriumUseCase
 
 
 class ComparisonUseCase:
-    """比較分析ユースケース"""
+    """比較分析ユースケース。均衡計算は注入された SolveEquilibriumUseCase に委譲する。"""
 
-    def __init__(self, analyzer: SingleAnalysisUseCase):
-        self._analyzer = analyzer
+    def __init__(self, equilibrium_uc: SolveEquilibriumUseCase) -> None:
+        self._equilibrium_uc = equilibrium_uc
 
     def compare(
         self,
         source: PayoffMatrix,
         reference: PayoffMatrix,
-        config: AnalysisConfig,
     ) -> ComparisonResultDTO:
         """二つの行列を比較分析する。"""
-        source_result = self._analyzer.analyze(source, config)
-        reference_result = self._analyzer.analyze(reference, config)
+        source_result = self._analyze(source)
+        reference_result = self._analyze(reference)
 
         max_element_distance = self._compute_max_element_distance(source, reference)
         equilibrium_distance = self._compute_equilibrium_distance(
@@ -50,11 +49,10 @@ class ComparisonUseCase:
         reference: PayoffMatrix,
         approximation: PayoffMatrixApproximation,
         distance: PayoffMatrixDistance,
-        config: AnalysisConfig,
     ) -> ComparisonResultDTO:
         """近似器と距離指標を使って二つの行列を比較する。"""
-        source_result = self._analyzer.analyze(source, config)
-        reference_result = self._analyzer.analyze(reference, config)
+        source_result = self._analyze(source)
+        reference_result = self._analyze(reference)
 
         evaluator = ApproximationQualityEvaluator(approximation, distance)
         approx_result = evaluator.evaluate(source, reference)
@@ -72,6 +70,10 @@ class ComparisonUseCase:
             max_element_distance=max_element_distance,
             approximation_quality=quality,
         )
+
+    def _analyze(self, matrix: PayoffMatrix) -> AnalysisResultDTO:
+        equilibrium = self._equilibrium_uc.execute(matrix)
+        return AnalysisResultDTO(matrix=matrix, equilibrium=equilibrium)
 
     @staticmethod
     def _compute_max_element_distance(
@@ -93,3 +95,4 @@ class ComparisonUseCase:
         if source_probs.shape != ref_probs.shape:
             return None
         return float(np.max(np.abs(source_probs - ref_probs)))
+
