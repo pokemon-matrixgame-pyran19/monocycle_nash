@@ -8,7 +8,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Union
+from typing import Any, Protocol, Union
 
 
 # ---------------------------------------------------------------------------
@@ -69,6 +69,12 @@ TeamSource = Union[list[TeamNode], TeamListFromFileNode]
 # ---------------------------------------------------------------------------
 
 
+class OutputNode(Protocol):
+    """出力ノードの構造的インターフェース。"""
+
+    filename: str
+
+
 @dataclass(frozen=True)
 class PayoffDirectedGraphOutputNode:
     """有向グラフ出力設定ノード。"""
@@ -85,14 +91,6 @@ class CharacterVectorGraphOutputNode:
     filename: str = "character_vector_graph.svg"
     canvas_size: int = 840
     margin: int = 90
-
-
-OutputNode = Union[PayoffDirectedGraphOutputNode, CharacterVectorGraphOutputNode]
-
-
-# ---------------------------------------------------------------------------
-# Matrix nodes
-# ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)
@@ -198,13 +196,8 @@ class ApproxEquilibriumPreservingNode:
     outputs: tuple[OutputNode, ...] = field(default_factory=tuple)
 
 
-MatrixNode = Union[
-    GeneralFromRawNode,
-    MonocycleFromCharactersNode,
-    GeneralFromTeamsPayoffNode,
-    GeneralFromTeamMatchupsNode,
-    RandomSkewSymmetricNode,
-    ApproxMonocycleToGeneralNode,
-    ApproxDominantEigenpairNode,
-    ApproxEquilibriumPreservingNode,
-]
+class MatrixNode(Protocol):
+    """行列構築ノードの構造的インターフェース。"""
+
+    name: str
+    outputs: tuple[OutputNode, ...]
