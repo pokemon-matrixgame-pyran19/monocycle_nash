@@ -9,7 +9,9 @@
 - インフラ: 入出力・永続化
 - プレゼンテーション: 実行インターフェース（CLI等）
 
-依存方向は常に内側へ向ける（domain <- application <- infrastructure <- presentation）。
+依存方向は常に内側へ向ける。
+具体的には、application は domain に依存し、infrastructure は application/domain のポートに依存し、
+presentation は application に依存する。
 
 ## 現状
 
