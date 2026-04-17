@@ -17,7 +17,6 @@ from monocycle_nash.application.matrix_nodes import (
     ApproxEquilibriumPreservingNode,
     ApproxMonocycleToGeneralNode,
     CharacterListFromFileNode,
-    CharacterSource,
     CharacterVectorGraphOutputNode,
     GeneralFromRawNode,
     GeneralFromTeamMatchupsNode,
@@ -28,7 +27,6 @@ from monocycle_nash.application.matrix_nodes import (
     PayoffDirectedGraphOutputNode,
     RandomSkewSymmetricNode,
     TeamListFromFileNode,
-    TeamSource,
 )
 from monocycle_nash.application.ports import (
     CharacterListFilePort,
@@ -118,24 +116,13 @@ class MatrixConfigTreeResolver:
         resolved_cache[cache_key] = resolved
 
         for output_node in node.outputs:
-            path = self._run_output(node_name=node.name, matrix=resolved, output_node=output_node)
+            path = self._run_output(output_node, node_name=node.name, matrix=resolved)
             outputs.append(ResolvedOutput(node_name=node.name, output_node=output_node, path=path))
 
         return resolved
 
-    def _build_matrix(
-        self,
-        node: MatrixNode,
-        *,
-        outputs: list[ResolvedOutput],
-        resolved_cache: dict[int, PayoffMatrix],
-    ) -> PayoffMatrix:
-        return self._build_matrix_dispatch(
-            node, outputs=outputs, resolved_cache=resolved_cache
-        )
-
     @singledispatchmethod
-    def _build_matrix_dispatch(
+    def _build_matrix(
         self,
         node: object,
         *,
@@ -144,7 +131,7 @@ class MatrixConfigTreeResolver:
     ) -> PayoffMatrix:
         raise TypeError(f"未対応のノード型: {type(node)}")
 
-    @_build_matrix_dispatch.register
+    @_build_matrix.register
     def _(
         self,
         node: GeneralFromRawNode,
@@ -155,7 +142,7 @@ class MatrixConfigTreeResolver:
         matrix = np.asarray(node.matrix, dtype=float)
         return PayoffMatrixBuilder.from_general_matrix(matrix=matrix, labels=node.labels)
 
-    @_build_matrix_dispatch.register
+    @_build_matrix.register
     def _(
         self,
         node: MonocycleFromCharactersNode,
@@ -166,7 +153,7 @@ class MatrixConfigTreeResolver:
         characters = self._resolve_characters(node.characters)
         return PayoffMatrixBuilder.from_characters(characters=characters, labels=node.labels)
 
-    @_build_matrix_dispatch.register
+    @_build_matrix.register
     def _(
         self,
         node: GeneralFromTeamsPayoffNode,
@@ -178,7 +165,7 @@ class MatrixConfigTreeResolver:
         teams = self._resolve_teams(node.teams)
         return PayoffMatrixBuilder.from_teams(team_payoff=team_payoff, teams=teams)
 
-    @_build_matrix_dispatch.register
+    @_build_matrix.register
     def _(
         self,
         node: GeneralFromTeamMatchupsNode,
@@ -196,7 +183,7 @@ class MatrixConfigTreeResolver:
             use_monocycle_formula=node.use_monocycle_formula,
         )
 
-    @_build_matrix_dispatch.register
+    @_build_matrix.register
     def _(
         self,
         node: RandomSkewSymmetricNode,
@@ -214,7 +201,7 @@ class MatrixConfigTreeResolver:
             labels=node.labels,
         )
 
-    @_build_matrix_dispatch.register
+    @_build_matrix.register
     def _(
         self,
         node: ApproxMonocycleToGeneralNode,
@@ -225,7 +212,7 @@ class MatrixConfigTreeResolver:
         source = self._resolve_node(node.source, outputs=outputs, resolved_cache=resolved_cache)
         return MonocycleToGeneralApproximation().approximate(source).matrix
 
-    @_build_matrix_dispatch.register
+    @_build_matrix.register
     def _(
         self,
         node: ApproxDominantEigenpairNode,
@@ -236,7 +223,7 @@ class MatrixConfigTreeResolver:
         source = self._resolve_node(node.source, outputs=outputs, resolved_cache=resolved_cache)
         return DominantEigenpairMonocycleApproximation(atol=node.atol).approximate(source).matrix
 
-    @_build_matrix_dispatch.register
+    @_build_matrix.register
     def _(
         self,
         node: ApproxEquilibriumPreservingNode,
@@ -251,17 +238,11 @@ class MatrixConfigTreeResolver:
     # Character / Team resolution (file-backed or inline)
     # ------------------------------------------------------------------
 
-    def _resolve_characters(self, source: CharacterSource) -> list[Character]:
-        return self._resolve_characters_dispatch(source)
-
-    def _resolve_teams(self, source: TeamSource) -> list[Team]:
-        return self._resolve_teams_dispatch(source)
-
     @singledispatchmethod
-    def _resolve_characters_dispatch(self, source: object) -> list[Character]:
+    def _resolve_characters(self, source: object) -> list[Character]:
         raise TypeError(f"未対応のキャラクターソース型: {type(source)}")
 
-    @_resolve_characters_dispatch.register
+    @_resolve_characters.register
     def _(self, source: CharacterListFromFileNode) -> list[Character]:
         if self._character_list_file_port is None:
             raise ValueError(
@@ -269,7 +250,7 @@ class MatrixConfigTreeResolver:
             )
         return self._character_list_file_port.load_characters(source.path)
 
-    @_resolve_characters_dispatch.register
+    @_resolve_characters.register
     def _(self, source: list) -> list[Character]:
         return [
             Character(c.power, MatchupVector(c.vector[0], c.vector[1]), c.label)
@@ -277,10 +258,10 @@ class MatrixConfigTreeResolver:
         ]
 
     @singledispatchmethod
-    def _resolve_teams_dispatch(self, source: object) -> list[Team]:
+    def _resolve_teams(self, source: object) -> list[Team]:
         raise TypeError(f"未対応のチームソース型: {type(source)}")
 
-    @_resolve_teams_dispatch.register
+    @_resolve_teams.register
     def _(self, source: TeamListFromFileNode) -> list[Team]:
         if self._team_list_file_port is None:
             raise ValueError(
@@ -288,7 +269,7 @@ class MatrixConfigTreeResolver:
             )
         return self._team_list_file_port.load_teams(source.path)
 
-    @_resolve_teams_dispatch.register
+    @_resolve_teams.register
     def _(self, source: list) -> list[Team]:
         return [Team(label=t.label, member_ids=t.member_ids) for t in source]
 
@@ -296,19 +277,8 @@ class MatrixConfigTreeResolver:
     # Output execution
     # ------------------------------------------------------------------
 
-    def _run_output(
-        self,
-        *,
-        node_name: str,
-        matrix: PayoffMatrix,
-        output_node: OutputNode,
-    ) -> Path:
-        return self._run_output_dispatch(
-            output_node, node_name=node_name, matrix=matrix
-        )
-
     @singledispatchmethod
-    def _run_output_dispatch(
+    def _run_output(
         self,
         output_node: object,
         *,
@@ -317,7 +287,7 @@ class MatrixConfigTreeResolver:
     ) -> Path:
         raise TypeError(f"未対応の出力ノード型: {type(output_node)}")
 
-    @_run_output_dispatch.register
+    @_run_output.register
     def _(
         self,
         output_node: PayoffDirectedGraphOutputNode,
@@ -340,7 +310,7 @@ class MatrixConfigTreeResolver:
         ).draw(path, canvas_size=output_node.canvas_size)
         return path
 
-    @_run_output_dispatch.register
+    @_run_output.register
     def _(
         self,
         output_node: CharacterVectorGraphOutputNode,
