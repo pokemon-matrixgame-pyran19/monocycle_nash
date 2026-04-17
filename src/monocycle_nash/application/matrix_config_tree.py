@@ -1,15 +1,40 @@
-"""Payoff matrix configuration tree for application layer orchestration."""
+"""Payoff matrix node resolution for application layer orchestration.
+
+設定ツリーを型付きノードで構成し、MatrixConfigTreeResolver が
+各ノード型に対応した解決ロジックをインフラ層ポート経由で実行する。
+"""
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from enum import StrEnum
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping
 
 import numpy as np
 
-from monocycle_nash.application.ports import ConfigReferencePort, OutputPathPort
+from monocycle_nash.application.matrix_nodes import (
+    ApproxDominantEigenpairNode,
+    ApproxEquilibriumPreservingNode,
+    ApproxMonocycleToGeneralNode,
+    CharacterListFromFileNode,
+    CharacterSource,
+    CharacterVectorGraphOutputNode,
+    GeneralFromRawNode,
+    GeneralFromTeamMatchupsNode,
+    GeneralFromTeamsPayoffNode,
+    MatrixNode,
+    MonocycleFromCharactersNode,
+    OutputNode,
+    PayoffDirectedGraphOutputNode,
+    RandomSkewSymmetricNode,
+    TeamListFromFileNode,
+    TeamSource,
+)
+from monocycle_nash.application.ports import (
+    CharacterListFilePort,
+    MatrixFilePort,
+    OutputPathPort,
+    TeamListFilePort,
+)
 from monocycle_nash.domain.character import Character, MatchupVector
 from monocycle_nash.domain.matrix.approximation import (
     DominantEigenpairMonocycleApproximation,
@@ -23,50 +48,11 @@ from monocycle_nash.domain.visualization.character_vector_graph import Character
 from monocycle_nash.domain.visualization.payoff_graph import PayoffDirectedGraphPlotter
 
 
-class MatrixBuildMethod(StrEnum):
-    """利得行列（または行列変換結果）の構築方式。"""
-
-    GENERAL_FROM_RAW = "general_from_raw"
-    MONOCYCLE_FROM_CHARACTERS = "monocycle_from_characters"
-    GENERAL_FROM_TEAMS_PAYOFF = "general_from_teams_payoff"
-    GENERAL_FROM_TEAM_MATCHUPS = "general_from_team_matchups"
-    RANDOM_SKEW_SYMMETRIC = "random_skew_symmetric"
-    APPROX_MONOCYCLE_TO_GENERAL = "approx_monocycle_to_general"
-    APPROX_DOMINANT_EIGENPAIR = "approx_dominant_eigenpair"
-    APPROX_EQUILIBRIUM_PRESERVING = "approx_equilibrium_preserving"
-
-
-class OutputMethod(StrEnum):
-    """ノード出力方式。"""
-
-    PAYOFF_DIRECTED_GRAPH = "payoff_directed_graph"
-    CHARACTER_VECTOR_GRAPH = "character_vector_graph"
-
-
-@dataclass(frozen=True)
-class OutputConfigNode:
-    """ツリー上ノードの出力設定。"""
-
-    method: OutputMethod
-    settings: Mapping[str, Any] = field(default_factory=dict)
-
-
-@dataclass(frozen=True)
-class MatrixConfigNode:
-    """利得行列構築の設定ノード。"""
-
-    name: str
-    method: MatrixBuildMethod
-    settings: Mapping[str, Any] = field(default_factory=dict)
-    dependencies: Mapping[str, "MatrixConfigNode"] = field(default_factory=dict)
-    outputs: tuple[OutputConfigNode, ...] = ()
-
-
 @dataclass(frozen=True)
 class MatrixConfigTree:
     """利得行列構築設定ツリー。"""
 
-    root: MatrixConfigNode
+    root: MatrixNode
 
 
 @dataclass(frozen=True)
@@ -74,7 +60,7 @@ class ResolvedOutput:
     """1つの出力実行結果。"""
 
     node_name: str
-    method: OutputMethod
+    output_node: OutputNode
     path: Path
 
 
@@ -86,116 +72,25 @@ class MatrixResolutionResult:
     outputs: tuple[ResolvedOutput, ...] = ()
 
 
-class MatrixConfigTreeFactory:
-    """外部入力（dict等）から設定ツリーを生成する。"""
-
-    def __init__(self, *, reference_port: ConfigReferencePort | None = None):
-        self._reference_port = reference_port
-
-    def build_tree(self, raw_config: Mapping[str, Any]) -> MatrixConfigTree:
-        node = self._parse_node(raw_config, node_name="root")
-        return MatrixConfigTree(root=node)
-
-    @staticmethod
-    def general_from_raw(
-        matrix: list[list[float]] | np.ndarray,
-        *,
-        labels: list[str] | None = None,
-        name: str = "root",
-        outputs: tuple[OutputConfigNode, ...] = (),
-    ) -> MatrixConfigTree:
-        return MatrixConfigTree(
-            root=MatrixConfigNode(
-                name=name,
-                method=MatrixBuildMethod.GENERAL_FROM_RAW,
-                settings={"matrix": matrix, "labels": labels},
-                outputs=outputs,
-            )
-        )
-
-    @staticmethod
-    def monocycle_from_characters(
-        characters: list[Character] | list[Mapping[str, Any]],
-        *,
-        labels: list[str] | None = None,
-        name: str = "root",
-        outputs: tuple[OutputConfigNode, ...] = (),
-    ) -> MatrixConfigTree:
-        return MatrixConfigTree(
-            root=MatrixConfigNode(
-                name=name,
-                method=MatrixBuildMethod.MONOCYCLE_FROM_CHARACTERS,
-                settings={"characters": characters, "labels": labels},
-                outputs=outputs,
-            )
-        )
-
-    def _materialize_reference(self, raw: Mapping[str, Any]) -> dict[str, Any]:
-        payload = dict(raw)
-        ref = payload.pop("$ref", None)
-        if ref is None:
-            return payload
-        if self._reference_port is None:
-            raise ValueError("`$ref` を使うには ConfigReferencePort が必要です")
-
-        loaded = dict(self._reference_port.load_config(str(ref)))
-        loaded.update(payload)
-        return loaded
-
-    def _parse_node(self, raw: Mapping[str, Any], *, node_name: str) -> MatrixConfigNode:
-        payload = self._materialize_reference(raw)
-
-        if "method" not in payload:
-            raise ValueError(f"method が必要です: node={node_name}")
-        method = MatrixBuildMethod(payload["method"])
-        settings = payload.get("settings", {})
-        if not isinstance(settings, Mapping):
-            raise ValueError(f"settings はマッピングである必要があります: node={node_name}")
-
-        dependency_payload = payload.get("dependencies", {})
-        if not isinstance(dependency_payload, Mapping):
-            raise ValueError(f"dependencies はマッピングである必要があります: node={node_name}")
-        dependencies: dict[str, MatrixConfigNode] = {}
-        for dep_name, dep_raw in dependency_payload.items():
-            if not isinstance(dep_raw, Mapping):
-                raise ValueError(
-                    f"dependency `{dep_name}` はノード設定(dict)である必要があります: node={node_name}"
-                )
-            dependencies[str(dep_name)] = self._parse_node(
-                dep_raw,
-                node_name=f"{node_name}.{dep_name}",
-            )
-
-        outputs: list[OutputConfigNode] = []
-        output_payload = payload.get("outputs", [])
-        if not isinstance(output_payload, list):
-            raise ValueError(f"outputs は配列である必要があります: node={node_name}")
-        for item in output_payload:
-            if not isinstance(item, Mapping):
-                raise ValueError(f"output 要素はマッピングである必要があります: node={node_name}")
-            if "method" not in item:
-                raise ValueError(f"output.method が必要です: node={node_name}")
-            output_settings = item.get("settings", {})
-            if not isinstance(output_settings, Mapping):
-                raise ValueError(f"output.settings はマッピングである必要があります: node={node_name}")
-            outputs.append(OutputConfigNode(method=OutputMethod(item["method"]), settings=output_settings))
-
-        explicit_name = payload.get("name")
-        final_name = str(explicit_name) if explicit_name else node_name
-        return MatrixConfigNode(
-            name=final_name,
-            method=method,
-            settings=dict(settings),
-            dependencies=dependencies,
-            outputs=tuple(outputs),
-        )
-
-
 class MatrixConfigTreeResolver:
-    """設定ツリーを辿って最終的なオブジェクト生成・出力実行を行う。"""
+    """設定ツリーを辿って最終的なオブジェクト生成・出力実行を行う。
 
-    def __init__(self, *, output_path_port: OutputPathPort | None = None):
+    ファイル読み込みが必要なノードを解決するためのポートを
+    コンストラクタで受け取り、各 resolve メソッドで明示的に呼び出す。
+    """
+
+    def __init__(
+        self,
+        *,
+        output_path_port: OutputPathPort | None = None,
+        character_list_file_port: CharacterListFilePort | None = None,
+        team_list_file_port: TeamListFilePort | None = None,
+        matrix_file_port: MatrixFilePort | None = None,
+    ):
         self._output_path_port = output_path_port
+        self._character_list_file_port = character_list_file_port
+        self._team_list_file_port = team_list_file_port
+        self._matrix_file_port = matrix_file_port
 
     def resolve(self, tree: MatrixConfigTree) -> MatrixResolutionResult:
         outputs: list[ResolvedOutput] = []
@@ -203,9 +98,13 @@ class MatrixConfigTreeResolver:
         root = self._resolve_node(tree.root, outputs=outputs, resolved_cache=resolved_cache)
         return MatrixResolutionResult(root=root, outputs=tuple(outputs))
 
+    # ------------------------------------------------------------------
+    # Matrix node resolution
+    # ------------------------------------------------------------------
+
     def _resolve_node(
         self,
-        node: MatrixConfigNode,
+        node: MatrixNode,
         *,
         outputs: list[ResolvedOutput],
         resolved_cache: dict[int, PayoffMatrix],
@@ -214,179 +113,140 @@ class MatrixConfigTreeResolver:
         if cache_key in resolved_cache:
             return resolved_cache[cache_key]
 
-        dependencies = {
-            key: self._resolve_node(child, outputs=outputs, resolved_cache=resolved_cache)
-            for key, child in node.dependencies.items()
-        }
-        resolved = self._build_matrix(node, dependencies=dependencies)
+        resolved = self._build_matrix(node, outputs=outputs, resolved_cache=resolved_cache)
         resolved_cache[cache_key] = resolved
 
-        for output in node.outputs:
-            output_path = self._run_output(node=node, matrix=resolved, output=output)
-            outputs.append(
-                ResolvedOutput(node_name=node.name, method=output.method, path=output_path)
-            )
+        for output_node in node.outputs:
+            path = self._run_output(node_name=node.name, matrix=resolved, output_node=output_node)
+            outputs.append(ResolvedOutput(node_name=node.name, output_node=output_node, path=path))
+
         return resolved
 
     def _build_matrix(
         self,
-        node: MatrixConfigNode,
+        node: MatrixNode,
         *,
-        dependencies: Mapping[str, PayoffMatrix],
+        outputs: list[ResolvedOutput],
+        resolved_cache: dict[int, PayoffMatrix],
     ) -> PayoffMatrix:
-        settings = node.settings
+        if isinstance(node, GeneralFromRawNode):
+            matrix = np.asarray(node.matrix, dtype=float)
+            return PayoffMatrixBuilder.from_general_matrix(matrix=matrix, labels=node.labels)
 
-        if node.method == MatrixBuildMethod.GENERAL_FROM_RAW:
-            matrix = np.asarray(settings["matrix"], dtype=float)
-            labels = settings.get("labels")
-            return PayoffMatrixBuilder.from_general_matrix(matrix=matrix, labels=labels)
+        if isinstance(node, MonocycleFromCharactersNode):
+            characters = self._resolve_characters(node.characters)
+            return PayoffMatrixBuilder.from_characters(characters=characters, labels=node.labels)
 
-        if node.method == MatrixBuildMethod.MONOCYCLE_FROM_CHARACTERS:
-            labels = settings.get("labels")
-            characters = self._coerce_characters(settings["characters"])
-            return PayoffMatrixBuilder.from_characters(characters=characters, labels=labels)
-
-        if node.method == MatrixBuildMethod.GENERAL_FROM_TEAMS_PAYOFF:
-            team_payoff = np.asarray(settings["team_payoff"], dtype=float)
-            teams = self._coerce_teams(settings["teams"])
+        if isinstance(node, GeneralFromTeamsPayoffNode):
+            team_payoff = np.asarray(node.team_payoff, dtype=float)
+            teams = self._resolve_teams(node.teams)
             return PayoffMatrixBuilder.from_teams(team_payoff=team_payoff, teams=teams)
 
-        if node.method == MatrixBuildMethod.GENERAL_FROM_TEAM_MATCHUPS:
-            character_matrix = dependencies.get("character_matrix")
-            if character_matrix is None:
-                raise ValueError("GENERAL_FROM_TEAM_MATCHUPS には dependency `character_matrix` が必要です")
-            teams = self._coerce_teams(settings["teams"])
-            use_monocycle_formula = bool(settings.get("use_monocycle_formula", True))
+        if isinstance(node, GeneralFromTeamMatchupsNode):
+            character_matrix = self._resolve_node(
+                node.character_matrix, outputs=outputs, resolved_cache=resolved_cache
+            )
+            teams = self._resolve_teams(node.teams)
             return PayoffMatrixBuilder.from_team_matchups(
                 teams=teams,
                 character_matrix=character_matrix,
-                use_monocycle_formula=use_monocycle_formula,
+                use_monocycle_formula=node.use_monocycle_formula,
             )
 
-        if node.method == MatrixBuildMethod.RANDOM_SKEW_SYMMETRIC:
-            seed = settings.get("seed")
-            rng = np.random.default_rng(int(seed)) if seed is not None else None
+        if isinstance(node, RandomSkewSymmetricNode):
+            rng = np.random.default_rng(node.seed) if node.seed is not None else None
             return PayoffMatrixBuilder.from_random_matrix(
-                size=int(settings["size"]),
-                low=float(settings.get("low", -1.0)),
-                high=float(settings.get("high", 1.0)),
+                size=node.size,
+                low=node.low,
+                high=node.high,
                 rng=rng,
-                max_attempts=int(settings.get("max_attempts", 10_000)),
-                labels=settings.get("labels"),
+                max_attempts=node.max_attempts,
+                labels=node.labels,
             )
 
-        if node.method == MatrixBuildMethod.APPROX_MONOCYCLE_TO_GENERAL:
-            source = self._required_dependency(dependencies, key="source")
-            result = MonocycleToGeneralApproximation().approximate(source)
-            return result.matrix
+        if isinstance(node, ApproxMonocycleToGeneralNode):
+            source = self._resolve_node(node.source, outputs=outputs, resolved_cache=resolved_cache)
+            return MonocycleToGeneralApproximation().approximate(source).matrix
 
-        if node.method == MatrixBuildMethod.APPROX_DOMINANT_EIGENPAIR:
-            source = self._required_dependency(dependencies, key="source")
-            approximation = DominantEigenpairMonocycleApproximation(
-                atol=float(settings.get("atol", 1e-8))
-            )
-            result = approximation.approximate(source)
-            return result.matrix
+        if isinstance(node, ApproxDominantEigenpairNode):
+            source = self._resolve_node(node.source, outputs=outputs, resolved_cache=resolved_cache)
+            return DominantEigenpairMonocycleApproximation(atol=node.atol).approximate(source).matrix
 
-        if node.method == MatrixBuildMethod.APPROX_EQUILIBRIUM_PRESERVING:
-            source = self._required_dependency(dependencies, key="source")
-            approximation = EquilibriumPreservingResidualMonocycleApproximation(
-                atol=float(settings.get("atol", 1e-8))
-            )
-            result = approximation.approximate(source)
-            return result.matrix
+        if isinstance(node, ApproxEquilibriumPreservingNode):
+            source = self._resolve_node(node.source, outputs=outputs, resolved_cache=resolved_cache)
+            return EquilibriumPreservingResidualMonocycleApproximation(atol=node.atol).approximate(source).matrix
 
-        raise ValueError(f"未対応の method: {node.method}")
+        raise TypeError(f"未対応のノード型: {type(node)}")
 
-    @staticmethod
-    def _required_dependency(dependencies: Mapping[str, PayoffMatrix], *, key: str) -> PayoffMatrix:
-        dependency = dependencies.get(key)
-        if dependency is None:
-            raise ValueError(f"dependency `{key}` が必要です")
-        return dependency
+    # ------------------------------------------------------------------
+    # Character / Team resolution (file-backed or inline)
+    # ------------------------------------------------------------------
 
-    @staticmethod
-    def _coerce_characters(raw: Any) -> list[Character]:
-        if not isinstance(raw, list) or not raw:
-            raise ValueError("characters は1件以上の配列で指定してください")
-
-        characters: list[Character] = []
-        for i, item in enumerate(raw):
-            if isinstance(item, Character):
-                characters.append(item)
-                continue
-            if not isinstance(item, Mapping):
-                raise ValueError(f"characters[{i}] は Character または dict で指定してください")
-            label = str(item.get("label", ""))
-            power = float(item["p"])
-            vector_raw = item["v"]
-            vector = MatchupVector(float(vector_raw[0]), float(vector_raw[1]))
-            characters.append(Character(power=power, vector=vector, label=label))
-        return characters
-
-    @staticmethod
-    def _coerce_teams(raw: Any) -> list[Team]:
-        if not isinstance(raw, list) or not raw:
-            raise ValueError("teams は1件以上の配列で指定してください")
-
-        teams: list[Team] = []
-        for i, item in enumerate(raw):
-            if isinstance(item, Team):
-                teams.append(item)
-                continue
-            if not isinstance(item, Mapping):
-                raise ValueError(f"teams[{i}] は Team または dict で指定してください")
-            members = item.get("members")
-            if not isinstance(members, list) or not members:
-                raise ValueError(f"teams[{i}].members は1件以上の配列で指定してください")
-            teams.append(
-                Team(
-                    label=str(item["label"]),
-                    member_ids=tuple(members),
+    def _resolve_characters(self, source: CharacterSource) -> list[Character]:
+        if isinstance(source, CharacterListFromFileNode):
+            if self._character_list_file_port is None:
+                raise ValueError(
+                    "CharacterListFromFileNode を解決するには CharacterListFilePort が必要です"
                 )
-            )
-        return teams
+            return self._character_list_file_port.load_characters(source.path)
+        return [
+            Character(c.power, MatchupVector(c.vector[0], c.vector[1]), c.label)
+            for c in source
+        ]
+
+    def _resolve_teams(self, source: TeamSource) -> list[Team]:
+        if isinstance(source, TeamListFromFileNode):
+            if self._team_list_file_port is None:
+                raise ValueError(
+                    "TeamListFromFileNode を解決するには TeamListFilePort が必要です"
+                )
+            return self._team_list_file_port.load_teams(source.path)
+        return [Team(label=t.label, member_ids=t.member_ids) for t in source]
+
+    # ------------------------------------------------------------------
+    # Output execution
+    # ------------------------------------------------------------------
 
     def _run_output(
         self,
         *,
-        node: MatrixConfigNode,
+        node_name: str,
         matrix: PayoffMatrix,
-        output: OutputConfigNode,
+        output_node: OutputNode,
     ) -> Path:
         if self._output_path_port is None:
             raise ValueError("出力を実行するには OutputPathPort が必要です")
 
-        filename = str(output.settings.get("filename", f"{output.method}.svg"))
-        path = self._output_path_port.resolve_output_path(
-            node_name=node.name,
-            output_method=str(output.method),
-            filename=filename,
-        )
-
-        if output.method == OutputMethod.PAYOFF_DIRECTED_GRAPH:
-            threshold = float(output.settings.get("threshold", 0.0))
-            canvas_size = int(output.settings.get("canvas_size", 840))
+        if isinstance(output_node, PayoffDirectedGraphOutputNode):
+            path = self._output_path_port.resolve_output_path(
+                node_name=node_name,
+                output_method="payoff_directed_graph",
+                filename=output_node.filename,
+            )
             PayoffDirectedGraphPlotter(
                 payoff_matrix=matrix.matrix,
                 labels=matrix.labels,
-                threshold=threshold,
-            ).draw(path, canvas_size=canvas_size)
+                threshold=output_node.threshold,
+            ).draw(path, canvas_size=output_node.canvas_size)
             return path
 
-        if output.method == OutputMethod.CHARACTER_VECTOR_GRAPH:
+        if isinstance(output_node, CharacterVectorGraphOutputNode):
+            path = self._output_path_port.resolve_output_path(
+                node_name=node_name,
+                output_method="character_vector_graph",
+                filename=output_node.filename,
+            )
             characters = getattr(matrix, "characters", None)
             if not isinstance(characters, list) or not characters:
                 raise ValueError(
                     "character_vector_graph は characters を持つノードでのみ使用できます"
                 )
-            canvas_size = int(output.settings.get("canvas_size", 840))
-            margin = int(output.settings.get("margin", 90))
             CharacterVectorGraphPlotter(characters).draw(
                 output_path=path,
-                canvas_size=canvas_size,
-                margin=margin,
+                canvas_size=output_node.canvas_size,
+                margin=output_node.margin,
             )
             return path
 
-        raise ValueError(f"未対応の output method: {output.method}")
+        raise TypeError(f"未対応の出力ノード型: {type(output_node)}")
+
