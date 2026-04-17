@@ -1,32 +1,19 @@
 """Payoff matrix node resolution for application layer orchestration.
 
 設定ツリーを型付きノードで構成し、MatrixConfigTreeResolver が
-各ノード型に対応した解決ロジックをインフラ層ポート経由で実行する。
+_ResolutionSession を生成して解決を委譲する。
+各解決ロジックは各ノードの build / run / load_characters / load_teams に実装されている。
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from functools import singledispatchmethod
 from pathlib import Path
 
-import numpy as np
-
 from monocycle_nash.application.matrix_nodes import (
-    ApproxDominantEigenpairNode,
-    ApproxEquilibriumPreservingNode,
-    ApproxMonocycleToGeneralNode,
-    CharacterListFromFileNode,
-    CharacterVectorGraphOutputNode,
-    GeneralFromRawNode,
-    GeneralFromTeamMatchupsNode,
-    GeneralFromTeamsPayoffNode,
     MatrixNode,
-    MonocycleFromCharactersNode,
+    NodeResolutionContext,
     OutputNode,
-    PayoffDirectedGraphOutputNode,
-    RandomSkewSymmetricNode,
-    TeamListFromFileNode,
 )
 from monocycle_nash.application.ports import (
     CharacterListFilePort,
@@ -34,17 +21,9 @@ from monocycle_nash.application.ports import (
     OutputPathPort,
     TeamListFilePort,
 )
-from monocycle_nash.domain.character import Character, MatchupVector
-from monocycle_nash.domain.matrix.approximation import (
-    DominantEigenpairMonocycleApproximation,
-    EquilibriumPreservingResidualMonocycleApproximation,
-    MonocycleToGeneralApproximation,
-)
+from monocycle_nash.domain.character import Character
 from monocycle_nash.domain.matrix.base import PayoffMatrix
-from monocycle_nash.domain.matrix.builder import PayoffMatrixBuilder
 from monocycle_nash.domain.team import Team
-from monocycle_nash.domain.visualization.character_vector_graph import CharacterVectorGraphPlotter
-from monocycle_nash.domain.visualization.payoff_graph import PayoffDirectedGraphPlotter
 
 
 @dataclass(frozen=True)
@@ -75,7 +54,7 @@ class MatrixConfigTreeResolver:
     """設定ツリーを辿って最終的なオブジェクト生成・出力実行を行う。
 
     ファイル読み込みが必要なノードを解決するためのポートを
-    コンストラクタで受け取り、各 resolve メソッドで明示的に呼び出す。
+    コンストラクタで受け取り、resolve 呼び出しごとに _ResolutionSession を生成する。
     """
 
     def __init__(
@@ -92,248 +71,68 @@ class MatrixConfigTreeResolver:
         self._matrix_file_port = matrix_file_port
 
     def resolve(self, tree: MatrixConfigTree) -> MatrixResolutionResult:
-        outputs: list[ResolvedOutput] = []
-        resolved_cache: dict[int, PayoffMatrix] = {}
-        root = self._resolve_node(tree.root, outputs=outputs, resolved_cache=resolved_cache)
-        return MatrixResolutionResult(root=root, outputs=tuple(outputs))
+        session = _ResolutionSession(
+            output_path_port=self._output_path_port,
+            character_list_file_port=self._character_list_file_port,
+            team_list_file_port=self._team_list_file_port,
+        )
+        root = session.resolve_node(tree.root)
+        return MatrixResolutionResult(root=root, outputs=tuple(session.resolved_outputs))
 
-    # ------------------------------------------------------------------
-    # Matrix node resolution
-    # ------------------------------------------------------------------
 
-    def _resolve_node(
+class _ResolutionSession(NodeResolutionContext):
+    """単一の resolve() 呼び出しに対応するセッション。
+
+    NodeResolutionContext を実装し、各ノードの build から呼び出される。
+    キャッシュと出力結果リストを保持する。
+    """
+
+    def __init__(
         self,
-        node: MatrixNode,
         *,
-        outputs: list[ResolvedOutput],
-        resolved_cache: dict[int, PayoffMatrix],
-    ) -> PayoffMatrix:
-        cache_key = id(node)
-        if cache_key in resolved_cache:
-            return resolved_cache[cache_key]
+        output_path_port: OutputPathPort | None,
+        character_list_file_port: CharacterListFilePort | None,
+        team_list_file_port: TeamListFilePort | None,
+    ) -> None:
+        self._output_path_port = output_path_port
+        self._character_list_file_port = character_list_file_port
+        self._team_list_file_port = team_list_file_port
+        self.resolved_outputs: list[ResolvedOutput] = []
+        self._resolved_cache: dict[int, PayoffMatrix] = {}
 
-        resolved = self._build_matrix(node, outputs=outputs, resolved_cache=resolved_cache)
-        resolved_cache[cache_key] = resolved
+    def resolve_node(self, node: MatrixNode) -> PayoffMatrix:
+        cache_key = id(node)
+        if cache_key in self._resolved_cache:
+            return self._resolved_cache[cache_key]
+
+        resolved = node.build(self)
+        self._resolved_cache[cache_key] = resolved
 
         for output_node in node.outputs:
-            path = self._run_output(output_node, node_name=node.name, matrix=resolved)
-            outputs.append(ResolvedOutput(node_name=node.name, output_node=output_node, path=path))
+            if self._output_path_port is None:
+                raise ValueError("出力を実行するには OutputPathPort が必要です")
+            path = output_node.run(
+                output_path_port=self._output_path_port,
+                node_name=node.name,
+                matrix=resolved,
+            )
+            self.resolved_outputs.append(
+                ResolvedOutput(node_name=node.name, output_node=output_node, path=path)
+            )
 
         return resolved
 
-    @singledispatchmethod
-    def _build_matrix(
-        self,
-        node: object,
-        *,
-        outputs: list[ResolvedOutput],
-        resolved_cache: dict[int, PayoffMatrix],
-    ) -> PayoffMatrix:
-        raise TypeError(f"未対応のノード型: {type(node)}")
-
-    @_build_matrix.register
-    def _(
-        self,
-        node: GeneralFromRawNode,
-        *,
-        outputs: list[ResolvedOutput],
-        resolved_cache: dict[int, PayoffMatrix],
-    ) -> PayoffMatrix:
-        matrix = np.asarray(node.matrix, dtype=float)
-        return PayoffMatrixBuilder.from_general_matrix(matrix=matrix, labels=node.labels)
-
-    @_build_matrix.register
-    def _(
-        self,
-        node: MonocycleFromCharactersNode,
-        *,
-        outputs: list[ResolvedOutput],
-        resolved_cache: dict[int, PayoffMatrix],
-    ) -> PayoffMatrix:
-        characters = self._resolve_characters(node.characters)
-        return PayoffMatrixBuilder.from_characters(characters=characters, labels=node.labels)
-
-    @_build_matrix.register
-    def _(
-        self,
-        node: GeneralFromTeamsPayoffNode,
-        *,
-        outputs: list[ResolvedOutput],
-        resolved_cache: dict[int, PayoffMatrix],
-    ) -> PayoffMatrix:
-        team_payoff = np.asarray(node.team_payoff, dtype=float)
-        teams = self._resolve_teams(node.teams)
-        return PayoffMatrixBuilder.from_teams(team_payoff=team_payoff, teams=teams)
-
-    @_build_matrix.register
-    def _(
-        self,
-        node: GeneralFromTeamMatchupsNode,
-        *,
-        outputs: list[ResolvedOutput],
-        resolved_cache: dict[int, PayoffMatrix],
-    ) -> PayoffMatrix:
-        character_matrix = self._resolve_node(
-            node.character_matrix, outputs=outputs, resolved_cache=resolved_cache
-        )
-        teams = self._resolve_teams(node.teams)
-        return PayoffMatrixBuilder.from_team_matchups(
-            teams=teams,
-            character_matrix=character_matrix,
-            use_monocycle_formula=node.use_monocycle_formula,
-        )
-
-    @_build_matrix.register
-    def _(
-        self,
-        node: RandomSkewSymmetricNode,
-        *,
-        outputs: list[ResolvedOutput],
-        resolved_cache: dict[int, PayoffMatrix],
-    ) -> PayoffMatrix:
-        rng = np.random.default_rng(node.seed) if node.seed is not None else None
-        return PayoffMatrixBuilder.from_random_matrix(
-            size=node.size,
-            low=node.low,
-            high=node.high,
-            rng=rng,
-            max_attempts=node.max_attempts,
-            labels=node.labels,
-        )
-
-    @_build_matrix.register
-    def _(
-        self,
-        node: ApproxMonocycleToGeneralNode,
-        *,
-        outputs: list[ResolvedOutput],
-        resolved_cache: dict[int, PayoffMatrix],
-    ) -> PayoffMatrix:
-        source = self._resolve_node(node.source, outputs=outputs, resolved_cache=resolved_cache)
-        return MonocycleToGeneralApproximation().approximate(source).matrix
-
-    @_build_matrix.register
-    def _(
-        self,
-        node: ApproxDominantEigenpairNode,
-        *,
-        outputs: list[ResolvedOutput],
-        resolved_cache: dict[int, PayoffMatrix],
-    ) -> PayoffMatrix:
-        source = self._resolve_node(node.source, outputs=outputs, resolved_cache=resolved_cache)
-        return DominantEigenpairMonocycleApproximation(atol=node.atol).approximate(source).matrix
-
-    @_build_matrix.register
-    def _(
-        self,
-        node: ApproxEquilibriumPreservingNode,
-        *,
-        outputs: list[ResolvedOutput],
-        resolved_cache: dict[int, PayoffMatrix],
-    ) -> PayoffMatrix:
-        source = self._resolve_node(node.source, outputs=outputs, resolved_cache=resolved_cache)
-        return EquilibriumPreservingResidualMonocycleApproximation(atol=node.atol).approximate(source).matrix
-
-    # ------------------------------------------------------------------
-    # Character / Team resolution (file-backed or inline)
-    # ------------------------------------------------------------------
-
-    @singledispatchmethod
-    def _resolve_characters(self, source: object) -> list[Character]:
-        raise TypeError(f"未対応のキャラクターソース型: {type(source)}")
-
-    @_resolve_characters.register
-    def _(self, source: CharacterListFromFileNode) -> list[Character]:
+    def load_characters_from_file(self, path: str) -> list[Character]:
         if self._character_list_file_port is None:
             raise ValueError(
                 "CharacterListFromFileNode を解決するには CharacterListFilePort が必要です"
             )
-        return self._character_list_file_port.load_characters(source.path)
+        return self._character_list_file_port.load_characters(path)
 
-    @_resolve_characters.register
-    def _(self, source: list) -> list[Character]:
-        return [
-            Character(c.power, MatchupVector(c.vector[0], c.vector[1]), c.label)
-            for c in source
-        ]
-
-    @singledispatchmethod
-    def _resolve_teams(self, source: object) -> list[Team]:
-        raise TypeError(f"未対応のチームソース型: {type(source)}")
-
-    @_resolve_teams.register
-    def _(self, source: TeamListFromFileNode) -> list[Team]:
+    def load_teams_from_file(self, path: str) -> list[Team]:
         if self._team_list_file_port is None:
             raise ValueError(
                 "TeamListFromFileNode を解決するには TeamListFilePort が必要です"
             )
-        return self._team_list_file_port.load_teams(source.path)
+        return self._team_list_file_port.load_teams(path)
 
-    @_resolve_teams.register
-    def _(self, source: list) -> list[Team]:
-        return [Team(label=t.label, member_ids=t.member_ids) for t in source]
-
-    # ------------------------------------------------------------------
-    # Output execution
-    # ------------------------------------------------------------------
-
-    @singledispatchmethod
-    def _run_output(
-        self,
-        output_node: object,
-        *,
-        node_name: str,
-        matrix: PayoffMatrix,
-    ) -> Path:
-        raise TypeError(f"未対応の出力ノード型: {type(output_node)}")
-
-    @_run_output.register
-    def _(
-        self,
-        output_node: PayoffDirectedGraphOutputNode,
-        *,
-        node_name: str,
-        matrix: PayoffMatrix,
-    ) -> Path:
-        if self._output_path_port is None:
-            raise ValueError("出力を実行するには OutputPathPort が必要です")
-
-        path = self._output_path_port.resolve_output_path(
-            node_name=node_name,
-            output_method="payoff_directed_graph",
-            filename=output_node.filename,
-        )
-        PayoffDirectedGraphPlotter(
-            payoff_matrix=matrix.matrix,
-            labels=matrix.labels,
-            threshold=output_node.threshold,
-        ).draw(path, canvas_size=output_node.canvas_size)
-        return path
-
-    @_run_output.register
-    def _(
-        self,
-        output_node: CharacterVectorGraphOutputNode,
-        *,
-        node_name: str,
-        matrix: PayoffMatrix,
-    ) -> Path:
-        if self._output_path_port is None:
-            raise ValueError("出力を実行するには OutputPathPort が必要です")
-
-        path = self._output_path_port.resolve_output_path(
-            node_name=node_name,
-            output_method="character_vector_graph",
-            filename=output_node.filename,
-        )
-        characters = getattr(matrix, "characters", None)
-        if not isinstance(characters, list) or not characters:
-            raise ValueError(
-                "character_vector_graph は characters を持つノードでのみ使用できます"
-            )
-        CharacterVectorGraphPlotter(characters).draw(
-            output_path=path,
-            canvas_size=output_node.canvas_size,
-            margin=output_node.margin,
-        )
-        return path

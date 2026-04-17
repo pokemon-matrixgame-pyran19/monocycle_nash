@@ -10,19 +10,24 @@ from monocycle_nash.application.matrix_nodes import (
     ApproxDominantEigenpairNode,
     ApproxEquilibriumPreservingNode,
     ApproxMonocycleToGeneralNode,
+    CharacterInlineSource,
     CharacterListFromFileNode,
     CharacterNode,
+    CharacterSource,
     CharacterVectorGraphOutputNode,
     GeneralFromRawNode,
     GeneralFromTeamMatchupsNode,
     GeneralFromTeamsPayoffNode,
     MatrixNode,
     MonocycleFromCharactersNode,
+    NodeResolutionContext,
     OutputNode,
     PayoffDirectedGraphOutputNode,
     RandomSkewSymmetricNode,
+    TeamInlineSource,
     TeamListFromFileNode,
     TeamNode,
+    TeamSource,
 )
 
 __all__ = [
@@ -31,7 +36,10 @@ __all__ = [
     "MatrixConfigTreeResolver",
     "MatrixResolutionResult",
     "ResolvedOutput",
+    # matrix_nodes — context
+    "NodeResolutionContext",
     # matrix_nodes — matrix nodes
+    "MatrixNode",
     "GeneralFromRawNode",
     "MonocycleFromCharactersNode",
     "GeneralFromTeamsPayoffNode",
@@ -40,15 +48,18 @@ __all__ = [
     "ApproxMonocycleToGeneralNode",
     "ApproxDominantEigenpairNode",
     "ApproxEquilibriumPreservingNode",
-    "MatrixNode",
     # matrix_nodes — character nodes
+    "CharacterSource",
     "CharacterNode",
+    "CharacterInlineSource",
     "CharacterListFromFileNode",
     # matrix_nodes — team nodes
+    "TeamSource",
     "TeamNode",
+    "TeamInlineSource",
     "TeamListFromFileNode",
     # matrix_nodes — output nodes
+    "OutputNode",
     "PayoffDirectedGraphOutputNode",
     "CharacterVectorGraphOutputNode",
-    "OutputNode",
 ]
