@@ -209,7 +209,7 @@ def test_resolver_file_backed_characters_without_port_raises() -> None:
 
 
 def test_resolver_file_backed_teams(tmp_path: Path) -> None:
-    character_source = CharacterInlineSource((
+    characters = CharacterInlineSource((
         CharacterNode(power=1.0, vector=(1.0, 0.0), label="A"),
         CharacterNode(power=0.0, vector=(0.0, 1.0), label="B"),
         CharacterNode(power=-1.0, vector=(-1.0, 0.0), label="C"),
@@ -222,7 +222,7 @@ def test_resolver_file_backed_teams(tmp_path: Path) -> None:
         root=GeneralFromTeamMatchupsNode(
             teams=TeamListFromFileNode(path="teams.toml"),
             character_matrix=MonocycleFromCharactersNode(
-                characters=character_source,
+                characters=characters,
                 labels=["A", "B", "C"],
             ),
         )
