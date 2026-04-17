@@ -12,12 +12,14 @@ from monocycle_nash.application.matrix_config_tree import (
 )
 from monocycle_nash.application.matrix_nodes import (
     ApproxMonocycleToGeneralNode,
+    CharacterInlineSource,
     CharacterListFromFileNode,
     CharacterNode,
     CharacterVectorGraphOutputNode,
     GeneralFromTeamMatchupsNode,
     MonocycleFromCharactersNode,
     PayoffDirectedGraphOutputNode,
+    TeamInlineSource,
     TeamListFromFileNode,
     TeamNode,
 )
@@ -70,10 +72,10 @@ class StubTeamListFilePort(TeamListFilePort):
 def test_approx_node_wraps_monocycle_node() -> None:
     """ApproxMonocycleToGeneralNode が MonocycleFromCharactersNode を source として持てる。"""
     source_node = MonocycleFromCharactersNode(
-        characters=[
+        characters=CharacterInlineSource((
             CharacterNode(power=1.0, vector=(1.0, 0.0), label="A"),
             CharacterNode(power=0.5, vector=(0.0, 1.0), label="B"),
-        ]
+        ))
     )
     approx_node = ApproxMonocycleToGeneralNode(
         source=source_node,
@@ -95,17 +97,17 @@ def test_resolver_builds_team_matrix_with_nested_dependency_and_outputs(tmp_path
     tree = MatrixConfigTree(
         root=GeneralFromTeamMatchupsNode(
             name="team-root",
-            teams=[
+            teams=TeamInlineSource((
                 TeamNode(label="A+B", member_ids=("A", "B")),
                 TeamNode(label="B+C", member_ids=("B", "C")),
-            ],
+            )),
             character_matrix=MonocycleFromCharactersNode(
                 name="character-source",
-                characters=[
+                characters=CharacterInlineSource((
                     CharacterNode(power=1.0, vector=(1.0, 0.0), label="A"),
                     CharacterNode(power=0.0, vector=(0.0, 1.0), label="B"),
                     CharacterNode(power=-1.0, vector=(-1.0, 0.0), label="C"),
-                ],
+                )),
                 labels=["A", "B", "C"],
                 outputs=(CharacterVectorGraphOutputNode(filename="chars.svg"),),
             ),
@@ -131,10 +133,10 @@ def test_resolver_builds_team_matrix_with_nested_dependency_and_outputs(tmp_path
 def test_resolver_without_output_path_port_rejects_output() -> None:
     tree = MatrixConfigTree(
         root=MonocycleFromCharactersNode(
-            characters=[
+            characters=CharacterInlineSource((
                 CharacterNode(power=1.0, vector=(1.0, 0.0), label="A"),
                 CharacterNode(power=0.0, vector=(0.0, 1.0), label="B"),
-            ],
+            )),
             outputs=(CharacterVectorGraphOutputNode(filename="chars.svg"),),
         )
     )
@@ -152,10 +154,10 @@ def test_resolver_without_output_path_port_rejects_output() -> None:
 def test_resolver_monocycle_node_produces_monocycle_matrix() -> None:
     tree = MatrixConfigTree(
         root=MonocycleFromCharactersNode(
-            characters=[
+            characters=CharacterInlineSource((
                 CharacterNode(power=1.0, vector=(1.0, 0.0), label="A"),
                 CharacterNode(power=0.2, vector=(0.0, 1.0), label="B"),
-            ],
+            )),
             labels=["A", "B"],
         )
     )
@@ -207,11 +209,11 @@ def test_resolver_file_backed_characters_without_port_raises() -> None:
 
 
 def test_resolver_file_backed_teams(tmp_path: Path) -> None:
-    characters = [
+    characters = CharacterInlineSource((
         CharacterNode(power=1.0, vector=(1.0, 0.0), label="A"),
         CharacterNode(power=0.0, vector=(0.0, 1.0), label="B"),
         CharacterNode(power=-1.0, vector=(-1.0, 0.0), label="C"),
-    ]
+    ))
     teams = [
         Team(label="A+B", member_ids=("A", "B")),
         Team(label="B+C", member_ids=("B", "C")),
@@ -239,10 +241,10 @@ def test_resolver_file_backed_teams_without_port_raises() -> None:
         root=GeneralFromTeamMatchupsNode(
             teams=TeamListFromFileNode(path="teams.toml"),
             character_matrix=MonocycleFromCharactersNode(
-                characters=[
+                characters=CharacterInlineSource((
                     CharacterNode(power=1.0, vector=(1.0, 0.0), label="A"),
                     CharacterNode(power=0.0, vector=(0.0, 1.0), label="B"),
-                ],
+                )),
             ),
         )
     )
