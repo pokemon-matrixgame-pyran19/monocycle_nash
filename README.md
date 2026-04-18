@@ -34,7 +34,7 @@ python -m pytest tests/ -x -q
 - ドメイン層のコードを import して利用・検証する
 - `TomlMatrixConfigPort` + `MatrixNodeFactory` + `MatrixConfigTreeResolver` を直接呼び出して設定解決する
 - pytest で既存テストを実行する
-- 再構築仕様を `document/working/` で確認する
+- README補助ドキュメントを `document/readme/` で確認する
 
 ## 最小実行手順（現行）
 
@@ -131,7 +131,7 @@ result/<run_id>/<node_path...>/<output_method>/<filename>
 
 機能追加時の実装手順は以下を参照してください。
 
-- [`document/working/application_extension.md`](document/working/application_extension.md)
+- [`document/readme/application_extension.md`](document/readme/application_extension.md)
 
 このガイドでは次を整理しています。
 
@@ -151,11 +151,12 @@ result/<run_id>/<node_path...>/<output_method>/<filename>
 
 ## TOML仕様の詳細
 
-詳細は [`document/working/toml_config.md`](document/working/toml_config.md) を参照してください。
+詳細は [`document/readme/toml_config.md`](document/readme/toml_config.md) を参照してください。
 
 ## ドキュメントの見方
 
-- `document/working/`: **現行の作り直し対象**に関する仕様・方針
+- `document/readme/`: READMEの補助ドキュメント
+- `document/working/`: 現在進行中の作業メモ（通常は `index.md` のみ）
 - `document/class_design/`: 旧仕様を含む**アーカイブ**
 - `document/theory/`: 理論背景
 - `document/test/`, `document/test_strategy.md`: テスト方針・設計メモ
