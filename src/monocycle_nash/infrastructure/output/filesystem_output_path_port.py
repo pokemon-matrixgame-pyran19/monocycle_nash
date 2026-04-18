@@ -63,5 +63,5 @@ class FileSystemOutputPathPort(OutputPathPort):
             if len(suffix) > 1
         ]
         if suffixes:
-            return f"{stem}." + ".".join(suffixes)
+            return f"{stem}.{'.'.join(suffixes)}"
         return stem

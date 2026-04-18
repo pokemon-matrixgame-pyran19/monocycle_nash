@@ -129,10 +129,10 @@ def test_resolver_builds_team_matrix_with_nested_dependency_and_outputs(tmp_path
     assert len(result.outputs) == 2
     assert all(output.path.exists() for output in result.outputs)
     assert all(
-        call[0] == result.execution_unit.id
-        for call in output_port.calls
+        execution_unit_id == result.execution_unit.id
+        for execution_unit_id, _, _, _ in output_port.calls
     )
-    assert set(call[1] for call in output_port.calls) == {
+    assert set(node_path for _, node_path, _, _ in output_port.calls) == {
         ("team-root", "character-source"),
         ("team-root",),
     }
