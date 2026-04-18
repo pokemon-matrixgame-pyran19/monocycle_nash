@@ -29,7 +29,6 @@ class GitTagVersionPort(VersionPort):
             return __version__
 
         tags = [line.strip() for line in result.stdout.splitlines() if line.strip()]
-        if len(tags) == 0:
+        if not tags:
             return __version__
         return tags[0]
-
