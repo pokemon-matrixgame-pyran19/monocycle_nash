@@ -10,6 +10,7 @@ from monocycle_nash.application.matrix_nodes import (
     CharacterInlineSource,
     CharacterListFromFileNode,
     CharacterVectorGraphOutputNode,
+    EquilibriumOutputNode,
     GeneralFromRawNode,
     GeneralFromTeamMatchupsNode,
     GeneralFromTeamsPayoffNode,
@@ -310,6 +311,23 @@ def test_build_with_character_vector_graph_output() -> None:
     output_node = node.outputs[0]
     assert isinstance(output_node, CharacterVectorGraphOutputNode)
     assert output_node.margin == 60
+
+
+def test_build_with_equilibrium_output() -> None:
+    out = OutputSpec(
+        method="equilibrium",
+        params={"filename": "equilibrium_out.toml"},
+    )
+    spec = NodeSpec(
+        method="general_from_raw",
+        params={"matrix": [[0.0, 1.0], [-1.0, 0.0]]},
+        outputs=(out,),
+    )
+    node = FACTORY.build(spec)
+    assert len(node.outputs) == 1
+    output_node = node.outputs[0]
+    assert isinstance(output_node, EquilibriumOutputNode)
+    assert output_node.filename == "equilibrium_out.toml"
 
 
 def test_build_with_output_defaults() -> None:

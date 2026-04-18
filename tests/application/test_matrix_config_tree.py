@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -16,6 +17,7 @@ from monocycle_nash.application.matrix_nodes import (
     CharacterListFromFileNode,
     CharacterNode,
     CharacterVectorGraphOutputNode,
+    EquilibriumOutputNode,
     GeneralFromTeamMatchupsNode,
     MonocycleFromCharactersNode,
     PayoffDirectedGraphOutputNode,
@@ -136,6 +138,34 @@ def test_resolver_builds_team_matrix_with_nested_dependency_and_outputs(tmp_path
         ("team-root", "character-source"),
         ("team-root",),
     }
+
+
+def test_resolver_runs_equilibrium_output_node(tmp_path: Path) -> None:
+    tree = MatrixConfigTree(
+        root=MonocycleFromCharactersNode(
+            name="mono",
+            characters=CharacterInlineSource((
+                CharacterNode(power=1.0, vector=(1.0, 0.0), label="A"),
+                CharacterNode(power=0.0, vector=(0.0, 1.0), label="B"),
+                CharacterNode(power=-1.0, vector=(-1.0, 0.0), label="C"),
+            )),
+            outputs=(EquilibriumOutputNode(filename="eq.toml"),),
+        )
+    )
+
+    output_port = StubOutputPathPort(tmp_path)
+    resolver = MatrixConfigTreeResolver(output_path_port=output_port)
+    result = resolver.resolve(tree)
+
+    assert len(result.outputs) == 1
+    output = result.outputs[0]
+    assert output.path.exists()
+    assert output_port.calls[0][2] == "equilibrium"
+    data = tomllib.loads(output.path.read_text(encoding="utf-8"))
+    assert "strategies" in data
+    assert len(data["strategies"]) == 3
+    probabilities = [float(s["probability"]) for s in data["strategies"]]
+    assert pytest.approx(sum(probabilities), rel=1e-6, abs=1e-6) == 1.0
 
 
 # ---------------------------------------------------------------------------
