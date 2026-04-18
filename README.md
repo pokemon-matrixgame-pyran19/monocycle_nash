@@ -70,6 +70,9 @@ filename = "rps.svg"
 
 2) 設定を解決して出力を生成:
 
+`python - <<'PY' ... PY` は「その場で Python スクリプトを実行する」書き方です。
+必要なら同内容を `run_example.py` に保存して `python run_example.py` でも実行できます。
+
 ```bash
 python - <<'PY'
 from monocycle_nash.application.matrix_config_tree import MatrixConfigTree, MatrixConfigTreeResolver
@@ -155,7 +158,8 @@ result/<run_id>/<node_path...>/<output_method>/<filename>
    - 現時点で確実に動かすには、`params.characters` / `params.teams` のインライン入力を使ってください。
 
 3. 現行 NodeSpec 形式のサンプル入力が `data/` に不足
-   - 既存の `data/run_config/*.toml` や `data/matrix/*/data.toml` は旧運用由来のサンプルです。
+   - 既存の `data/run_config/*.toml` や `data/matrix/*/data.toml` は、`old/src/monocycle_nash` の旧CLI運用（feature指定の実行方式）向けサンプルです。
+   - 現行の `TomlMatrixConfigPort` が期待する「ルートに `method` を持つ NodeSpec 形式」とは互換ではありません。
    - 現行実装を試す場合は、上記の最小例のような `method` ルート形式の TOML を新規作成してください。
 
 ## TOML仕様の詳細
