@@ -10,7 +10,6 @@
 
 - 現行の実装対象: `src/monocycle_nash/domain/` を中心としたドメインロジック
 - 再構築中の層: application / infrastructure / presentation
-- 旧実装参照先: `old/src/monocycle_nash/`
 
 ## セットアップ
 
@@ -167,7 +166,6 @@ result/<run_id>/<node_path...>/<output_method>/<filename>
 ## フォルダ構造
 
 - `src/`: 現行ソースコード
-- `old/`: 旧実装コード（参照用）
 - `data/`: 入力データ・設定サンプル
 - `document/`: 設計・仕様・理論・実験ドキュメント
 - `tests/`: テストコード

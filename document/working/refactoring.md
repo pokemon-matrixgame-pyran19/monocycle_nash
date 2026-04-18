@@ -16,7 +16,6 @@ presentation は application に依存する。
 ## 現状
 
 - `src/monocycle_nash/main.py` は再構築中のため未実装
-- 旧実装の実行フローは `old/src/monocycle_nash/` に退避済み
 - 旧CLI仕様（feature 実行や runmeta 運用）はアーカイブ文書側で参照可能
 
 ## 再構築の範囲
