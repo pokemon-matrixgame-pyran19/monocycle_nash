@@ -31,4 +31,4 @@ class VersionPort(ABC):
     @abstractmethod
     def get_version(self) -> str:
         """現在の実行バージョンを返す。"""
-        raise NotImplementedError
+        ...
