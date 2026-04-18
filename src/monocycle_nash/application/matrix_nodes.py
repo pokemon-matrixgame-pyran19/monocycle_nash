@@ -232,7 +232,8 @@ class OutputNode(ABC):
         self,
         *,
         output_path_port: OutputPathPort,
-        node_name: str,
+        execution_unit_id: str,
+        node_path: tuple[str, ...],
         matrix: PayoffMatrix,
     ) -> Path:
         """出力を実行してファイルパスを返す。"""
@@ -259,11 +260,13 @@ class PayoffDirectedGraphOutputNode(OutputNode, output_method="payoff_directed_g
         self,
         *,
         output_path_port: OutputPathPort,
-        node_name: str,
+        execution_unit_id: str,
+        node_path: tuple[str, ...],
         matrix: PayoffMatrix,
     ) -> Path:
         path = output_path_port.resolve_output_path(
-            node_name=node_name,
+            execution_unit_id=execution_unit_id,
+            node_path=node_path,
             output_method="payoff_directed_graph",
             filename=self.filename,
         )
@@ -295,11 +298,13 @@ class CharacterVectorGraphOutputNode(OutputNode, output_method="character_vector
         self,
         *,
         output_path_port: OutputPathPort,
-        node_name: str,
+        execution_unit_id: str,
+        node_path: tuple[str, ...],
         matrix: PayoffMatrix,
     ) -> Path:
         path = output_path_port.resolve_output_path(
-            node_name=node_name,
+            execution_unit_id=execution_unit_id,
+            node_path=node_path,
             output_method="character_vector_graph",
             filename=self.filename,
         )
@@ -628,4 +633,3 @@ class ApproxEquilibriumPreservingNode(MatrixNode, node_method="approx_equilibriu
     def build(self, ctx: NodeResolutionContext) -> PayoffMatrix:
         source = ctx.resolve_node(self.source)
         return EquilibriumPreservingResidualMonocycleApproximation(atol=self.atol).approximate(source).matrix
-

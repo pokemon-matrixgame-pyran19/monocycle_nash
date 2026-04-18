@@ -37,15 +37,18 @@ from monocycle_nash.domain.team import Team
 class StubOutputPathPort(OutputPathPort):
     def __init__(self, base_dir: Path):
         self._base_dir = base_dir
+        self.calls: list[tuple[str, tuple[str, ...], str, str]] = []
 
     def resolve_output_path(
         self,
         *,
-        node_name: str,
+        execution_unit_id: str,
+        node_path: tuple[str, ...],
         output_method: str,
         filename: str,
     ) -> Path:
-        return self._base_dir / f"{node_name}-{output_method}-{filename}"
+        self.calls.append((execution_unit_id, node_path, output_method, filename))
+        return self._base_dir / execution_unit_id / Path(*node_path) / output_method / filename
 
 
 class StubCharacterListFilePort(CharacterListFilePort):
@@ -116,13 +119,23 @@ def test_resolver_builds_team_matrix_with_nested_dependency_and_outputs(tmp_path
         )
     )
 
-    resolver = MatrixConfigTreeResolver(output_path_port=StubOutputPathPort(tmp_path))
+    output_port = StubOutputPathPort(tmp_path)
+    resolver = MatrixConfigTreeResolver(output_path_port=output_port)
     result = resolver.resolve(tree)
 
     assert isinstance(result.root, GeneralPayoffMatrix)
     assert result.root.matrix.shape == (2, 2)
+    assert result.execution_unit.id
     assert len(result.outputs) == 2
     assert all(output.path.exists() for output in result.outputs)
+    assert all(
+        call[0] == result.execution_unit.id
+        for call in output_port.calls
+    )
+    assert set(call[1] for call in output_port.calls) == {
+        ("team-root", "character-source"),
+        ("team-root",),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -252,4 +265,3 @@ def test_resolver_file_backed_teams_without_port_raises() -> None:
 
     with pytest.raises(ValueError, match="TeamListFilePort"):
         resolver.resolve(tree)
-

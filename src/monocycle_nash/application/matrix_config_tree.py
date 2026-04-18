@@ -21,6 +21,7 @@ from monocycle_nash.application.ports import (
     OutputPathPort,
     TeamListFilePort,
 )
+from monocycle_nash.domain.experiment_run import ExecutionUnit
 from monocycle_nash.domain.character import Character
 from monocycle_nash.domain.matrix.base import PayoffMatrix
 from monocycle_nash.domain.team import Team
@@ -46,6 +47,7 @@ class ResolvedOutput:
 class MatrixResolutionResult:
     """設定ツリー解決結果。"""
 
+    execution_unit: ExecutionUnit
     root: PayoffMatrix
     outputs: tuple[ResolvedOutput, ...] = ()
 
@@ -77,7 +79,11 @@ class MatrixConfigTreeResolver:
             team_list_file_port=self._team_list_file_port,
         )
         root = session.resolve_node(tree.root)
-        return MatrixResolutionResult(root=root, outputs=tuple(session.resolved_outputs))
+        return MatrixResolutionResult(
+            execution_unit=session.execution_unit,
+            root=root,
+            outputs=tuple(session.resolved_outputs),
+        )
 
 
 class _ResolutionSession(NodeResolutionContext):
@@ -94,18 +100,28 @@ class _ResolutionSession(NodeResolutionContext):
         character_list_file_port: CharacterListFilePort | None,
         team_list_file_port: TeamListFilePort | None,
     ) -> None:
+        self.execution_unit = ExecutionUnit.create()
         self._output_path_port = output_path_port
         self._character_list_file_port = character_list_file_port
         self._team_list_file_port = team_list_file_port
         self.resolved_outputs: list[ResolvedOutput] = []
         self._resolved_cache: dict[int, PayoffMatrix] = {}
+        self._active_node_path_stack: list[tuple[str, ...]] = []
 
     def resolve_node(self, node: MatrixNode) -> PayoffMatrix:
         cache_key = id(node)
+        if self._active_node_path_stack:
+            node_path = (*self._active_node_path_stack[-1], node.name)
+        else:
+            node_path = (node.name,)
         if cache_key in self._resolved_cache:
             return self._resolved_cache[cache_key]
 
-        resolved = node.build(self)
+        self._active_node_path_stack.append(node_path)
+        try:
+            resolved = node.build(self)
+        finally:
+            self._active_node_path_stack.pop()
         self._resolved_cache[cache_key] = resolved
 
         for output_node in node.outputs:
@@ -113,7 +129,8 @@ class _ResolutionSession(NodeResolutionContext):
                 raise ValueError("出力を実行するには OutputPathPort が必要です")
             path = output_node.run(
                 output_path_port=self._output_path_port,
-                node_name=node.name,
+                execution_unit_id=self.execution_unit.id,
+                node_path=node_path,
                 matrix=resolved,
             )
             self.resolved_outputs.append(
@@ -135,4 +152,3 @@ class _ResolutionSession(NodeResolutionContext):
                 "TeamListFromFileNode を解決するには TeamListFilePort が必要です"
             )
         return self._team_list_file_port.load_teams(path)
-
