@@ -29,7 +29,7 @@ class FileSystemOutputPathPort(OutputPathPort):
         safe_node_path = (
             tuple(self._sanitize_component(name) for name in node_path)
             if node_path
-            # 空階層は root フォルダにフォールバックする。
+            # 防御的に、空階層入力時は root フォルダへフォールバックする。
             else ("root",)
         )
         safe_filename = self._sanitize_filename(filename)
