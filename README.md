@@ -128,18 +128,28 @@ method = "..."                  # outputsでは必須
 result/<run_id>/<node_path...>/<output_method>/<filename>
 ```
 
-## 現時点で不足している機能・入力ファイル
+## 開発者向け: 機能追加ガイド（アプリケーション層中心）
 
-最低限の実行可否に関わる現状の不足点です。
+機能追加時の実装手順は以下を参照してください。
 
-1. `refs` 入力を読むインフラ実装が未提供
-   - `CharacterListFilePort` / `TeamListFilePort` は抽象ポートのみで、現行 `src/` に具象実装がありません。
-   - そのため、`refs.characters` / `refs.teams` を使う設定はそのままでは実行できません。
-   - 現時点で確実に動かすには、`params.characters` / `params.teams` のインライン入力を使ってください。
+- [`document/working/application_extension.md`](document/working/application_extension.md)
+
+このガイドでは次を整理しています。
+
+- どのファイルにクラスを追加するか（`MatrixNode` / `OutputNode` / Port 実装）
+- どのメソッド実装が必須か（`_from_spec`, `build`, `_from_output_spec`, `run` など）
+- クラス名の手動登録（配列や辞書追記）が必要かどうか
+  - `MatrixNode` / `OutputNode` は `__init_subclass__` による自動登録のため、通常は追記不要
+
+## 現時点の入力ファイル運用メモ
+
+1. `refs` 入力は現行CLIで利用可能
+   - `TomlCharacterListFilePort` / `TomlTeamListFilePort` が `refs.characters` / `refs.teams` を解決します。
+   - 相対パスは `--data-dir` 基準で解決され、`path.toml` 補完と `path/data.toml` 解決に対応します。
 2. 旧仕様サンプルは `old/data/` に退避済み
    - `old/data/run_config/*.toml` や `old/data/matrix/*/data.toml` は、`old/src/monocycle_nash` の旧CLI運用（feature指定の実行方式）向けサンプルです。
    - 現行実装向けの NodeSpec サンプルは `data/` 直下に配置しています。
-     - `data/rps_inline.toml`
+      - `data/rps_inline.toml`
      - `data/random_5.toml`
      - `data/team_matchups_inline.toml`
      - `data/approx_equilibrium_preserving.toml`

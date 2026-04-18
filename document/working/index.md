@@ -10,4 +10,4 @@
 - README 等の利用手順を更新する際は、本フォルダの状態と矛盾しないことを優先する
 
 - 入力設定 TOML の現行仕様は `toml_config.md` を参照する
-
+- アプリケーション層への機能追加手順は `application_extension.md` を参照する
