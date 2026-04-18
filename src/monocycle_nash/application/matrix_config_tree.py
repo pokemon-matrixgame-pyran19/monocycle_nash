@@ -7,9 +7,9 @@ _ResolutionSession を生成して解決を委譲する。
 
 from __future__ import annotations
 
+import itertools
 from dataclasses import dataclass
 from pathlib import Path
-from uuid import uuid4
 
 from monocycle_nash.application.matrix_nodes import (
     MatrixNode,
@@ -47,7 +47,7 @@ class ResolvedOutput:
 class MatrixResolutionResult:
     """設定ツリー解決結果。"""
 
-    run_id: str
+    run_id: int
     root: PayoffMatrix
     outputs: tuple[ResolvedOutput, ...] = ()
 
@@ -57,6 +57,7 @@ class MatrixConfigTreeResolver:
 
     ファイル読み込みが必要なノードを解決するためのポートを
     コンストラクタで受け取り、resolve 呼び出しごとに _ResolutionSession を生成する。
+    resolve を呼ぶたびに連番の run_id を振る。
     """
 
     def __init__(
@@ -71,16 +72,19 @@ class MatrixConfigTreeResolver:
         self._character_list_file_port = character_list_file_port
         self._team_list_file_port = team_list_file_port
         self._matrix_file_port = matrix_file_port
+        self._run_counter = itertools.count(1)
 
     def resolve(self, tree: MatrixConfigTree) -> MatrixResolutionResult:
+        run_id = next(self._run_counter)
         session = _ResolutionSession(
+            run_id=run_id,
             output_path_port=self._output_path_port,
             character_list_file_port=self._character_list_file_port,
             team_list_file_port=self._team_list_file_port,
         )
         root = session.resolve_node(tree.root)
         return MatrixResolutionResult(
-            run_id=session.run_id,
+            run_id=run_id,
             root=root,
             outputs=tuple(session.resolved_outputs),
         )
@@ -96,11 +100,12 @@ class _ResolutionSession(NodeResolutionContext):
     def __init__(
         self,
         *,
+        run_id: int,
         output_path_port: OutputPathPort | None,
         character_list_file_port: CharacterListFilePort | None,
         team_list_file_port: TeamListFilePort | None,
     ) -> None:
-        self.run_id = uuid4().hex
+        self.run_id = run_id
         self._output_path_port = output_path_port
         self._character_list_file_port = character_list_file_port
         self._team_list_file_port = team_list_file_port
@@ -130,7 +135,7 @@ class _ResolutionSession(NodeResolutionContext):
                 raise ValueError("出力を実行するには OutputPathPort が必要です")
             path = output_node.run(
                 output_path_port=self._output_path_port,
-                run_id=self.run_id,
+                run_id=str(self.run_id),
                 node_path=node_path,
                 matrix=resolved,
             )
