@@ -1,0 +1,42 @@
+method = "general_from_team_matchups"
+name = "team_matchups_inline"
+
+[params]
+use_monocycle_formula = true
+
+[[params.teams]]
+label = "team_a"
+member_ids = ["rock", "paper"]
+
+[[params.teams]]
+label = "team_b"
+member_ids = ["paper", "scissors"]
+
+[[params.teams]]
+label = "team_c"
+member_ids = ["scissors", "rock"]
+
+[children.character_matrix]
+method = "monocycle_from_characters"
+name = "character_matrix"
+
+[[children.character_matrix.params.characters]]
+power = 1.0
+vector = [1.0, 0.0]
+label = "rock"
+
+[[children.character_matrix.params.characters]]
+power = 0.0
+vector = [0.0, 1.0]
+label = "paper"
+
+[[children.character_matrix.params.characters]]
+power = -1.0
+vector = [-1.0, 0.0]
+label = "scissors"
+
+[[outputs]]
+method = "payoff_directed_graph"
+
+[outputs.params]
+filename = "team_matchups_payoff.svg"
