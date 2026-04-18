@@ -149,10 +149,10 @@ result/<run_id>/<node_path...>/<output_method>/<filename>
 2. 旧仕様サンプルは `old/data/` に退避済み
    - `old/data/run_config/*.toml` や `old/data/matrix/*/data.toml` は、`old/src/monocycle_nash` の旧CLI運用（feature指定の実行方式）向けサンプルです。
    - 現行実装向けの NodeSpec サンプルは `data/` 直下に配置しています。
-      - `data/rps_inline.toml`
-     - `data/random_5.toml`
-     - `data/team_matchups_inline.toml`
-     - `data/approx_equilibrium_preserving.toml`
+    - `data/rps_inline.toml`
+    - `data/random_5.toml`
+    - `data/team_matchups_inline.toml`
+    - `data/approx_equilibrium_preserving.toml`
 
 ## TOML仕様の詳細
 
