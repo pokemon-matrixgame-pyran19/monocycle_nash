@@ -13,12 +13,13 @@ CauchyLikePayoffMatrix のテスト
 import numpy as np
 import pytest
 
-from monocycle_nash.game.domain.matrix.cauchy_like import (
+from monocycle_nash.domain.matrix.cauchy_like import (
     CauchyLikeEntity,
     CauchyLikePureStrategy,
     CauchyLikePayoffMatrix,
 )
-from monocycle_nash.game.domain.matrix.base import PayoffMatrix
+from monocycle_nash.domain.solver.selector import SolverSelector
+from monocycle_nash.domain.matrix.base import PayoffMatrix
 
 
 # ---------------------------------------------------------------------------
@@ -82,7 +83,7 @@ class TestCauchyLikePureStrategy:
         assert CauchyLikePureStrategy.cast(strategy) is strategy
 
     def test_cast_invalid_raises(self) -> None:
-        from monocycle_nash.game.domain.strategy import PureStrategy, LabelEntity
+        from monocycle_nash.domain.strategy import PureStrategy, LabelEntity
 
         non_cauchy = PureStrategy(id="s0", entity=LabelEntity(label="s0"))
         with pytest.raises(TypeError, match="CauchyLikePureStrategy"):
@@ -270,12 +271,12 @@ class TestTheoreticalEquilibrium:
 
 
 class TestSolveEquilibrium:
-    """solve_equilibrium(): 数値解が理論解と一致することを検証。"""
+    """SolverSelector: 数値解が理論解と一致することを検証。"""
 
     def test_numerical_matches_theory_3d(self) -> None:
         m = CauchyLikePayoffMatrix.from_ab_lists(A_3, B_3)
         theory = m.theoretical_equilibrium()
-        numerical = m.solve_equilibrium()
+        numerical = SolverSelector().solve(m)
         np.testing.assert_allclose(
             numerical.probabilities, theory, atol=1e-6,
             err_msg="3次元: 数値均衡解が理論解と一致しない"
@@ -284,7 +285,7 @@ class TestSolveEquilibrium:
     def test_numerical_matches_theory_5d(self) -> None:
         m = CauchyLikePayoffMatrix.from_ab_lists(A_5, B_5)
         theory = m.theoretical_equilibrium()
-        numerical = m.solve_equilibrium()
+        numerical = SolverSelector().solve(m)
         np.testing.assert_allclose(
             numerical.probabilities, theory, atol=1e-6,
             err_msg="5次元: 数値均衡解が理論解と一致しない"
@@ -292,10 +293,10 @@ class TestSolveEquilibrium:
 
     def test_numerical_sums_to_one_3d(self) -> None:
         m = CauchyLikePayoffMatrix.from_ab_lists(A_3, B_3)
-        eq = m.solve_equilibrium()
+        eq = SolverSelector().solve(m)
         assert eq.probabilities.sum() == pytest.approx(1.0, abs=1e-6)
 
     def test_numerical_sums_to_one_5d(self) -> None:
         m = CauchyLikePayoffMatrix.from_ab_lists(A_5, B_5)
-        eq = m.solve_equilibrium()
+        eq = SolverSelector().solve(m)
         assert eq.probabilities.sum() == pytest.approx(1.0, abs=1e-6)

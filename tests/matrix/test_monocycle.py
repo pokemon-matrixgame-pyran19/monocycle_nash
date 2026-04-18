@@ -1,8 +1,8 @@
 import pytest
 import numpy as np
-from monocycle_nash.game.domain.matrix.monocycle import MonocyclePayoffMatrix
-from monocycle_nash.game.domain.matrix.base import PayoffMatrix
-from monocycle_nash.game.domain.character import Character, MatchupVector
+from monocycle_nash.domain.matrix.monocycle import MonocyclePayoffMatrix
+from monocycle_nash.domain.matrix.base import PayoffMatrix
+from monocycle_nash.domain.character import Character, MatchupVector
 
 
 ROOT3 = 1.7320508075688772

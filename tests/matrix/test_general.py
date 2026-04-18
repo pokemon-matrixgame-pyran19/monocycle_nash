@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
-from monocycle_nash.game.domain.matrix.general import GeneralPayoffMatrix
-from monocycle_nash.game.domain.matrix.base import PayoffMatrix
+from monocycle_nash.domain.matrix.general import GeneralPayoffMatrix
+from monocycle_nash.domain.matrix.base import PayoffMatrix
 
 
 class TestGeneralPayoffMatrix:

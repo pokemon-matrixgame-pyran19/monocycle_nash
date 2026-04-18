@@ -1,7 +1,7 @@
 import pytest
 
-from monocycle_nash.game.domain.character import Character, MatchupVector
-from monocycle_nash.game.domain.strategy import MonocyclePureStrategy, PureStrategySet
+from monocycle_nash.domain.character import Character, MatchupVector
+from monocycle_nash.domain.strategy import MonocyclePureStrategy, PureStrategySet
 
 
 class TestPureStrategyDomain:

@@ -3,10 +3,10 @@
 import numpy as np
 import pytest
 
-from monocycle_nash.game.domain.character import Character, MatchupVector
-from monocycle_nash.game.domain.matrix.builder import PayoffMatrixBuilder
-from monocycle_nash.game.domain.team import Team
-from monocycle_nash.game.domain.team_matrix import (
+from monocycle_nash.domain.character import Character, MatchupVector
+from monocycle_nash.domain.matrix.builder import PayoffMatrixBuilder
+from monocycle_nash.domain.team import Team
+from monocycle_nash.domain.team_matrix import (
     ExactTeamPayoffCalculator,
     MonocycleFormulaCalculator,
     TwoByTwoFormulaCalculator,
