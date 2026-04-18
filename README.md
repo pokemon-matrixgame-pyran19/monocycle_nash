@@ -29,6 +29,13 @@ uv sync
 uv run pytest
 ```
 
+## TOML設定ファイル（現行仕様）
+
+現行の `TomlMatrixConfigPort` が読み込む TOML 設定の書き方を整理しました。
+
+- 要点: ルートで `method` が必須、`params` / `refs` / `children` / `outputs` で設定を構成
+- 詳細仕様: [`document/working/toml_config.md`](document/working/toml_config.md)
+
 ## ドキュメントの見方
 
 - `document/working/`: **現行の作り直し対象**に関する仕様・方針
