@@ -1,1 +1,0 @@
-"""Game infrastructure package."""

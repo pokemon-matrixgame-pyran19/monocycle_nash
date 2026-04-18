@@ -13,4 +13,8 @@
 
 - `class_design.md`: 読み込みクラスの責務・公開API・エラーハンドリング
 - `usecase_entrypoints.md`: ユースケース別エントリーポイントと入出力フォーマット案
-- `../data.md`: 入力フォーマットの背景と利用イメージ
+- `data.md`: 入力フォーマットの背景と利用イメージ
+
+## 補足
+
+- `usecase_entrypoints.md` 内の一部参照は旧パス表記を含むため、必要に応じて `initial_design` と `management` 配下の文書へ読み替える

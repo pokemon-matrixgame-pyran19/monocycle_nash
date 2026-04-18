@@ -1,0 +1,17 @@
+method = "approx_equilibrium_preserving"
+name = "approx_eq_preserving"
+
+[params]
+atol = 1e-8
+
+[children.source]
+method = "general_from_raw"
+name = "raw_source"
+
+[children.source.params]
+labels = ["A", "B", "C"]
+matrix = [
+  [0.0, 2.0, -1.0],
+  [-2.0, 0.0, 3.0],
+  [1.0, -3.0, 0.0],
+]
