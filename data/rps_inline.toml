@@ -1,0 +1,24 @@
+method = "monocycle_from_characters"
+name = "rps_inline"
+
+[[params.characters]]
+power = 1.0
+vector = [1.0, 0.0]
+label = "rock"
+
+[[params.characters]]
+power = 0.0
+vector = [0.0, 1.0]
+label = "paper"
+
+[[params.characters]]
+power = -1.0
+vector = [-1.0, 0.0]
+label = "scissors"
+
+[[outputs]]
+method = "payoff_directed_graph"
+
+[outputs.params]
+filename = "rps_payoff.svg"
+threshold = 0.0

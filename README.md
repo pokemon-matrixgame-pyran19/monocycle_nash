@@ -157,10 +157,13 @@ result/<run_id>/<node_path...>/<output_method>/<filename>
    - そのため、`refs.characters` / `refs.teams` を使う設定はそのままでは実行できません。
    - 現時点で確実に動かすには、`params.characters` / `params.teams` のインライン入力を使ってください。
 
-3. 現行 NodeSpec 形式のサンプル入力が `data/` に不足
-   - 既存の `data/run_config/*.toml` や `data/matrix/*/data.toml` は、`old/src/monocycle_nash` の旧CLI運用（feature指定の実行方式）向けサンプルです。
-   - 現行の `TomlMatrixConfigPort` が期待する「ルートに `method` を持つ NodeSpec 形式」とは互換ではありません。
-   - 現行実装を試す場合は、上記の最小例のような `method` ルート形式の TOML を新規作成してください。
+3. 旧仕様サンプルは `old/data/` に退避済み
+   - `old/data/run_config/*.toml` や `old/data/matrix/*/data.toml` は、`old/src/monocycle_nash` の旧CLI運用（feature指定の実行方式）向けサンプルです。
+   - 現行実装向けの NodeSpec サンプルは `data/` 直下に配置しています。
+     - `data/rps_inline.toml`
+     - `data/random_5.toml`
+     - `data/team_matchups_inline.toml`
+     - `data/approx_equilibrium_preserving.toml`
 
 ## TOML仕様の詳細
 

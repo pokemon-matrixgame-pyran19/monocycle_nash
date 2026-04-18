@@ -1,0 +1,14 @@
+method = "random_skew_symmetric"
+name = "random_5"
+
+[params]
+size = 5
+low = -1.0
+high = 1.0
+seed = 42
+
+[[outputs]]
+method = "payoff_directed_graph"
+
+[outputs.params]
+filename = "random_5_payoff.svg"
