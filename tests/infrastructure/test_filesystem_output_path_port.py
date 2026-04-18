@@ -40,9 +40,31 @@ def test_resolve_output_path_sanitizes_path_components(tmp_path: Path) -> None:
     assert path == (
         tmp_path
         / "result"
-        / "run___001"
+        / "run_001"
         / "team_root"
-        / "__child"
+        / "child"
         / "payoff_directed"
-        / "unsafe_.svg"
+        / "unsafe.svg"
     )
+
+
+def test_resolve_output_path_distinguishes_empty_and_dot_only_component(
+    tmp_path: Path,
+) -> None:
+    port = FileSystemOutputPathPort(result_base_dir=tmp_path / "result")
+
+    empty_path = port.resolve_output_path(
+        execution_unit_id="",
+        node_path=("root",),
+        output_method="graph",
+        filename="a.svg",
+    )
+    dot_path = port.resolve_output_path(
+        execution_unit_id="...",
+        node_path=("root",),
+        output_method="graph",
+        filename="b.svg",
+    )
+
+    assert empty_path.relative_to(tmp_path / "result").parts[0] == "_empty"
+    assert dot_path.relative_to(tmp_path / "result").parts[0] == "_dot"

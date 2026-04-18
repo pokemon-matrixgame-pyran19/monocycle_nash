@@ -115,6 +115,7 @@ class _ResolutionSession(NodeResolutionContext):
         else:
             node_path = (node.name,)
         if cache_key in self._resolved_cache:
+            # 同一ノード参照は初回探索時に1回だけ解決し、出力実行も初回のみ行う。
             return self._resolved_cache[cache_key]
 
         self._active_node_path_stack.append(node_path)

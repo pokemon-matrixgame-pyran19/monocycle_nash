@@ -11,7 +11,7 @@ from monocycle_nash.application.ports import OutputPathPort
 class FileSystemOutputPathPort(OutputPathPort):
     """`result/<実行単位ID>/<ノード階層>/<output_method>/` を構築する。"""
 
-    _SAFE_CHARS = re.compile(r"[^0-9A-Za-z._-]+")
+    _SAFE_CHARS = re.compile(r"[^0-9A-Za-z_-]+")
 
     def __init__(self, result_base_dir: Path | str = "result") -> None:
         self._result_base_dir = Path(result_base_dir)
@@ -29,6 +29,7 @@ class FileSystemOutputPathPort(OutputPathPort):
         safe_node_path = (
             tuple(self._sanitize_component(name) for name in node_path)
             if node_path
+            # 空階層は root フォルダにフォールバックする。
             else ("root",)
         )
         safe_filename = self._sanitize_filename(filename)
@@ -46,10 +47,12 @@ class FileSystemOutputPathPort(OutputPathPort):
     def _sanitize_component(self, value: str) -> str:
         stripped = value.strip()
         if not stripped:
-            return "_"
+            return "_empty"
         sanitized = self._SAFE_CHARS.sub("_", stripped)
-        sanitized = re.sub(r"\.+", "_", sanitized)
-        return sanitized.strip(".") or "_"
+        normalized = sanitized.strip("_")
+        if normalized:
+            return normalized
+        return "_dot"
 
     def _sanitize_filename(self, filename: str) -> str:
         name = Path(filename).name
