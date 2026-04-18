@@ -1,5 +1,15 @@
-"""Application entrypoint (rebuild in progress)."""
+"""アプリケーションの CLI エントリーポイント。"""
+
+from __future__ import annotations
+
+from collections.abc import Sequence
+
+from monocycle_nash.presentation.cli import main as cli_main
 
 
-def main() -> None:
-    raise NotImplementedError("Application layer is being rebuilt; use archived code under old/src/monocycle_nash for reference.")
+def main(argv: Sequence[str] | None = None) -> int:
+    return cli_main(argv)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
