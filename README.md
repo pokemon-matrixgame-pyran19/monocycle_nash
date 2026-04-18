@@ -144,15 +144,15 @@ result/<run_id>/<node_path...>/<output_method>/<filename>
 ## 現時点の入力ファイル運用メモ
 
 1. `refs` 入力は現行CLIで利用可能
-   - `TomlCharacterListFilePort` / `TomlTeamListFilePort` が `refs.characters` / `refs.teams` を解決します。
-   - 相対パスは `--data-dir` 基準で解決され、`path.toml` 補完と `path/data.toml` 解決に対応します。
+  - `TomlCharacterListFilePort` / `TomlTeamListFilePort` が `refs.characters` / `refs.teams` を解決します。
+  - 相対パスは `--data-dir` 基準で解決され、`path.toml` 補完と `path/data.toml` 解決に対応します。
 2. 旧仕様サンプルは `old/data/` に退避済み
-   - `old/data/run_config/*.toml` や `old/data/matrix/*/data.toml` は、`old/src/monocycle_nash` の旧CLI運用（feature指定の実行方式）向けサンプルです。
-   - 現行実装向けの NodeSpec サンプルは `data/` 直下に配置しています。
-    - `data/rps_inline.toml`
-    - `data/random_5.toml`
-    - `data/team_matchups_inline.toml`
-    - `data/approx_equilibrium_preserving.toml`
+  - `old/data/run_config/*.toml` や `old/data/matrix/*/data.toml` は、`old/src/monocycle_nash` の旧CLI運用（feature指定の実行方式）向けサンプルです。
+  - 現行実装向けの NodeSpec サンプルは `data/` 直下に配置しています。
+   - `data/rps_inline.toml`
+   - `data/random_5.toml`
+   - `data/team_matchups_inline.toml`
+   - `data/approx_equilibrium_preserving.toml`
 
 ## TOML仕様の詳細
 
