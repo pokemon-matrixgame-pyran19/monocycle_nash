@@ -10,7 +10,11 @@ from pathlib import Path
 from monocycle_nash.application.matrix_config_tree import MatrixConfigTree, MatrixConfigTreeResolver
 from monocycle_nash.application.matrix_node_factory import MatrixNodeFactory
 from monocycle_nash.application.snapshot import ConfigTreeSnapshot
-from monocycle_nash.infrastructure.input.toml_matrix_config_port import TomlMatrixConfigPort
+from monocycle_nash.infrastructure.input import (
+    TomlCharacterListFilePort,
+    TomlMatrixConfigPort,
+    TomlTeamListFilePort,
+)
 from monocycle_nash.infrastructure.output import (
     FileSystemOutputPathPort,
     TomlConfigTreeSnapshotStore,
@@ -47,6 +51,8 @@ def run(
     root = MatrixNodeFactory().build(spec)
     resolver = MatrixConfigTreeResolver(
         output_path_port=FileSystemOutputPathPort(result_base_dir=_RESULT_DIR),
+        character_list_file_port=TomlCharacterListFilePort(data_dir=data_dir),
+        team_list_file_port=TomlTeamListFilePort(data_dir=data_dir),
     )
     result = resolver.resolve(MatrixConfigTree(root=root))
 
