@@ -1,94 +1,102 @@
-# アプリケーション層の機能追加ガイド
+# 機能追加ガイド
 
-この文書は、現行 `src/` 実装に対して機能追加するときの最短手順をまとめたものです。  
-対象: `src/monocycle_nash/application/` を中心とした拡張（ノード追加・出力追加・入力参照追加）。
+このガイドでは、新しい行列生成方式・出力形式・ファイル入力形式などを追加するときの手順をまとめています。
 
-## 1. MatrixNode（`method`）を追加する場合
+## 1. 新しい行列生成方式（`method`）を追加したい
 
-### 追加先
+TOML 設定の `method = "..."` で指定できる新しい行列の作り方を追加するケースです。
+
+### 変更するファイル
 
 - `src/monocycle_nash/application/matrix_nodes.py`
 
-### 必須実装
+### 実装手順
 
-1. `MatrixNode` を継承したクラスを追加し、`node_method="..."` をクラス宣言に付ける
-2. `@classmethod _from_spec(cls, spec, build_child)` を実装する
-3. `build(self, ctx)` を実装する
+1. `MatrixNode` を継承したクラスを作り、クラス宣言に `node_method="新しいmethod名"` を付ける
+2. `_from_spec(cls, spec, build_child)` classmethod を実装する（TOML から読み込んだ設定 `spec` をもとにインスタンスを組み立てる）
+3. `build(self, ctx)` メソッドを実装する（行列の計算ロジックを書き、`PayoffMatrix` を返す）
 
-### 実装時の要点
+### 実装上の要点
 
 - `name` と `outputs` フィールドを持たせる（既存ノードと同じ形にする）
-- 子ノードを使う場合は `spec.children[...]` を取り、`build_child(...)` で構築する
+- 子ノードに依存する場合は `spec.children["key"]` で取り出し、`build_child(...)` でノードを組み立てる
 - 出力定義は `OutputNode.create_all_from_specs(spec.outputs)` で受け取る
 
-### 登録作業の要否
+### クラス登録の作業は不要
 
-- `MatrixNodeFactory` の編集は不要
-- 配列や辞書へのクラス名追記も不要  
-  （`MatrixNode.__init_subclass__` が `node_method` を自動登録）
+他ファイルへのクラス名の追記は不要です。クラスを定義するだけで `method` として自動的に認識されます。
 
-## 2. OutputNode（`outputs[].method`）を追加する場合
+### ドキュメント更新
 
-### 追加先
+公開仕様が変わるため、以下も更新してください。
+
+- `README.md`（`method` 一覧）
+- `document/working/toml_config.md`（スキーマ詳細）
+
+## 2. 新しい出力形式（`outputs[].method`）を追加したい
+
+TOML 設定の `[[outputs]]` で指定できる新しい出力の種類を追加するケースです。
+
+### 変更するファイル
 
 - `src/monocycle_nash/application/matrix_nodes.py`
 
-### 必須実装
+### 実装手順
 
-1. `OutputNode` を継承したクラスを追加し、`output_method="..."` をクラス宣言に付ける
-2. `@classmethod _from_output_spec(cls, spec)` を実装する
-3. `run(...)-> Path` を実装する
+1. `OutputNode` を継承したクラスを作り、クラス宣言に `output_method="新しいmethod名"` を付ける
+2. `_from_output_spec(cls, spec)` classmethod を実装する（TOML の `outputs.params` をもとにインスタンスを組み立てる）
+3. `run(self, *, output_path_port, run_id, node_path, matrix) -> Path` メソッドを実装する（出力ファイルを生成してパスを返す）
 
-### 登録作業の要否
+### クラス登録の作業は不要
 
-- 配列や辞書へのクラス名追記は不要  
-  （`OutputNode.__init_subclass__` が `output_method` を自動登録）
+他ファイルへのクラス名の追記は不要です。クラスを定義するだけで `outputs[].method` として自動的に認識されます。
 
-## 3. `refs` 入力ソースを追加する場合
+### ドキュメント更新
 
-### 追加先（代表）
+- `README.md`（`outputs[].method` 一覧）
+- `document/working/toml_config.md`（スキーマ詳細）
 
-- 抽象ポート: `src/monocycle_nash/application/ports.py`
-- ノード側の解決呼び出し: `src/monocycle_nash/application/matrix_nodes.py`
-- 解決セッション実装: `src/monocycle_nash/application/matrix_config_tree.py`
-- 具象実装（TOML）: `src/monocycle_nash/infrastructure/input/`
-- CLI配線: `src/monocycle_nash/presentation/cli.py`
+## 3. ファイル参照による新しい入力形式を追加したい
 
-### 必須実装
+`refs.characters` / `refs.teams` のように、外部ファイルからデータを読み込む入力形式を新たに追加するケースです。現在の `refs.characters` / `refs.teams` に倣って実装します。
 
-1. 新しい Port インターフェース（抽象メソッド）を定義
-2. `NodeResolutionContext` に対応メソッドを追加
-3. `_ResolutionSession` で上記メソッドを実装
-4. インフラ層に具象 Port 実装を追加
-5. CLI の `MatrixConfigTreeResolver(...)` 生成時に Port を注入
+### 変更するファイル
 
-### 登録作業の要否
+1. `src/monocycle_nash/application/ports.py` — 読み込み処理を定義するインターフェースを追加する
+2. `src/monocycle_nash/application/matrix_nodes.py` — ファイル参照入力を使うノードに読み込み呼び出しを追加する
+3. `src/monocycle_nash/application/matrix_config_tree.py` — セッション内で新しい読み込みを実行できるようにする
+4. `src/monocycle_nash/infrastructure/input/` — TOML を読み込む具体的な処理を追加する（`toml_ref_file_ports.py` に追記するか新規ファイルを作る）
+5. `src/monocycle_nash/infrastructure/input/__init__.py` — 追加したクラスを `__all__` に載せる
+6. `src/monocycle_nash/presentation/cli.py` — CLIの実行時に新しい読み込み処理が使われるよう配線する
 
-- `src/monocycle_nash/infrastructure/input/__init__.py` の `__all__` への追記は必要
-  （import 公開面を維持するため）
+### 実装手順の概要
 
-## 4. 設定スキーマ（NodeSpec/TOML）を拡張する場合
+1. `ports.py` に抽象クラスを追加して読み込みメソッドを定義する
+2. ノード側で `NodeResolutionContext` を通じた呼び出しを追加する
+3. `_ResolutionSession` に具体的な呼び出し処理を実装する
+4. TOML読み込みの具体処理を `infrastructure/input/` に実装する
+5. `cli.py` の `MatrixConfigTreeResolver(...)` 生成時に新しい読み込み処理を渡す
 
-### 追加先
+## 4. TOML 設定スキーマを拡張したい
 
-- DTO: `src/monocycle_nash/application/node_spec.py`
-- パーサ: `src/monocycle_nash/infrastructure/input/toml_matrix_config_port.py`
-- スナップショット保存: `src/monocycle_nash/infrastructure/output/toml_snapshot_store.py`
+TOML ファイルに新しいパラメータやフィールドを追加するケースです。
 
-### 必須確認
+### 変更するファイル
 
-- 新フィールドのデフォルトを `NodeSpec` 側で定義して後方互換を維持する
-- TOML→DTO の変換で新フィールドを読み込む
-- スナップショット出力に反映されることを確認する
+1. `src/monocycle_nash/application/node_spec.py` — 設定データ構造（`NodeSpec`）に新しいフィールドを追加する
+2. `src/monocycle_nash/infrastructure/input/toml_matrix_config_port.py` — TOML からフィールドを読み取る処理を追加する
+3. `src/monocycle_nash/infrastructure/output/toml_snapshot_store.py` — スナップショットへの反映を確認・更新する
 
-## 5. ドキュメント更新ルール
+### 実装上の要点
 
-機能追加で公開仕様が変わる場合は、以下を同時に更新する。
+- 新フィールドにはデフォルト値を設定して既存の TOML ファイルへの後方互換を維持する
 
-- `README.md`（概要・使い方・method 一覧）
-- `document/working/toml_config.md`（入力スキーマ詳細）
+### ドキュメント更新
 
-## 6. 最低限の確認コマンド
+- `README.md`
+- `document/working/toml_config.md`
+
+## 5. 動作確認コマンド
 
 ```bash
 python -m pytest tests/ -x -q
