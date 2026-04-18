@@ -25,7 +25,7 @@ class GitTagVersionPort(VersionPort):
                 capture_output=True,
                 text=True,
             )
-        except (subprocess.SubprocessError, OSError):
+        except (subprocess.CalledProcessError, FileNotFoundError):
             return __version__
 
         tags = [line.strip() for line in result.stdout.splitlines() if line.strip()]
