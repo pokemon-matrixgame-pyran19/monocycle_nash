@@ -44,7 +44,7 @@
 - 配列や辞書へのクラス名追記は不要  
   （`OutputNode.__init_subclass__` が `output_method` を自動登録）
 
-## 3. `refs` 系の入力ソースを追加する場合
+## 3. `refs` 入力ソースを追加する場合
 
 ### 追加先（代表）
 
@@ -93,4 +93,3 @@
 ```bash
 python -m pytest tests/ -x -q
 ```
-
