@@ -11,6 +11,7 @@ from pathlib import Path
 
 import numpy as np
 
+from monocycle_nash.application.node_spec import NodeSpec
 from monocycle_nash.domain.character import Character
 from monocycle_nash.domain.team import Team
 
@@ -54,4 +55,18 @@ class OutputPathPort(ABC):
         filename: str,
     ) -> Path:
         """ノード名・出力方式・ファイル名から保存先パスを返す。"""
+        raise NotImplementedError
+
+
+class MatrixTreeConfigPort(ABC):
+    """設定ファイルからノード仕様を読み込むポート。
+
+    インフラ層が実装し、設定 ID またはパスから NodeSpec を返す。
+    アプリ層はこのポートを通じてノード設定を取得し、
+    MatrixNodeFactory を使って typed MatrixNode に変換する。
+    """
+
+    @abstractmethod
+    def load_node_spec(self, config_id: str) -> NodeSpec:
+        """設定 ID からノード仕様を読み込んで返す。"""
         raise NotImplementedError
