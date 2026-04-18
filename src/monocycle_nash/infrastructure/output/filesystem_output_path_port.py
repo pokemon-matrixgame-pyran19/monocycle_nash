@@ -19,12 +19,12 @@ class FileSystemOutputPathPort(OutputPathPort):
     def resolve_output_path(
         self,
         *,
-        execution_unit_id: str,
+        run_id: str,
         node_path: tuple[str, ...],
         output_method: str,
         filename: str,
     ) -> Path:
-        safe_execution_unit_id = self._sanitize_component(execution_unit_id)
+        safe_run_id = self._sanitize_component(run_id)
         safe_output_method = self._sanitize_component(output_method)
         if len(node_path) == 0:
             # 防御的に、空階層入力時は root フォルダへフォールバックする。
@@ -35,7 +35,7 @@ class FileSystemOutputPathPort(OutputPathPort):
 
         path = (
             self._result_base_dir
-            / safe_execution_unit_id
+            / safe_run_id
             / Path(*safe_node_path)
             / safe_output_method
             / safe_filename

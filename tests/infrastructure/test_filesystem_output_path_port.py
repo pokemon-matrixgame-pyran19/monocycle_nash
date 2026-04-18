@@ -5,11 +5,11 @@ from pathlib import Path
 from monocycle_nash.infrastructure.output import FileSystemOutputPathPort
 
 
-def test_resolve_output_path_uses_execution_unit_and_node_hierarchy(tmp_path: Path) -> None:
+def test_resolve_output_path_uses_run_id_and_node_hierarchy(tmp_path: Path) -> None:
     port = FileSystemOutputPathPort(result_base_dir=tmp_path / "result")
 
     path = port.resolve_output_path(
-        execution_unit_id="run-001",
+        run_id="run-001",
         node_path=("team-root", "character-source"),
         output_method="character_vector_graph",
         filename="chars.svg",
@@ -31,7 +31,7 @@ def test_resolve_output_path_sanitizes_path_components(tmp_path: Path) -> None:
     port = FileSystemOutputPathPort(result_base_dir=tmp_path / "result")
 
     path = port.resolve_output_path(
-        execution_unit_id="run/../001",
+        run_id="run/../001",
         node_path=("team root", "../child"),
         output_method="payoff/directed",
         filename="../../unsafe?.svg",
@@ -54,13 +54,13 @@ def test_resolve_output_path_distinguishes_empty_and_dot_only_component(
     port = FileSystemOutputPathPort(result_base_dir=tmp_path / "result")
 
     empty_path = port.resolve_output_path(
-        execution_unit_id="",
+        run_id="",
         node_path=("root",),
         output_method="graph",
         filename="a.svg",
     )
     dot_path = port.resolve_output_path(
-        execution_unit_id="...",
+        run_id="...",
         node_path=("root",),
         output_method="graph",
         filename="b.svg",

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from uuid import uuid4
 
 from monocycle_nash.application.matrix_nodes import (
     MatrixNode,
@@ -21,7 +22,6 @@ from monocycle_nash.application.ports import (
     OutputPathPort,
     TeamListFilePort,
 )
-from monocycle_nash.domain.experiment_run import ExecutionUnit
 from monocycle_nash.domain.character import Character
 from monocycle_nash.domain.matrix.base import PayoffMatrix
 from monocycle_nash.domain.team import Team
@@ -47,7 +47,7 @@ class ResolvedOutput:
 class MatrixResolutionResult:
     """設定ツリー解決結果。"""
 
-    execution_unit: ExecutionUnit
+    run_id: str
     root: PayoffMatrix
     outputs: tuple[ResolvedOutput, ...] = ()
 
@@ -80,7 +80,7 @@ class MatrixConfigTreeResolver:
         )
         root = session.resolve_node(tree.root)
         return MatrixResolutionResult(
-            execution_unit=session.execution_unit,
+            run_id=session.run_id,
             root=root,
             outputs=tuple(session.resolved_outputs),
         )
@@ -100,7 +100,7 @@ class _ResolutionSession(NodeResolutionContext):
         character_list_file_port: CharacterListFilePort | None,
         team_list_file_port: TeamListFilePort | None,
     ) -> None:
-        self.execution_unit = ExecutionUnit.create()
+        self.run_id = uuid4().hex
         self._output_path_port = output_path_port
         self._character_list_file_port = character_list_file_port
         self._team_list_file_port = team_list_file_port
@@ -130,7 +130,7 @@ class _ResolutionSession(NodeResolutionContext):
                 raise ValueError("出力を実行するには OutputPathPort が必要です")
             path = output_node.run(
                 output_path_port=self._output_path_port,
-                execution_unit_id=self.execution_unit.id,
+                run_id=self.run_id,
                 node_path=node_path,
                 matrix=resolved,
             )

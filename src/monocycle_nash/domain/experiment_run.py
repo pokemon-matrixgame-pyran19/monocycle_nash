@@ -5,7 +5,6 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
-from uuid import uuid4
 
 
 @dataclass(frozen=True)
@@ -33,19 +32,3 @@ class VersionPort(ABC):
     def get_version(self) -> str:
         """現在の実行バージョンを返す。"""
         ...
-
-
-@dataclass(frozen=True)
-class ExecutionUnit:
-    """1回の設定ツリー解決に対応する実行単位。"""
-
-    id: str
-
-    def __post_init__(self) -> None:
-        if not self.id.strip():
-            raise ValueError("実行単位IDは空にできません")
-
-    @classmethod
-    def create(cls) -> ExecutionUnit:
-        """新しい実行単位を生成する。"""
-        return cls(id=uuid4().hex)

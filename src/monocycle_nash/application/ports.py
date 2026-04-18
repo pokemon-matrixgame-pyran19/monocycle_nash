@@ -50,12 +50,12 @@ class OutputPathPort(ABC):
     def resolve_output_path(
         self,
         *,
-        execution_unit_id: str,
+        run_id: str,
         node_path: tuple[str, ...],
         output_method: str,
         filename: str,
     ) -> Path:
-        """実行単位ID・ノード階層・出力方式・ファイル名から保存先パスを返す。"""
+        """実行ID・ノード階層・出力方式・ファイル名から保存先パスを返す。"""
         raise NotImplementedError
 
 

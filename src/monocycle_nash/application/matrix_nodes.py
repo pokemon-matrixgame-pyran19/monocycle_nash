@@ -232,7 +232,7 @@ class OutputNode(ABC):
         self,
         *,
         output_path_port: OutputPathPort,
-        execution_unit_id: str,
+        run_id: str,
         node_path: tuple[str, ...],
         matrix: PayoffMatrix,
     ) -> Path:
@@ -260,12 +260,12 @@ class PayoffDirectedGraphOutputNode(OutputNode, output_method="payoff_directed_g
         self,
         *,
         output_path_port: OutputPathPort,
-        execution_unit_id: str,
+        run_id: str,
         node_path: tuple[str, ...],
         matrix: PayoffMatrix,
     ) -> Path:
         path = output_path_port.resolve_output_path(
-            execution_unit_id=execution_unit_id,
+            run_id=run_id,
             node_path=node_path,
             output_method="payoff_directed_graph",
             filename=self.filename,
@@ -298,12 +298,12 @@ class CharacterVectorGraphOutputNode(OutputNode, output_method="character_vector
         self,
         *,
         output_path_port: OutputPathPort,
-        execution_unit_id: str,
+        run_id: str,
         node_path: tuple[str, ...],
         matrix: PayoffMatrix,
     ) -> Path:
         path = output_path_port.resolve_output_path(
-            execution_unit_id=execution_unit_id,
+            run_id=run_id,
             node_path=node_path,
             output_method="character_vector_graph",
             filename=self.filename,

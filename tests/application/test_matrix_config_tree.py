@@ -42,13 +42,13 @@ class StubOutputPathPort(OutputPathPort):
     def resolve_output_path(
         self,
         *,
-        execution_unit_id: str,
+        run_id: str,
         node_path: tuple[str, ...],
         output_method: str,
         filename: str,
     ) -> Path:
-        self.calls.append((execution_unit_id, node_path, output_method, filename))
-        return self._base_dir / execution_unit_id / Path(*node_path) / output_method / filename
+        self.calls.append((run_id, node_path, output_method, filename))
+        return self._base_dir / run_id / Path(*node_path) / output_method / filename
 
 
 class StubCharacterListFilePort(CharacterListFilePort):
@@ -125,12 +125,12 @@ def test_resolver_builds_team_matrix_with_nested_dependency_and_outputs(tmp_path
 
     assert isinstance(result.root, GeneralPayoffMatrix)
     assert result.root.matrix.shape == (2, 2)
-    assert result.execution_unit.id
+    assert result.run_id
     assert len(result.outputs) == 2
     assert all(output.path.exists() for output in result.outputs)
     assert all(
-        execution_unit_id == result.execution_unit.id
-        for execution_unit_id, _, _, _ in output_port.calls
+        run_id == result.run_id
+        for run_id, _, _, _ in output_port.calls
     )
     assert set(node_path for _, node_path, _, _ in output_port.calls) == {
         ("team-root", "character-source"),
