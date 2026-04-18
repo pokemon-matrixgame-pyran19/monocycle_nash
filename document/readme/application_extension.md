@@ -31,7 +31,7 @@ TOML 設定の `method = "..."` で指定できる新しい行列の作り方を
 公開仕様が変わるため、以下も更新してください。
 
 - `README.md`（`method` 一覧）
-- `document/working/toml_config.md`（スキーマ詳細）
+- `document/readme/toml_config.md`（スキーマ詳細）
 
 ## 2. 新しい出力形式（`outputs[].method`）を追加したい
 
@@ -54,7 +54,7 @@ TOML 設定の `[[outputs]]` で指定できる新しい出力の種類を追加
 ### ドキュメント更新
 
 - `README.md`（`outputs[].method` 一覧）
-- `document/working/toml_config.md`（スキーマ詳細）
+- `document/readme/toml_config.md`（スキーマ詳細）
 
 ## 3. ファイル参照による新しい入力形式を追加したい
 
@@ -94,7 +94,7 @@ TOML ファイルに新しいパラメータやフィールドを追加するケ
 ### ドキュメント更新
 
 - `README.md`
-- `document/working/toml_config.md`
+- `document/readme/toml_config.md`
 
 ## 5. 動作確認コマンド
 
