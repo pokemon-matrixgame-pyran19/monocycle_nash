@@ -72,7 +72,7 @@ class TomlCharacterListFilePort(_BaseTomlRefFilePort, CharacterListFilePort):
                 power = float(item["power"])
                 vector = item["vector"]
                 if not isinstance(vector, list) or len(vector) != 2:
-                    raise ValueError
+                    raise ValueError("vector は長さ2の配列である必要があります")
                 label = str(item.get("label", ""))
             except (KeyError, TypeError, ValueError) as exc:
                 raise ValueError(
@@ -103,7 +103,7 @@ class TomlTeamListFilePort(_BaseTomlRefFilePort, TeamListFilePort):
                 label = str(item["label"])
                 member_ids = item["member_ids"]
                 if not isinstance(member_ids, list):
-                    raise ValueError
+                    raise ValueError("member_ids は配列である必要があります")
             except (KeyError, TypeError, ValueError) as exc:
                 raise ValueError(f"teams[{i}] の形式が不正です: {source_path}") from exc
 
