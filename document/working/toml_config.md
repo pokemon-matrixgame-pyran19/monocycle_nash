@@ -3,9 +3,9 @@
 この文書は、現行実装で `TomlMatrixConfigPort` が読み込む TOML 設定の仕様をまとめたものです。
 対象コード:
 
-- `/home/runner/work/monocycle_nash/monocycle_nash/src/monocycle_nash/infrastructure/input/toml_matrix_config_port.py`
-- `/home/runner/work/monocycle_nash/monocycle_nash/src/monocycle_nash/application/node_spec.py`
-- `/home/runner/work/monocycle_nash/monocycle_nash/src/monocycle_nash/application/matrix_nodes.py`
+- `src/monocycle_nash/infrastructure/input/toml_matrix_config_port.py`
+- `src/monocycle_nash/application/node_spec.py`
+- `src/monocycle_nash/application/matrix_nodes.py`
 
 ## 1. 読み込み対象とパス解決
 
