@@ -26,12 +26,11 @@ class FileSystemOutputPathPort(OutputPathPort):
     ) -> Path:
         safe_execution_unit_id = self._sanitize_component(execution_unit_id)
         safe_output_method = self._sanitize_component(output_method)
-        safe_node_path = (
-            tuple(self._sanitize_component(name) for name in node_path)
-            if node_path
+        if len(node_path) == 0:
             # 防御的に、空階層入力時は root フォルダへフォールバックする。
-            else ("root",)
-        )
+            safe_node_path = ("root",)
+        else:
+            safe_node_path = tuple(self._sanitize_component(name) for name in node_path)
         safe_filename = self._sanitize_filename(filename)
 
         path = (
@@ -55,11 +54,12 @@ class FileSystemOutputPathPort(OutputPathPort):
         return "_dot"
 
     def _sanitize_filename(self, filename: str) -> str:
-        name = Path(filename).name
-        stem = self._sanitize_component(Path(name).stem)
+        name_path = Path(filename).name
+        basename = Path(name_path)
+        stem = self._sanitize_component(basename.stem)
         suffixes = [
             self._sanitize_component(suffix[1:])
-            for suffix in Path(name).suffixes
+            for suffix in basename.suffixes
             if len(suffix) > 1
         ]
         if suffixes:
