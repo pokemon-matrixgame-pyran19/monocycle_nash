@@ -14,6 +14,12 @@
 ## セットアップ
 
 ```bash
+uv sync
+```
+
+`uv` が使えない環境では、代替として以下でも動作します。
+
+```bash
 python -m pip install -e .
 ```
 
