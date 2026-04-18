@@ -49,7 +49,7 @@ class FileSystemOutputPathPort(OutputPathPort):
             return "_"
         sanitized = self._SAFE_CHARS.sub("_", stripped)
         sanitized = re.sub(r"\.+", "_", sanitized)
-        return sanitized.strip("._") or "_"
+        return sanitized.strip(".") or "_"
 
     def _sanitize_filename(self, filename: str) -> str:
         name = Path(filename).name

@@ -40,9 +40,9 @@ def test_resolve_output_path_sanitizes_path_components(tmp_path: Path) -> None:
     assert path == (
         tmp_path
         / "result"
-        / "run____001"
+        / "run___001"
         / "team_root"
-        / "child"
+        / "__child"
         / "payoff_directed"
         / "unsafe_.svg"
     )
