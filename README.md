@@ -5,7 +5,8 @@
 ## 現在の状態（重要）
 
 アプリケーション層以降を作り直し中です。
-現行の `main` エントリーポイント（`uv run main`）は未実装で、実行すると `NotImplementedError` になります。
+現行の CLI エントリーポイント（`python -m monocycle_nash.main`）から、
+「設定読込 → ノード生成 → 解決 → 出力保存」を実行できます。
 
 - 現行の実装対象: `src/monocycle_nash/domain/` を中心としたドメインロジック
 - 再構築中の層: application / infrastructure / presentation
@@ -38,8 +39,6 @@ python -m pytest tests/ -x -q
 
 ## 最小実行手順（現行）
 
-`main` が未実装のため、現時点では Python から直接呼び出します。
-
 1) 例として `rps_inline.toml` を作成:
 
 ```toml
@@ -68,28 +67,10 @@ method = "payoff_directed_graph"
 filename = "rps.svg"
 ```
 
-2) 設定を解決して出力を生成:
-
-`python - <<'PY' ... PY` は「その場で Python スクリプトを実行する」書き方です。
-必要なら同内容を `run_example.py` に保存して `python run_example.py` でも実行できます。
+2) CLI から実行:
 
 ```bash
-python - <<'PY'
-from monocycle_nash.application.matrix_config_tree import MatrixConfigTree, MatrixConfigTreeResolver
-from monocycle_nash.application.matrix_node_factory import MatrixNodeFactory
-from monocycle_nash.infrastructure.input.toml_matrix_config_port import TomlMatrixConfigPort
-from monocycle_nash.infrastructure.output import FileSystemOutputPathPort
-
-spec = TomlMatrixConfigPort().load_node_spec("rps_inline.toml")
-root = MatrixNodeFactory().build(spec)
-result = MatrixConfigTreeResolver(
-    output_path_port=FileSystemOutputPathPort(result_base_dir="result")
-).resolve(MatrixConfigTree(root=root))
-
-print("run_id:", result.run_id)
-print("matrix shape:", result.root.matrix.shape)
-print("outputs:", [str(o.path) for o in result.outputs])
-PY
+python -m monocycle_nash.main /absolute/path/to/rps_inline.toml
 ```
 
 ## 入力仕様（現行）
@@ -148,16 +129,11 @@ result/<run_id>/<node_path...>/<output_method>/<filename>
 
 最低限の実行可否に関わる現状の不足点です。
 
-1. エントリーポイント未実装
-   - `src/monocycle_nash/main.py` は `NotImplementedError`。
-   - CLI から「設定読込→ノード生成→解決→出力保存」を一気通貫で実行できません。
-
-2. `refs` 入力を読むインフラ実装が未提供
+1. `refs` 入力を読むインフラ実装が未提供
    - `CharacterListFilePort` / `TeamListFilePort` は抽象ポートのみで、現行 `src/` に具象実装がありません。
    - そのため、`refs.characters` / `refs.teams` を使う設定はそのままでは実行できません。
    - 現時点で確実に動かすには、`params.characters` / `params.teams` のインライン入力を使ってください。
-
-3. 旧仕様サンプルは `old/data/` に退避済み
+2. 旧仕様サンプルは `old/data/` に退避済み
    - `old/data/run_config/*.toml` や `old/data/matrix/*/data.toml` は、`old/src/monocycle_nash` の旧CLI運用（feature指定の実行方式）向けサンプルです。
    - 現行実装向けの NodeSpec サンプルは `data/` 直下に配置しています。
      - `data/rps_inline.toml`
