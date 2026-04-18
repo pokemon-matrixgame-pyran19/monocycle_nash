@@ -42,67 +42,106 @@ method = "..."                # 必須
 
 ### `general_from_raw`
 
-- 必須: `params.matrix`
-- 任意: `params.labels`
+数値配列をそのまま利得行列として使うメソッド。外部ツールで計算済みの行列を読み込むときや、手入力で行列を直接指定したいときに使う。内部での計算は行わない。
+
+| パラメータ | 必須 | 説明 |
+|---|---|---|
+| `params.matrix` | ✓ | N×N の二次元配列。`matrix[i][j]` は戦略 i が戦略 j に対してとる利得 |
+| `params.labels` | — | 戦略名のリスト。省略時は 0 始まりの番号になる |
 
 ### `monocycle_from_characters`
 
-- キャラクター入力（どちらか）
-  - `params.characters`（インライン）
-  - `refs.characters`（ファイル参照）
-- 任意: `params.labels`
-- `refs.characters` と `params.characters` が両方ある場合、`refs.characters` を優先
+キャラクターの「強さ（power）」と「特性ベクトル（vector）」から単相性モデルの利得行列を計算するメソッド。利得は `A[i,j] = power[i] - power[j] + cross(vector[i], vector[j])` で求める（`cross` は 2D 外積のスカラー）。じゃんけん的な循環構造を持つゲームの行列を作りたいときに向く。
+
+キャラクター入力はインラインとファイル参照のいずれかで指定する。両方書いた場合は `refs.characters` が優先される。
+
+| パラメータ | 必須 | 説明 |
+|---|---|---|
+| `params.characters` | △ | インライン定義。`refs.characters` がない場合に使う |
+| `refs.characters` | △ | キャラクターリストのファイルパス（`params.characters` より優先） |
+| `params.labels` | — | 行列ラベルの上書き。省略時はキャラクターの `label` 属性を使用 |
 
 `params.characters` の各要素:
 
-- `power` (float)
-- `vector` ([x, y])
-- `label` (省略可)
+| フィールド | 必須 | 説明 |
+|---|---|---|
+| `power` | ✓ | スカラー値。大きいほど純粋に有利になる。全員同値でも可 |
+| `vector` | ✓ | 2 次元ベクトル `[x, y]`。外積によってじゃんけん的な相関を生む |
+| `label` | — | キャラクター名（省略可） |
 
 ### `general_from_teams_payoff`
 
-- 必須: `params.team_payoff`
-- チーム入力（どちらか）
-  - `params.teams`（インライン）
-  - `refs.teams`（ファイル参照）
-- `refs.teams` と `params.teams` が両方ある場合、`refs.teams` を優先
+計算済みのチーム間利得行列（`team_payoff`）とチーム定義を組み合わせて一般利得行列を構築するメソッド。チーム間の対戦結果がすでに数値で手元にある場合に使う。
+
+チーム入力はインラインとファイル参照のいずれかで指定する。両方書いた場合は `refs.teams` が優先される。
+
+| パラメータ | 必須 | 説明 |
+|---|---|---|
+| `params.team_payoff` | ✓ | チーム数×チーム数の二次元配列。`team_payoff[i][j]` はチーム i がチーム j に勝つときの利得 |
+| `params.teams` | △ | インライン定義。`refs.teams` がない場合に使う |
+| `refs.teams` | △ | チームリストのファイルパス（`params.teams` より優先） |
 
 `params.teams` の各要素:
 
-- `label`
-- `member_ids` (配列)
+| フィールド | 必須 | 説明 |
+|---|---|---|
+| `label` | ✓ | チーム名 |
+| `member_ids` | ✓ | メンバーのインデックスまたはラベルの配列 |
 
 ### `general_from_team_matchups`
 
-- 必須: `children.character_matrix`（子ノード）
-- チーム入力（どちらか）
-  - `params.teams`
-  - `refs.teams`
-- 任意: `params.use_monocycle_formula`（既定: `true`）
+キャラクター間の利得行列（`children.character_matrix` で指定した子ノードで計算）とチーム定義から、チーム間の利得行列を導出するメソッド。キャラクター同士の対戦結果を基にしてチーム戦の行列を自動計算したい場合に使う。
+
+**入力は 2 系統ある**:
+
+1. `children.character_matrix` — キャラクター間の利得行列を生成するサブグラフ（任意の MatrixNode を再帰指定可）
+2. チーム定義（`params.teams` または `refs.teams`）
+
+| パラメータ | 必須 | 説明 |
+|---|---|---|
+| `children.character_matrix` | ✓ | キャラクター利得行列を生成する子ノード定義。`method` を持つ任意のノード一式を書く |
+| `params.teams` | △ | インライン定義。`refs.teams` がない場合に使う |
+| `refs.teams` | △ | チームリストのファイルパス（`params.teams` より優先） |
+| `params.use_monocycle_formula` | — | `true` のとき単相性方式でチーム利得を計算（既定: `true`） |
 
 ### `random_skew_symmetric`
 
-- 必須: `params.size`
-- 任意:
-  - `params.low`（既定: `-1.0`）
-  - `params.high`（既定: `1.0`）
-  - `params.seed`（既定: `null`）
-  - `params.max_attempts`（既定: `10000`）
-  - `params.labels`
+指定サイズのランダム交代行列（`A[i,j] = -A[j,i]`, 対角成分 0）を生成するメソッド。乱数による行列を使ったテストや実験に向く。
+
+| パラメータ | 必須 | 説明 |
+|---|---|---|
+| `params.size` | ✓ | 生成する行列のサイズ N（N×N の行列になる） |
+| `params.low` | — | 各要素の乱数下限（既定: `-1.0`） |
+| `params.high` | — | 各要素の乱数上限（既定: `1.0`） |
+| `params.seed` | — | 乱数シード。再現性を確保したい場合に指定（既定: `null`） |
+| `params.max_attempts` | — | 有効な行列が生成されるまでの最大試行回数（既定: `10000`） |
+| `params.labels` | — | 戦略名のリスト（省略時は 0 始まりの番号） |
 
 ### `approx_monocycle_to_general`
 
-- 必須: `children.source`
+単相性行列（`MonocyclePayoffMatrix`）を一般行列（`GeneralPayoffMatrix`）型へ変換する近似ノード。数値は変わらず、型・内部表現だけが変わる。単相性行列を受け取れない下流処理に渡す前の型変換として使う。
+
+| パラメータ | 必須 | 説明 |
+|---|---|---|
+| `children.source` | ✓ | 変換元の行列を生成する子ノード定義 |
 
 ### `approx_dominant_eigenpair`
 
-- 必須: `children.source`
-- 任意: `params.atol`（既定: `1e-8`）
+交代行列から「支配固有値ペア」（絶対値最大の純虚固有値とその共役ペア）に対応するランク 2 成分だけを抽出するノード。元の行列を最も影響力の大きい 1 つの循環成分で近似する。`source` は交代行列を生成するノードに限る。
+
+| パラメータ | 必須 | 説明 |
+|---|---|---|
+| `children.source` | ✓ | 変換元の交代行列を生成する子ノード定義 |
+| `params.atol` | — | 交代行列かどうかを判定する数値許容誤差（既定: `1e-8`） |
 
 ### `approx_equilibrium_preserving`
 
-- 必須: `children.source`
-- 任意: `params.atol`（既定: `1e-8`）
+交代行列 A を `A = J + R` と分解し、基準均衡 u に対する作用 `Au` を保つように `B = J + (p_i - p_j)` で近似するノード。「均衡（ナッシュ均衡）を保ちながら最もシンプルな単相性行列に置き換える」変換として使う。`source` は交代行列を生成するノードに限る。
+
+| パラメータ | 必須 | 説明 |
+|---|---|---|
+| `children.source` | ✓ | 変換元の交代行列を生成する子ノード定義 |
+| `params.atol` | — | 交代行列かどうかを判定する数値許容誤差（既定: `1e-8`） |
 
 ## 4. `outputs[].method` 一覧
 
@@ -128,6 +167,7 @@ method = "..."                # 必須
 method = "monocycle_from_characters"
 name = "rps"
 
+# キャラクター定義: power（強さ）と vector（特性ベクトル）でじゃんけん構造を作る
 [[params.characters]]
 power = 1.0
 vector = [1.0, 0.0]
@@ -143,6 +183,7 @@ power = -1.0
 vector = [-1.0, 0.0]
 label = "Scissors"
 
+# 出力: キャラクターベクトルを SVG に描画
 [[outputs]]
 method = "character_vector_graph"
 
@@ -152,23 +193,31 @@ filename = "rps_characters.svg"
 
 ### 5.2 子ノード + ファイル参照
 
+このメソッドは **2 系統の入力**を必要とする:
+
+- `refs.teams` — チーム定義ファイルのパス（「誰と誰がチームを組むか」だけを持つ）
+- `children.character_matrix` — キャラクター間の利得行列を計算するサブグラフ（さらに `refs.characters` でキャラクター定義を参照）
+
 ```toml
 method = "general_from_team_matchups"
 name = "team_matrix"
 
+# 入力①: チーム定義ファイル（member_ids とラベルのみ）
 [refs]
 teams = "teams/default.toml"
 
+# 入力②: キャラクター間の利得行列を生成する子ノード
 [children.character_matrix]
 method = "monocycle_from_characters"
 name = "character_matrix"
 
 [children.character_matrix.refs]
-characters = "characters/default.toml"
+characters = "characters/default.toml"  # キャラクター定義ファイル
 
 [params]
-use_monocycle_formula = true
+use_monocycle_formula = true  # 単相性方式でチーム利得を計算
 
+# 出力: チーム間の利得有向グラフを SVG に描画
 [[outputs]]
 method = "payoff_directed_graph"
 
