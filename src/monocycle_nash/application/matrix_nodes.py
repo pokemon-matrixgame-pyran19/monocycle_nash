@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import numpy as np
+import tomli_w
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -32,6 +33,7 @@ from monocycle_nash.domain.matrix.approximation import (
 )
 from monocycle_nash.domain.matrix.base import PayoffMatrix
 from monocycle_nash.domain.matrix.builder import PayoffMatrixBuilder
+from monocycle_nash.domain.solver.selector import SolverSelector
 from monocycle_nash.domain.team import Team
 from monocycle_nash.domain.visualization.character_vector_graph import CharacterVectorGraphPlotter
 from monocycle_nash.domain.visualization.payoff_graph import PayoffDirectedGraphPlotter
@@ -318,6 +320,47 @@ class CharacterVectorGraphOutputNode(OutputNode, output_method="character_vector
             canvas_size=self.canvas_size,
             margin=self.margin,
         )
+        return path
+
+
+@dataclass(frozen=True)
+class EquilibriumOutputNode(OutputNode, output_method="equilibrium"):
+    """均衡解ファイル出力設定ノード。"""
+
+    filename: str = "equilibrium.toml"
+
+    @classmethod
+    def _from_output_spec(cls, spec: OutputSpec) -> EquilibriumOutputNode:
+        return cls(
+            filename=spec.params.get("filename", "equilibrium.toml"),
+        )
+
+    def run(
+        self,
+        *,
+        output_path_port: OutputPathPort,
+        run_id: str,
+        node_path: tuple[str, ...],
+        matrix: PayoffMatrix,
+    ) -> Path:
+        path = output_path_port.resolve_output_path(
+            run_id=run_id,
+            node_path=node_path,
+            output_method="equilibrium",
+            filename=self.filename,
+        )
+        mixed = SolverSelector().solve(matrix)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("wb") as f:
+            tomli_w.dump(
+                {
+                    "strategies": [
+                        {"id": sid, "probability": float(prob)}
+                        for sid, prob in zip(mixed.strategy_ids, mixed.probabilities, strict=True)
+                    ],
+                },
+                f,
+            )
         return path
 
 

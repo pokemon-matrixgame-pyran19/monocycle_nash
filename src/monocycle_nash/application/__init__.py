@@ -15,6 +15,7 @@ from monocycle_nash.application.matrix_nodes import (
     CharacterNode,
     CharacterSource,
     CharacterVectorGraphOutputNode,
+    EquilibriumOutputNode,
     GeneralFromRawNode,
     GeneralFromTeamMatchupsNode,
     GeneralFromTeamsPayoffNode,
@@ -62,4 +63,5 @@ __all__ = [
     "OutputNode",
     "PayoffDirectedGraphOutputNode",
     "CharacterVectorGraphOutputNode",
+    "EquilibriumOutputNode",
 ]

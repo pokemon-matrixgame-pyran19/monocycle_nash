@@ -116,6 +116,9 @@ method = "..."                  # outputsでは必須
 - `character_vector_graph`
   - 任意パラメータ: `filename`, `canvas_size`, `margin`
   - `characters` 属性を持つ行列ノードにのみ利用可
+- `equilibrium`
+  - 任意パラメータ: `filename`
+  - 均衡解を `strategies = [{ id, probability }, ...]` 形式のTOMLで出力
 
 ### 出力先パス仕様
 
