@@ -13,7 +13,7 @@ class GitTagVersionPort(VersionPort):
     """現在コミットに付与された git タグをバージョン文字列として返す。"""
 
     def __init__(self, *, cwd: Path | str | None = None) -> None:
-        self._cwd = str(Path(cwd)) if cwd is not None else None
+        self._cwd = str(cwd) if cwd is not None else None
 
     def get_version(self) -> str:
         """HEAD に付与されたタグの先頭を返し、無い場合はパッケージ版を返す。"""
