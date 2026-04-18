@@ -70,7 +70,7 @@ filename = "rps.svg"
 2) CLI から実行:
 
 ```bash
-python -m monocycle_nash.main /absolute/path/to/rps_inline.toml --result-dir result
+python -m monocycle_nash.main /absolute/path/to/rps_inline.toml
 ```
 
 ## 入力仕様（現行）

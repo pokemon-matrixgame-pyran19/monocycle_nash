@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
@@ -7,7 +8,7 @@ import pytest
 from monocycle_nash.presentation.cli import main
 
 
-def test_cli_main_runs_and_stores_snapshot(tmp_path: Path) -> None:
+def test_cli_main_runs_and_stores_snapshot(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     config_path = tmp_path / "config.toml"
     config_path.write_text(
         """
@@ -21,11 +22,11 @@ labels = ["A", "B"]
         encoding="utf-8",
     )
 
-    result_dir = tmp_path / "result"
-    code = main([str(config_path), "--result-dir", str(result_dir)])
+    monkeypatch.chdir(tmp_path)
+    code = main([str(config_path)])
 
     assert code == 0
-    snapshot_path = result_dir / "1" / "input" / "config_tree.toml"
+    snapshot_path = tmp_path / "result" / "1" / "input" / "config_tree.toml"
     assert snapshot_path.exists()
 
 

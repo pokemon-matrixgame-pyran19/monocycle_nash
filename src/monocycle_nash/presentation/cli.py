@@ -16,6 +16,8 @@ from monocycle_nash.infrastructure.output import (
     TomlConfigTreeSnapshotStore,
 )
 
+_RESULT_DIR = "result"
+
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -31,11 +33,6 @@ def _build_parser() -> argparse.ArgumentParser:
         default="data",
         help="相対 config_id の解決基準となるデータディレクトリ",
     )
-    parser.add_argument(
-        "--result-dir",
-        default="result",
-        help="出力先ディレクトリ",
-    )
     return parser
 
 
@@ -43,18 +40,17 @@ def run(
     *,
     config_id: str,
     data_dir: Path | str,
-    result_dir: Path | str,
 ) -> int:
     config_port = TomlMatrixConfigPort(data_dir=data_dir)
     spec = config_port.load_node_spec(config_id)
 
     root = MatrixNodeFactory().build(spec)
     resolver = MatrixConfigTreeResolver(
-        output_path_port=FileSystemOutputPathPort(result_base_dir=result_dir),
+        output_path_port=FileSystemOutputPathPort(result_base_dir=_RESULT_DIR),
     )
     result = resolver.resolve(MatrixConfigTree(root=root))
 
-    snapshot_store = TomlConfigTreeSnapshotStore(result_base_dir=result_dir)
+    snapshot_store = TomlConfigTreeSnapshotStore(result_base_dir=_RESULT_DIR)
     snapshot_path = snapshot_store.store(
         run_id=str(result.run_id),
         snapshot=ConfigTreeSnapshot(root=spec),
@@ -79,7 +75,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         return run(
             config_id=args.config_id,
             data_dir=args.data_dir,
-            result_dir=args.result_dir,
         )
     except Exception as exc:
         print(f"実行に失敗しました ({type(exc).__name__}): {exc}", file=sys.stderr)
