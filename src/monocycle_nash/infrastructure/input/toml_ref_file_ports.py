@@ -76,7 +76,7 @@ class TomlCharacterListFilePort(_BaseTomlRefFilePort, CharacterListFilePort):
                 label = str(item.get("label", ""))
             except (KeyError, TypeError, ValueError) as exc:
                 raise ValueError(
-                    f"characters[{i}] の形式が不正です: {source_path}"
+                    f"characters[{i}] の形式が不正です ({exc}): {source_path}"
                 ) from exc
 
             characters.append(
@@ -105,7 +105,9 @@ class TomlTeamListFilePort(_BaseTomlRefFilePort, TeamListFilePort):
                 if not isinstance(member_ids, list):
                     raise ValueError("member_ids は配列である必要があります")
             except (KeyError, TypeError, ValueError) as exc:
-                raise ValueError(f"teams[{i}] の形式が不正です: {source_path}") from exc
+                raise ValueError(
+                    f"teams[{i}] の形式が不正です ({exc}): {source_path}"
+                ) from exc
 
             teams.append(Team(label=label, member_ids=tuple(member_ids)))
         return teams
