@@ -12,8 +12,18 @@ from pathlib import Path
 import numpy as np
 
 from monocycle_nash.application.node_spec import NodeSpec
+from monocycle_nash.application.snapshot import ConfigTreeSnapshot
 from monocycle_nash.domain.character import Character
 from monocycle_nash.domain.team import Team
+
+
+class ConfigTreeSnapshotStorePort(ABC):
+    """設定ツリースナップショットを永続化するポート。"""
+
+    @abstractmethod
+    def store(self, run_id: str, snapshot: ConfigTreeSnapshot) -> Path:
+        """スナップショットを保存してファイルパスを返す。"""
+        raise NotImplementedError
 
 
 class CharacterListFilePort(ABC):
