@@ -21,11 +21,14 @@ class GitTagVersionPort(VersionPort):
             result = subprocess.run(
                 ["git", "tag", "--points-at", "HEAD", "--sort=-v:refname"],
                 cwd=self._cwd,
-                check=True,
+                check=False,
                 capture_output=True,
                 text=True,
             )
-        except (subprocess.CalledProcessError, FileNotFoundError):
+        except FileNotFoundError:
+            return __version__
+
+        if result.returncode != 0:
             return __version__
 
         tags = [line.strip() for line in result.stdout.splitlines() if line.strip()]
