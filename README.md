@@ -5,7 +5,7 @@
 ## 現在の状態（重要）
 
 アプリケーション層以降を作り直し中です。
-現行の `main` エントリーポイント（`main` コマンド）から、
+現行の CLI エントリーポイント（`python -m monocycle_nash.main`）から、
 「設定読込 → ノード生成 → 解決 → 出力保存」を実行できます。
 
 - 現行の実装対象: `src/monocycle_nash/domain/` を中心としたドメインロジック
@@ -70,7 +70,7 @@ filename = "rps.svg"
 2) CLI から実行:
 
 ```bash
-main /absolute/path/to/rps_inline.toml --result-dir result
+python -m monocycle_nash.main /absolute/path/to/rps_inline.toml --result-dir result
 ```
 
 ## 入力仕様（現行）

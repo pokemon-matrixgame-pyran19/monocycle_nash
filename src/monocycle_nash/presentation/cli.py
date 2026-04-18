@@ -19,7 +19,7 @@ from monocycle_nash.infrastructure.output import (
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="main",
+        prog="monocycle-nash",
         description="TOML 設定から利得行列を解決し、必要な出力を生成します。",
     )
     parser.add_argument(
@@ -82,5 +82,5 @@ def main(argv: Sequence[str] | None = None) -> int:
             result_dir=args.result_dir,
         )
     except Exception as exc:
-        print(f"実行に失敗しました: {exc}", file=sys.stderr)
+        print(f"実行に失敗しました ({type(exc).__name__}): {exc}", file=sys.stderr)
         return 1
