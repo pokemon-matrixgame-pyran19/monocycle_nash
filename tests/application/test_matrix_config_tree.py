@@ -18,12 +18,14 @@ from monocycle_nash.application.matrix_nodes import (
     CharacterNode,
     CharacterVectorGraphOutputNode,
     EquilibriumOutputNode,
+    GeneralFromRawNode,
     GeneralFromTeamMatchupsNode,
     MonocycleFromCharactersNode,
     PayoffDirectedGraphOutputNode,
     TeamInlineSource,
     TeamListFromFileNode,
     TeamNode,
+    TraceOutputNode,
 )
 from monocycle_nash.application.ports import (
     CharacterListFilePort,
@@ -166,6 +168,103 @@ def test_resolver_runs_equilibrium_output_node(tmp_path: Path) -> None:
     assert len(data["strategies"]) == 3
     probabilities = [float(s["probability"]) for s in data["strategies"]]
     assert pytest.approx(sum(probabilities), rel=1e-6, abs=1e-6) == 1.0
+
+
+def test_resolver_runs_trace_output_node_with_upstream_records(tmp_path: Path) -> None:
+    tree = MatrixConfigTree(
+        root=GeneralFromTeamMatchupsNode(
+            name="team-root",
+            teams=TeamInlineSource((
+                TeamNode(label="A+B", member_ids=("A", "B")),
+                TeamNode(label="B+C", member_ids=("B", "C")),
+            )),
+            character_matrix=MonocycleFromCharactersNode(
+                name="character-source",
+                characters=CharacterInlineSource((
+                    CharacterNode(power=1.0, vector=(1.0, 0.0), label="A"),
+                    CharacterNode(power=0.0, vector=(0.0, 1.0), label="B"),
+                    CharacterNode(power=-1.0, vector=(-1.0, 0.0), label="C"),
+                )),
+                labels=["A", "B", "C"],
+                outputs=(TraceOutputNode(filename="trace.toml"),),
+            ),
+            use_monocycle_formula=True,
+        )
+    )
+
+    output_port = StubOutputPathPort(tmp_path)
+    resolver = MatrixConfigTreeResolver(output_path_port=output_port)
+    result = resolver.resolve(tree)
+
+    assert len(result.outputs) == 1
+    output = result.outputs[0]
+    assert output.path.exists()
+    assert output_port.calls[0][2] == "trace"
+
+    data = tomllib.loads(output.path.read_text(encoding="utf-8"))
+    trace = data["trace"]
+    assert len(trace) == 2
+    assert trace[0]["node_name"] == "team-root"
+    assert trace[1]["node_name"] == "character-source"
+    assert trace[1]["normalized_params"]["labels"] == ["A", "B", "C"]
+
+
+def test_trace_context_is_scoped_to_single_resolve_call(tmp_path: Path) -> None:
+    nested_tree = MatrixConfigTree(
+        root=GeneralFromTeamMatchupsNode(
+            name="team-root",
+            teams=TeamInlineSource((
+                TeamNode(label="A+B", member_ids=("A", "B")),
+                TeamNode(label="B+C", member_ids=("B", "C")),
+            )),
+            character_matrix=MonocycleFromCharactersNode(
+                name="character-source",
+                characters=CharacterInlineSource((
+                    CharacterNode(power=1.0, vector=(1.0, 0.0), label="A"),
+                    CharacterNode(power=0.0, vector=(0.0, 1.0), label="B"),
+                    CharacterNode(power=-1.0, vector=(-1.0, 0.0), label="C"),
+                )),
+                outputs=(TraceOutputNode(filename="trace_nested.toml"),),
+            ),
+        )
+    )
+    simple_tree = MatrixConfigTree(
+        root=GeneralFromRawNode(
+            name="raw-root",
+            matrix=[[0.0, 1.0], [-1.0, 0.0]],
+            outputs=(TraceOutputNode(filename="trace_simple.toml"),),
+        )
+    )
+
+    output_port = StubOutputPathPort(tmp_path)
+    resolver = MatrixConfigTreeResolver(output_path_port=output_port)
+
+    nested_result = resolver.resolve(nested_tree)
+    simple_result = resolver.resolve(simple_tree)
+
+    nested_trace = tomllib.loads(
+        nested_result.outputs[0].path.read_text(encoding="utf-8")
+    )["trace"]
+    simple_trace = tomllib.loads(
+        simple_result.outputs[0].path.read_text(encoding="utf-8")
+    )["trace"]
+
+    assert len(nested_trace) == 2
+    assert len(simple_trace) == 1
+    assert simple_trace[0]["node_name"] == "raw-root"
+
+
+def test_trace_output_rejects_too_large_payload(tmp_path: Path) -> None:
+    tree = MatrixConfigTree(
+        root=GeneralFromRawNode(
+            matrix=[[0.0, 1.0], [-1.0, 0.0]],
+            outputs=(TraceOutputNode(filename="trace.toml", max_bytes=10),),
+        )
+    )
+
+    resolver = MatrixConfigTreeResolver(output_path_port=StubOutputPathPort(tmp_path))
+    with pytest.raises(ValueError, match="上限"):
+        resolver.resolve(tree)
 
 
 # ---------------------------------------------------------------------------

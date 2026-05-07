@@ -118,6 +118,11 @@ method = "..."                  # outputsでは必須
 - `equilibrium`
   - 任意パラメータ: `filename`
   - 均衡解を `strategies = [{ id, probability }, ...]` 形式のTOMLで出力
+- `trace`
+  - 任意パラメータ: `filename`, `max_bytes`
+  - 解決中の上流ノード情報を `trace = [{ node_path, node_name, node_method, normalized_params, intermediate_values }, ...]` 形式のTOMLで出力
+  - トレースは resolve 実行中メモリのみに保持され、永続保持しない
+  - 出力サイズが `max_bytes` を超える場合は例外で失敗
 
 ### 出力先パス仕様
 

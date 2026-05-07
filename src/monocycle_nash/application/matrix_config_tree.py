@@ -10,6 +10,7 @@ from __future__ import annotations
 import itertools
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from monocycle_nash.application.matrix_nodes import (
     MatrixNode,
@@ -112,6 +113,7 @@ class _ResolutionSession(NodeResolutionContext):
         self.resolved_outputs: list[ResolvedOutput] = []
         self._resolved_cache: dict[int, PayoffMatrix] = {}
         self._active_node_path_stack: list[tuple[str, ...]] = []
+        self._trace_records_by_path: dict[tuple[str, ...], dict[str, Any]] = {}
 
     def resolve_node(self, node: MatrixNode) -> PayoffMatrix:
         cache_key = id(node)
@@ -124,11 +126,17 @@ class _ResolutionSession(NodeResolutionContext):
             return self._resolved_cache[cache_key]
 
         self._active_node_path_stack.append(node_path)
+        self._trace_records_by_path[node_path] = self._build_trace_record(node, node_path)
         try:
             resolved = node.build(self)
         finally:
             self._active_node_path_stack.pop()
         self._resolved_cache[cache_key] = resolved
+        self._trace_records_by_path[node_path] = self._build_trace_record(
+            node,
+            node_path,
+            resolved,
+        )
 
         for output_node in node.outputs:
             if self._output_path_port is None:
@@ -138,6 +146,7 @@ class _ResolutionSession(NodeResolutionContext):
                 run_id=str(self.run_id),
                 node_path=node_path,
                 matrix=resolved,
+                trace_records=self._collect_trace_records(node_path),
             )
             self.resolved_outputs.append(
                 ResolvedOutput(node_name=node.name, output_node=output_node, path=path)
@@ -158,3 +167,31 @@ class _ResolutionSession(NodeResolutionContext):
                 "TeamListFromFileNode を解決するには TeamListFilePort が必要です"
             )
         return self._team_list_file_port.load_teams(path)
+
+    def _collect_trace_records(self, node_path: tuple[str, ...]) -> tuple[dict[str, Any], ...]:
+        records: list[dict[str, Any]] = []
+        for i in range(1, len(node_path) + 1):
+            path_prefix = node_path[:i]
+            record = self._trace_records_by_path.get(path_prefix)
+            if record is not None:
+                records.append(dict(record))
+        return tuple(records)
+
+    def _build_trace_record(
+        self,
+        node: MatrixNode,
+        node_path: tuple[str, ...],
+        resolved: PayoffMatrix | None = None,
+    ) -> dict[str, Any]:
+        intermediate = (
+            node.output_intermediate_values(resolved)
+            if resolved is not None
+            else {}
+        )
+        return {
+            "node_path": list(node_path),
+            "node_name": node.name,
+            "node_method": node.node_method_name,
+            "normalized_params": node.normalized_trace_params(),
+            "intermediate_values": intermediate,
+        }

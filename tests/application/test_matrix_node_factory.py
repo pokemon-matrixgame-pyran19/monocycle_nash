@@ -17,6 +17,7 @@ from monocycle_nash.application.matrix_nodes import (
     MonocycleFromCharactersNode,
     PayoffDirectedGraphOutputNode,
     RandomSkewSymmetricNode,
+    TraceOutputNode,
     TeamInlineSource,
     TeamListFromFileNode,
 )
@@ -328,6 +329,24 @@ def test_build_with_equilibrium_output() -> None:
     output_node = node.outputs[0]
     assert isinstance(output_node, EquilibriumOutputNode)
     assert output_node.filename == "equilibrium_out.toml"
+
+
+def test_build_with_trace_output() -> None:
+    out = OutputSpec(
+        method="trace",
+        params={"filename": "trace_out.toml", "max_bytes": 12345},
+    )
+    spec = NodeSpec(
+        method="general_from_raw",
+        params={"matrix": [[0.0, 1.0], [-1.0, 0.0]]},
+        outputs=(out,),
+    )
+    node = FACTORY.build(spec)
+    assert len(node.outputs) == 1
+    output_node = node.outputs[0]
+    assert isinstance(output_node, TraceOutputNode)
+    assert output_node.filename == "trace_out.toml"
+    assert output_node.max_bytes == 12345
 
 
 def test_build_with_output_defaults() -> None:

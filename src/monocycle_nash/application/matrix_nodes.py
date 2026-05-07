@@ -19,7 +19,7 @@ from __future__ import annotations
 import numpy as np
 import tomli_w
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields, is_dataclass
 from pathlib import Path
 from typing import Any, Callable, ClassVar
 
@@ -237,6 +237,7 @@ class OutputNode(ABC):
         run_id: str,
         node_path: tuple[str, ...],
         matrix: PayoffMatrix,
+        trace_records: tuple[dict[str, Any], ...] | None = None,
     ) -> Path:
         """出力を実行してファイルパスを返す。"""
         raise NotImplementedError
@@ -265,6 +266,7 @@ class PayoffDirectedGraphOutputNode(OutputNode, output_method="payoff_directed_g
         run_id: str,
         node_path: tuple[str, ...],
         matrix: PayoffMatrix,
+        trace_records: tuple[dict[str, Any], ...] | None = None,
     ) -> Path:
         path = output_path_port.resolve_output_path(
             run_id=run_id,
@@ -303,6 +305,7 @@ class CharacterVectorGraphOutputNode(OutputNode, output_method="character_vector
         run_id: str,
         node_path: tuple[str, ...],
         matrix: PayoffMatrix,
+        trace_records: tuple[dict[str, Any], ...] | None = None,
     ) -> Path:
         path = output_path_port.resolve_output_path(
             run_id=run_id,
@@ -342,6 +345,7 @@ class EquilibriumOutputNode(OutputNode, output_method="equilibrium"):
         run_id: str,
         node_path: tuple[str, ...],
         matrix: PayoffMatrix,
+        trace_records: tuple[dict[str, Any], ...] | None = None,
     ) -> Path:
         path = output_path_port.resolve_output_path(
             run_id=run_id,
@@ -364,6 +368,49 @@ class EquilibriumOutputNode(OutputNode, output_method="equilibrium"):
         return path
 
 
+@dataclass(frozen=True)
+class TraceOutputNode(OutputNode, output_method="trace"):
+    """解決トレースを TOML 出力する設定ノード。"""
+
+    filename: str = "trace.toml"
+    max_bytes: int = 1_000_000
+
+    @classmethod
+    def _from_output_spec(cls, spec: OutputSpec) -> TraceOutputNode:
+        return cls(
+            filename=spec.params.get("filename", "trace.toml"),
+            max_bytes=spec.params.get("max_bytes", 1_000_000),
+        )
+
+    def run(
+        self,
+        *,
+        output_path_port: OutputPathPort,
+        run_id: str,
+        node_path: tuple[str, ...],
+        matrix: PayoffMatrix,
+        trace_records: tuple[dict[str, Any], ...] | None = None,
+    ) -> Path:
+        if trace_records is None:
+            raise ValueError("trace 出力には trace_records が必要です")
+        trace_payload = {"trace": [dict(record) for record in trace_records]}
+        rendered = tomli_w.dumps(trace_payload)
+        rendered_size = len(rendered.encode("utf-8"))
+        if rendered_size > self.max_bytes:
+            raise ValueError(
+                f"trace 出力サイズが上限を超えました: {rendered_size} bytes > {self.max_bytes} bytes"
+            )
+        path = output_path_port.resolve_output_path(
+            run_id=run_id,
+            node_path=node_path,
+            output_method="trace",
+            filename=self.filename,
+        )
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(rendered, encoding="utf-8")
+        return path
+
+
 # ---------------------------------------------------------------------------
 # MatrixNode — 行列構築ノードの抽象基底
 # ---------------------------------------------------------------------------
@@ -382,6 +429,7 @@ class MatrixNode(ABC):
     """
 
     _node_registry: ClassVar[dict[str, type[MatrixNode]]] = {}
+    _node_method: ClassVar[str | None] = None
 
     name: str
     outputs: tuple[OutputNode, ...]
@@ -390,6 +438,7 @@ class MatrixNode(ABC):
         super().__init_subclass__(**kwargs)
         if node_method is not None:
             MatrixNode._node_registry[node_method] = cls
+            cls._node_method = node_method
 
     @classmethod
     def create_from_spec(
@@ -417,6 +466,52 @@ class MatrixNode(ABC):
     def build(self, ctx: NodeResolutionContext) -> PayoffMatrix:
         """コンテキストを使って PayoffMatrix を構築して返す。"""
         raise NotImplementedError
+
+    @property
+    def node_method_name(self) -> str:
+        """このノードの method 名を返す。"""
+        return self.__class__._node_method or self.__class__.__name__
+
+    def normalized_trace_params(self) -> dict[str, Any]:
+        """トレース出力向けに正規化済み params を返す。"""
+        if not is_dataclass(self):
+            return {}
+        result: dict[str, Any] = {}
+        for node_field in fields(self):
+            if node_field.name in {"name", "outputs"}:
+                continue
+            value = getattr(self, node_field.name)
+            if isinstance(value, MatrixNode):
+                continue
+            result[node_field.name] = _to_trace_primitive(value)
+        return result
+
+    def output_intermediate_values(self, resolved: PayoffMatrix) -> dict[str, Any]:
+        """トレース出力用に公開する中間値を返す（未実装時は空）。"""
+        _ = resolved
+        return {}
+
+
+def _to_trace_primitive(value: Any) -> Any:
+    """TOML シリアライズ可能な最小表現へ変換する。"""
+    if value is None or isinstance(value, str | bool | int | float):
+        return value
+    if isinstance(value, np.generic):
+        return value.item()
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, dict):
+        return {str(k): _to_trace_primitive(v) for k, v in value.items()}
+    if isinstance(value, tuple | list | set):
+        return [_to_trace_primitive(v) for v in value]
+    if is_dataclass(value):
+        return {
+            node_field.name: _to_trace_primitive(getattr(value, node_field.name))
+            for node_field in fields(value)
+        }
+    return repr(value)
 
 
 # ---------------------------------------------------------------------------
