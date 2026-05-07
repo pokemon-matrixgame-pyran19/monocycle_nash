@@ -19,7 +19,12 @@ from __future__ import annotations
 import numpy as np
 import tomli_w
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field, fields, is_dataclass
+from dataclasses import (
+    dataclass,
+    field,
+    fields,
+    is_dataclass,
+)
 from pathlib import Path
 from typing import Any, Callable, ClassVar
 
@@ -37,6 +42,8 @@ from monocycle_nash.domain.solver.selector import SolverSelector
 from monocycle_nash.domain.team import Team
 from monocycle_nash.domain.visualization.character_vector_graph import CharacterVectorGraphPlotter
 from monocycle_nash.domain.visualization.payoff_graph import PayoffDirectedGraphPlotter
+
+_TRACE_OMIT = object()
 
 
 # ---------------------------------------------------------------------------
@@ -370,7 +377,10 @@ class EquilibriumOutputNode(OutputNode, output_method="equilibrium"):
 
 @dataclass(frozen=True)
 class TraceOutputNode(OutputNode, output_method="trace"):
-    """解決トレースを TOML 出力する設定ノード。"""
+    """解決トレースを TOML 出力する設定ノード。
+
+    `max_bytes` は出力ガード用上限（既定 1,000,000 bytes）。
+    """
 
     filename: str = "trace.toml"
     max_bytes: int = 1_000_000
@@ -473,7 +483,11 @@ class MatrixNode(ABC):
         return self.__class__._node_method or self.__class__.__name__
 
     def normalized_trace_params(self) -> dict[str, Any]:
-        """トレース出力向けに正規化済み params を返す。"""
+        """トレース出力向けに正規化済み params を返す。
+
+        `name`/`outputs` と子 MatrixNode は除外し、TOML 化可能な値へ変換する。
+        None はトレース対象外として除外する。
+        """
         if not is_dataclass(self):
             return {}
         result: dict[str, Any] = {}
@@ -483,18 +497,42 @@ class MatrixNode(ABC):
             value = getattr(self, node_field.name)
             if isinstance(value, MatrixNode):
                 continue
-            result[node_field.name] = _to_trace_primitive(value)
+            normalized = _to_trace_primitive(value)
+            if normalized is _TRACE_OMIT:
+                continue
+            result[node_field.name] = normalized
         return result
 
     def output_intermediate_values(self, resolved: PayoffMatrix) -> dict[str, Any]:
-        """トレース出力用に公開する中間値を返す（未実装時は空）。"""
+        """トレース出力用に公開する中間値を返す（未実装時は空）。
+
+        中間値は build 過程で確認したい補助情報（例: 集計値や統計値）を想定する。
+        必要なノードだけこのメソッドを override して公開する。
+        """
         _ = resolved
         return {}
 
+    def normalized_output_intermediate_values(self, resolved: PayoffMatrix) -> dict[str, Any]:
+        """トレース出力向けに中間値を正規化する。"""
+        raw = self.output_intermediate_values(resolved)
+        result: dict[str, Any] = {}
+        for key, value in raw.items():
+            normalized = _to_trace_primitive(value)
+            if normalized is _TRACE_OMIT:
+                continue
+            result[str(key)] = normalized
+        return result
+
 
 def _to_trace_primitive(value: Any) -> Any:
-    """TOML シリアライズ可能な最小表現へ変換する。"""
-    if value is None or isinstance(value, str | bool | int | float):
+    """TOML シリアライズ可能な最小表現へ変換する。
+
+    変換不能または出力除外したい値（None など）は `_TRACE_OMIT` を返す。
+    未対応オブジェクトは `repr(value)` へフォールバックする。
+    """
+    if value is None:
+        return _TRACE_OMIT
+    if isinstance(value, (str, bool, int, float)):
         return value
     if isinstance(value, np.generic):
         return value.item()
@@ -503,14 +541,29 @@ def _to_trace_primitive(value: Any) -> Any:
     if isinstance(value, Path):
         return str(value)
     if isinstance(value, dict):
-        return {str(k): _to_trace_primitive(v) for k, v in value.items()}
-    if isinstance(value, tuple | list | set):
-        return [_to_trace_primitive(v) for v in value]
+        dict_result: dict[str, Any] = {}
+        for k, v in value.items():
+            normalized = _to_trace_primitive(v)
+            if normalized is _TRACE_OMIT:
+                continue
+            dict_result[str(k)] = normalized
+        return dict_result
+    if isinstance(value, (tuple, list, set)):
+        list_result: list[Any] = []
+        for v in value:
+            normalized = _to_trace_primitive(v)
+            if normalized is _TRACE_OMIT:
+                continue
+            list_result.append(normalized)
+        return list_result
     if is_dataclass(value):
-        return {
-            node_field.name: _to_trace_primitive(getattr(value, node_field.name))
-            for node_field in fields(value)
-        }
+        dataclass_result: dict[str, Any] = {}
+        for node_field in fields(value):
+            normalized = _to_trace_primitive(getattr(value, node_field.name))
+            if normalized is _TRACE_OMIT:
+                continue
+            dataclass_result[node_field.name] = normalized
+        return dataclass_result
     return repr(value)
 
 

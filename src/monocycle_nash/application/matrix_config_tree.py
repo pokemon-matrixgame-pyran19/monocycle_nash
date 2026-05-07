@@ -184,7 +184,7 @@ class _ResolutionSession(NodeResolutionContext):
         resolved: PayoffMatrix | None = None,
     ) -> dict[str, Any]:
         intermediate = (
-            node.output_intermediate_values(resolved)
+            node.normalized_output_intermediate_values(resolved)
             if resolved is not None
             else {}
         )

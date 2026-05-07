@@ -224,6 +224,7 @@ def test_trace_context_is_scoped_to_single_resolve_call(tmp_path: Path) -> None:
                     CharacterNode(power=0.0, vector=(0.0, 1.0), label="B"),
                     CharacterNode(power=-1.0, vector=(-1.0, 0.0), label="C"),
                 )),
+                labels=["A", "B", "C"],
                 outputs=(TraceOutputNode(filename="trace_nested.toml"),),
             ),
         )
@@ -263,7 +264,7 @@ def test_trace_output_rejects_too_large_payload(tmp_path: Path) -> None:
     )
 
     resolver = MatrixConfigTreeResolver(output_path_port=StubOutputPathPort(tmp_path))
-    with pytest.raises(ValueError, match="上限"):
+    with pytest.raises(ValueError, match="trace 出力サイズが上限を超えました"):
         resolver.resolve(tree)
 
 
