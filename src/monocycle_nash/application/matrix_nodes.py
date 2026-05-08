@@ -54,7 +54,7 @@ class NodeResolutionContext(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def resolve_node_domains(self, node: MatrixNode) -> "NodeDomainObjects":
+    def resolve_node_domains(self, node: "ApplicationNode") -> "NodeDomainObjects":
         """別ノードの解決済みドメインオブジェクトを返す。"""
         raise NotImplementedError
 
@@ -67,6 +67,23 @@ class NodeResolutionContext(ABC):
     def load_teams_from_file(self, path: str) -> list[Team]:
         """ファイルからチームリストを読み込む。"""
         raise NotImplementedError
+
+
+# ---------------------------------------------------------------------------
+# ApplicationNode — 全ノード共通の抽象基底
+# ---------------------------------------------------------------------------
+
+
+class ApplicationNode(ABC):
+    """解決済みドメインオブジェクトを提供する全ノード共通抽象。"""
+
+    def provide_domains(
+        self,
+        *,
+        ctx: NodeResolutionContext,
+        resolved: PayoffMatrix | None = None,
+    ) -> "NodeDomainObjects":
+        return NodeDomainObjects(matrix=resolved)
 
 
 # ---------------------------------------------------------------------------
@@ -83,7 +100,7 @@ class CharacterNode:
     label: str = ""
 
 
-class CharacterSource(ABC):
+class CharacterSource(ApplicationNode):
     """キャラクター入力ソースの抽象基底。"""
 
     @classmethod
@@ -107,6 +124,14 @@ class CharacterSource(ABC):
     def load_characters(self, ctx: NodeResolutionContext) -> list[Character]:
         """キャラクターリストを返す。"""
         raise NotImplementedError
+
+    def provide_domains(
+        self,
+        *,
+        ctx: NodeResolutionContext,
+        resolved: PayoffMatrix | None = None,
+    ) -> "NodeDomainObjects":
+        return NodeDomainObjects(characters=tuple(self.load_characters(ctx)))
 
 
 @dataclass(frozen=True)
@@ -148,7 +173,7 @@ class TeamNode:
     member_ids: tuple[str | int, ...]
 
 
-class TeamSource(ABC):
+class TeamSource(ApplicationNode):
     """チーム入力ソースの抽象基底。"""
 
     @classmethod
@@ -171,6 +196,14 @@ class TeamSource(ABC):
     def load_teams(self, ctx: NodeResolutionContext) -> list[Team]:
         """チームリストを返す。"""
         raise NotImplementedError
+
+    def provide_domains(
+        self,
+        *,
+        ctx: NodeResolutionContext,
+        resolved: PayoffMatrix | None = None,
+    ) -> "NodeDomainObjects":
+        return NodeDomainObjects(teams=tuple(self.load_teams(ctx)))
 
 
 @dataclass(frozen=True)
@@ -205,7 +238,7 @@ class TeamListFromFileNode(TeamSource):
 class NodeDomainObjects:
     """ノード解決後に出力連携へ渡すドメインオブジェクト群。"""
 
-    matrix: PayoffMatrix
+    matrix: PayoffMatrix | None = None
     characters: tuple[Character, ...] = ()
     teams: tuple[Team, ...] = ()
 
@@ -329,6 +362,8 @@ class PayoffDirectedGraphOutputNode(OutputNode, output_method="payoff_directed_g
         node_path: tuple[str, ...],
         domains: NodeDomainObjects,
     ) -> Path:
+        if domains.matrix is None:
+            raise ValueError("payoff_directed_graph は matrix を持つノードでのみ使用できます")
         path = output_path_port.resolve_output_path(
             run_id=run_id,
             node_path=node_path,
@@ -439,6 +474,8 @@ class EquilibriumOutputNode(OutputNode, output_method="equilibrium"):
         node_path: tuple[str, ...],
         domains: NodeDomainObjects,
     ) -> Path:
+        if domains.matrix is None:
+            raise ValueError("equilibrium は matrix を持つノードでのみ使用できます")
         path = output_path_port.resolve_output_path(
             run_id=run_id,
             node_path=node_path,
@@ -465,7 +502,7 @@ class EquilibriumOutputNode(OutputNode, output_method="equilibrium"):
 # ---------------------------------------------------------------------------
 
 
-class MatrixNode(ABC):
+class MatrixNode(ApplicationNode):
     """行列構築ノードの抽象基底。
 
     すべての具象ノードは name・outputs フィールドと build メソッドを実装する。
@@ -514,8 +551,15 @@ class MatrixNode(ABC):
         """コンテキストを使って PayoffMatrix を構築して返す。"""
         raise NotImplementedError
 
-    def provide_domains(self, *, ctx: NodeResolutionContext, resolved: PayoffMatrix) -> NodeDomainObjects:
+    def provide_domains(
+        self,
+        *,
+        ctx: NodeResolutionContext,
+        resolved: PayoffMatrix | None = None,
+    ) -> NodeDomainObjects:
         """解決済み結果から出力連携用ドメインオブジェクトを返す。"""
+        if resolved is None:
+            raise ValueError("MatrixNode の domain 提供には resolved matrix が必要です")
         return NodeDomainObjects(matrix=resolved)
 
 
@@ -573,12 +617,23 @@ class MonocycleFromCharactersNode(MatrixNode, node_method="monocycle_from_charac
         )
 
     def build(self, ctx: NodeResolutionContext) -> PayoffMatrix:
-        characters = self.characters.load_characters(ctx)
-        return PayoffMatrixBuilder.from_characters(characters=characters, labels=self.labels)
+        character_domains = ctx.resolve_node_domains(self.characters)
+        return PayoffMatrixBuilder.from_characters(
+            characters=list(character_domains.characters), labels=self.labels
+        )
 
-    def provide_domains(self, *, ctx: NodeResolutionContext, resolved: PayoffMatrix) -> NodeDomainObjects:
-        characters = self.characters.load_characters(ctx)
-        return NodeDomainObjects(matrix=resolved, characters=tuple(characters))
+    def provide_domains(
+        self,
+        *,
+        ctx: NodeResolutionContext,
+        resolved: PayoffMatrix | None = None,
+    ) -> NodeDomainObjects:
+        base_domains = super().provide_domains(ctx=ctx, resolved=resolved)
+        character_domains = ctx.resolve_node_domains(self.characters)
+        return NodeDomainObjects(
+            matrix=base_domains.matrix,
+            characters=character_domains.characters,
+        )
 
 
 @dataclass(frozen=True)
@@ -606,12 +661,21 @@ class GeneralFromTeamsPayoffNode(MatrixNode, node_method="general_from_teams_pay
 
     def build(self, ctx: NodeResolutionContext) -> PayoffMatrix:
         team_payoff = np.asarray(self.team_payoff, dtype=float)
-        teams = self.teams.load_teams(ctx)
-        return PayoffMatrixBuilder.from_teams(team_payoff=team_payoff, teams=teams)
+        team_domains = ctx.resolve_node_domains(self.teams)
+        return PayoffMatrixBuilder.from_teams(team_payoff=team_payoff, teams=list(team_domains.teams))
 
-    def provide_domains(self, *, ctx: NodeResolutionContext, resolved: PayoffMatrix) -> NodeDomainObjects:
-        teams = self.teams.load_teams(ctx)
-        return NodeDomainObjects(matrix=resolved, teams=tuple(teams))
+    def provide_domains(
+        self,
+        *,
+        ctx: NodeResolutionContext,
+        resolved: PayoffMatrix | None = None,
+    ) -> NodeDomainObjects:
+        base_domains = super().provide_domains(ctx=ctx, resolved=resolved)
+        team_domains = ctx.resolve_node_domains(self.teams)
+        return NodeDomainObjects(
+            matrix=base_domains.matrix,
+            teams=team_domains.teams,
+        )
 
 
 @dataclass(frozen=True)
@@ -647,20 +711,26 @@ class GeneralFromTeamMatchupsNode(MatrixNode, node_method="general_from_team_mat
 
     def build(self, ctx: NodeResolutionContext) -> PayoffMatrix:
         character_matrix = ctx.resolve_node(self.character_matrix)
-        teams = self.teams.load_teams(ctx)
+        team_domains = ctx.resolve_node_domains(self.teams)
         return PayoffMatrixBuilder.from_team_matchups(
-            teams=teams,
+            teams=list(team_domains.teams),
             character_matrix=character_matrix,
             use_monocycle_formula=self.use_monocycle_formula,
         )
 
-    def provide_domains(self, *, ctx: NodeResolutionContext, resolved: PayoffMatrix) -> NodeDomainObjects:
-        teams = self.teams.load_teams(ctx)
+    def provide_domains(
+        self,
+        *,
+        ctx: NodeResolutionContext,
+        resolved: PayoffMatrix | None = None,
+    ) -> NodeDomainObjects:
+        base_domains = super().provide_domains(ctx=ctx, resolved=resolved)
+        team_domains = ctx.resolve_node_domains(self.teams)
         child_domains = ctx.resolve_node_domains(self.character_matrix)
         return NodeDomainObjects(
-            matrix=resolved,
+            matrix=base_domains.matrix,
             characters=child_domains.characters,
-            teams=tuple(teams),
+            teams=team_domains.teams,
         )
 
 
