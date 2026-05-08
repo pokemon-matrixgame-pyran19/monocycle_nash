@@ -225,7 +225,7 @@ class OutputNode(ABC):
     """
 
     _output_registry: ClassVar[dict[str, type[OutputNode]]] = {}
-    _output_method: ClassVar[str]
+    _output_method: ClassVar[str] = ""
 
     def __init_subclass__(cls, output_method: str | None = None, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
