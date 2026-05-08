@@ -34,6 +34,7 @@ method = "..."
 
 [[outputs]]                     # 任意: 出力定義（複数可）
 method = "..."                # 必須
+runner = "..."                # 任意: 同一 runner 名で最終集約
 [outputs.params]                # 任意
 # ...
 ```
@@ -145,6 +146,11 @@ method = "..."                # 必須
 
 ## 4. `outputs[].method` 一覧
 
+### `outputs[].runner`
+
+- 任意。同じ runner 名を指定した出力は、全ノード解決後に同一 runner でまとめて実行される
+- runner 未指定時は後方互換の単体実行（出力ごとに独立）
+
 ### `payoff_directed_graph`
 
 - 任意:
@@ -232,4 +238,3 @@ threshold = 0.0
 - `[[outputs]]` 要素に `method` がない
 - 未知の `method` / `outputs[].method`
 - 必須 `children` がない（例: `general_from_team_matchups` の `children.character_matrix`）
-

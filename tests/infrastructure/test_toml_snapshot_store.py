@@ -123,6 +123,7 @@ def test_store_roundtrip_with_outputs(tmp_path: Path) -> None:
         outputs=(
             OutputSpec(
                 method="payoff_directed_graph",
+                runner="final",
                 params={"filename": "graph.svg", "threshold": 0.1},
             ),
         ),
@@ -136,6 +137,7 @@ def test_store_roundtrip_with_outputs(tmp_path: Path) -> None:
     outputs = data["outputs"]
     assert len(outputs) == 1
     assert outputs[0]["method"] == "payoff_directed_graph"
+    assert outputs[0]["runner"] == "final"
     assert outputs[0]["params"]["filename"] == "graph.svg"
     assert outputs[0]["params"]["threshold"] == pytest.approx(0.1)
 

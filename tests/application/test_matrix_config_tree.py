@@ -129,7 +129,9 @@ def test_resolver_builds_team_matrix_with_nested_dependency_and_outputs(tmp_path
     assert result.root.matrix.shape == (2, 2)
     assert result.run_id == 1
     assert len(result.outputs) == 2
+    assert len(result.output_emissions) == 2
     assert all(output.path.exists() for output in result.outputs)
+    assert len(result.runners) == 2
     assert all(
         run_id == str(result.run_id)
         for run_id, _, _, _ in output_port.calls
@@ -158,6 +160,7 @@ def test_resolver_runs_equilibrium_output_node(tmp_path: Path) -> None:
     result = resolver.resolve(tree)
 
     assert len(result.outputs) == 1
+    assert len(result.runners) == 1
     output = result.outputs[0]
     assert output.path.exists()
     assert output_port.calls[0][2] == "equilibrium"
@@ -187,6 +190,41 @@ def test_resolver_without_output_path_port_rejects_output() -> None:
 
     with pytest.raises(ValueError, match="OutputPathPort"):
         resolver.resolve(tree)
+
+
+def test_resolver_runs_shared_runner_once_after_full_resolution(tmp_path: Path) -> None:
+    tree = MatrixConfigTree(
+        root=GeneralFromTeamMatchupsNode(
+            name="team-root",
+            teams=TeamInlineSource((
+                TeamNode(label="A+B", member_ids=("A", "B")),
+                TeamNode(label="B+C", member_ids=("B", "C")),
+            )),
+            character_matrix=MonocycleFromCharactersNode(
+                name="character-source",
+                characters=CharacterInlineSource((
+                    CharacterNode(power=1.0, vector=(1.0, 0.0), label="A"),
+                    CharacterNode(power=0.0, vector=(0.0, 1.0), label="B"),
+                    CharacterNode(power=-1.0, vector=(-1.0, 0.0), label="C"),
+                )),
+                labels=["A", "B", "C"],
+                outputs=(CharacterVectorGraphOutputNode(runner="final", filename="chars.svg"),),
+            ),
+            use_monocycle_formula=True,
+            outputs=(PayoffDirectedGraphOutputNode(runner="final", filename="team.svg"),),
+        )
+    )
+    output_port = StubOutputPathPort(tmp_path)
+    resolver = MatrixConfigTreeResolver(output_path_port=output_port)
+
+    result = resolver.resolve(tree)
+
+    assert len(result.output_emissions) == 2
+    assert len(result.runners) == 1
+    assert result.runners[0].runner == "final"
+    assert result.runners[0].emitted_count == 2
+    assert result.runners[0].output_count == 2
+    assert all(o.runner == "final" for o in result.outputs)
 
 
 # ---------------------------------------------------------------------------

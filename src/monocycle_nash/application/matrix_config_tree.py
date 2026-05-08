@@ -2,7 +2,7 @@
 
 設定ツリーを型付きノードで構成し、MatrixConfigTreeResolver が
 _ResolutionSession を生成して解決を委譲する。
-各解決ロジックは各ノードの build / run / load_characters / load_teams に実装されている。
+各解決ロジックは各ノードの build / emit / execute / load_characters / load_teams に実装されている。
 """
 
 from __future__ import annotations
@@ -14,6 +14,7 @@ from pathlib import Path
 from monocycle_nash.application.matrix_nodes import (
     MatrixNode,
     NodeResolutionContext,
+    OutputEmission,
     OutputNode,
 )
 from monocycle_nash.application.ports import (
@@ -40,7 +41,27 @@ class ResolvedOutput:
 
     node_name: str
     output_node: OutputNode
+    runner: str
     path: Path
+
+
+@dataclass(frozen=True)
+class ResolvedOutputEmission:
+    """1つの出力送信イベント。"""
+
+    node_name: str
+    output_node: OutputNode
+    runner: str
+    node_path: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class ResolvedRunner:
+    """Runner の最終実行結果。"""
+
+    runner: str
+    emitted_count: int
+    output_count: int
 
 
 @dataclass(frozen=True)
@@ -49,6 +70,8 @@ class MatrixResolutionResult:
 
     run_id: int
     root: PayoffMatrix
+    output_emissions: tuple[ResolvedOutputEmission, ...] = ()
+    runners: tuple[ResolvedRunner, ...] = ()
     outputs: tuple[ResolvedOutput, ...] = ()
 
 
@@ -83,10 +106,13 @@ class MatrixConfigTreeResolver:
             team_list_file_port=self._team_list_file_port,
         )
         root = session.resolve_node(tree.root)
+        resolved_outputs, resolved_runners = session.run_output_runners()
         return MatrixResolutionResult(
             run_id=run_id,
             root=root,
-            outputs=tuple(session.resolved_outputs),
+            output_emissions=tuple(session.resolved_output_emissions),
+            runners=tuple(resolved_runners),
+            outputs=tuple(resolved_outputs),
         )
 
 
@@ -109,7 +135,8 @@ class _ResolutionSession(NodeResolutionContext):
         self._output_path_port = output_path_port
         self._character_list_file_port = character_list_file_port
         self._team_list_file_port = team_list_file_port
-        self.resolved_outputs: list[ResolvedOutput] = []
+        self.resolved_output_emissions: list[ResolvedOutputEmission] = []
+        self._emissions_by_runner: dict[str, list[OutputEmission]] = {}
         self._resolved_cache: dict[int, PayoffMatrix] = {}
         self._active_node_path_stack: list[tuple[str, ...]] = []
 
@@ -130,20 +157,74 @@ class _ResolutionSession(NodeResolutionContext):
             self._active_node_path_stack.pop()
         self._resolved_cache[cache_key] = resolved
 
-        for output_node in node.outputs:
-            if self._output_path_port is None:
-                raise ValueError("出力を実行するには OutputPathPort が必要です")
-            path = output_node.run(
-                output_path_port=self._output_path_port,
-                run_id=str(self.run_id),
+        domains = node.provide_domains(resolved)
+        for output_index, output_node in enumerate(node.outputs):
+            runner = output_node.resolve_runner() or self._build_default_runner_id(
                 node_path=node_path,
-                matrix=resolved,
+                output_method=output_node.output_method,
+                output_index=output_index,
             )
-            self.resolved_outputs.append(
-                ResolvedOutput(node_name=node.name, output_node=output_node, path=path)
+            emission = output_node.emit(
+                node_name=node.name,
+                node_path=node_path,
+                domains=domains,
+            )
+            self._emissions_by_runner.setdefault(runner, []).append(emission)
+            self.resolved_output_emissions.append(
+                ResolvedOutputEmission(
+                    node_name=node.name,
+                    output_node=output_node,
+                    runner=runner,
+                    node_path=node_path,
+                )
             )
 
         return resolved
+
+    def run_output_runners(self) -> tuple[tuple[ResolvedOutput, ...], tuple[ResolvedRunner, ...]]:
+        if self._emissions_by_runner and self._output_path_port is None:
+            raise ValueError("出力を実行するには OutputPathPort が必要です")
+        if self._output_path_port is None:
+            return (), ()
+        output_path_port = self._output_path_port
+
+        resolved_outputs: list[ResolvedOutput] = []
+        resolved_runners: list[ResolvedRunner] = []
+        for runner, emissions in self._emissions_by_runner.items():
+            output_count = 0
+            for emission in emissions:
+                path = emission.output_node.execute(
+                    output_path_port=output_path_port,
+                    run_id=str(self.run_id),
+                    node_path=emission.node_path,
+                    domains=emission.domains,
+                )
+                output_count += 1
+                resolved_outputs.append(
+                    ResolvedOutput(
+                        node_name=emission.node_name,
+                        output_node=emission.output_node,
+                        runner=runner,
+                        path=path,
+                    )
+                )
+            resolved_runners.append(
+                ResolvedRunner(
+                    runner=runner,
+                    emitted_count=len(emissions),
+                    output_count=output_count,
+                )
+            )
+        return tuple(resolved_outputs), tuple(resolved_runners)
+
+    @staticmethod
+    def _build_default_runner_id(
+        *,
+        node_path: tuple[str, ...],
+        output_method: str,
+        output_index: int,
+    ) -> str:
+        return "__single__:" + "/".join(node_path) + f":{output_method}:{output_index}"
 
     def load_characters_from_file(self, path: str) -> list[Character]:
         if self._character_list_file_port is None:
