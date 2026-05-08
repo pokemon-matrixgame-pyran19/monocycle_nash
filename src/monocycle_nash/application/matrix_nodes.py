@@ -54,6 +54,11 @@ class NodeResolutionContext(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def resolve_node_domains(self, node: MatrixNode) -> "NodeDomainObjects":
+        """別ノードの解決済みドメインオブジェクトを返す。"""
+        raise NotImplementedError
+
+    @abstractmethod
     def load_characters_from_file(self, path: str) -> list[Character]:
         """ファイルからキャラクターリストを読み込む。"""
         raise NotImplementedError
@@ -509,7 +514,7 @@ class MatrixNode(ABC):
         """コンテキストを使って PayoffMatrix を構築して返す。"""
         raise NotImplementedError
 
-    def provide_domains(self, resolved: PayoffMatrix) -> NodeDomainObjects:
+    def provide_domains(self, *, ctx: NodeResolutionContext, resolved: PayoffMatrix) -> NodeDomainObjects:
         """解決済み結果から出力連携用ドメインオブジェクトを返す。"""
         return NodeDomainObjects(matrix=resolved)
 
@@ -571,11 +576,9 @@ class MonocycleFromCharactersNode(MatrixNode, node_method="monocycle_from_charac
         characters = self.characters.load_characters(ctx)
         return PayoffMatrixBuilder.from_characters(characters=characters, labels=self.labels)
 
-    def provide_domains(self, resolved: PayoffMatrix) -> NodeDomainObjects:
-        characters = getattr(resolved, "characters", None)
-        if isinstance(characters, list):
-            return NodeDomainObjects(matrix=resolved, characters=tuple(characters))
-        return NodeDomainObjects(matrix=resolved)
+    def provide_domains(self, *, ctx: NodeResolutionContext, resolved: PayoffMatrix) -> NodeDomainObjects:
+        characters = self.characters.load_characters(ctx)
+        return NodeDomainObjects(matrix=resolved, characters=tuple(characters))
 
 
 @dataclass(frozen=True)
@@ -606,12 +609,8 @@ class GeneralFromTeamsPayoffNode(MatrixNode, node_method="general_from_teams_pay
         teams = self.teams.load_teams(ctx)
         return PayoffMatrixBuilder.from_teams(team_payoff=team_payoff, teams=teams)
 
-    def provide_domains(self, resolved: PayoffMatrix) -> NodeDomainObjects:
-        teams: list[Team] = []
-        for strategy in resolved.row_strategies:
-            entity = strategy.entity
-            if isinstance(entity, Team):
-                teams.append(entity)
+    def provide_domains(self, *, ctx: NodeResolutionContext, resolved: PayoffMatrix) -> NodeDomainObjects:
+        teams = self.teams.load_teams(ctx)
         return NodeDomainObjects(matrix=resolved, teams=tuple(teams))
 
 
@@ -655,13 +654,14 @@ class GeneralFromTeamMatchupsNode(MatrixNode, node_method="general_from_team_mat
             use_monocycle_formula=self.use_monocycle_formula,
         )
 
-    def provide_domains(self, resolved: PayoffMatrix) -> NodeDomainObjects:
-        teams: list[Team] = []
-        for strategy in resolved.row_strategies:
-            entity = strategy.entity
-            if isinstance(entity, Team):
-                teams.append(entity)
-        return NodeDomainObjects(matrix=resolved, teams=tuple(teams))
+    def provide_domains(self, *, ctx: NodeResolutionContext, resolved: PayoffMatrix) -> NodeDomainObjects:
+        teams = self.teams.load_teams(ctx)
+        child_domains = ctx.resolve_node_domains(self.character_matrix)
+        return NodeDomainObjects(
+            matrix=resolved,
+            characters=child_domains.characters,
+            teams=tuple(teams),
+        )
 
 
 @dataclass(frozen=True)
