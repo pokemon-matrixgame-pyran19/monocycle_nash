@@ -7,6 +7,7 @@ from monocycle_nash.application.matrix_config_tree import (
     ResolvedOutput,
 )
 from monocycle_nash.application.matrix_nodes import (
+    ApplicationNode,
     ApproxDominantEigenpairNode,
     ApproxEquilibriumPreservingNode,
     ApproxMonocycleToGeneralNode,
@@ -38,6 +39,7 @@ __all__ = [
     "MatrixResolutionResult",
     "ResolvedOutput",
     # matrix_nodes — context
+    "ApplicationNode",
     "NodeResolutionContext",
     # matrix_nodes — matrix nodes
     "MatrixNode",

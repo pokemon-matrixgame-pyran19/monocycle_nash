@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from monocycle_nash.application.matrix_nodes import (
+    ApplicationNode,
     MatrixNode,
     NodeDomainObjects,
     NodeResolutionContext,
@@ -140,6 +141,7 @@ class _ResolutionSession(NodeResolutionContext):
         self._emissions_by_runner: dict[str, list[OutputEmission]] = {}
         self._resolved_cache: dict[int, PayoffMatrix] = {}
         self._resolved_domains_cache: dict[int, NodeDomainObjects] = {}
+        self._domain_node_cache: dict[int, NodeDomainObjects] = {}
         self._active_node_path_stack: list[tuple[str, ...]] = []
 
     def resolve_node(self, node: MatrixNode) -> PayoffMatrix:
@@ -184,13 +186,20 @@ class _ResolutionSession(NodeResolutionContext):
 
         return resolved
 
-    def resolve_node_domains(self, node: MatrixNode) -> NodeDomainObjects:
+    def resolve_node_domains(self, node: ApplicationNode) -> NodeDomainObjects:
         cache_key = id(node)
-        if cache_key not in self._resolved_cache:
-            self.resolve_node(node)
-        domains = self._resolved_domains_cache.get(cache_key)
+        if isinstance(node, MatrixNode):
+            if cache_key not in self._resolved_cache:
+                self.resolve_node(node)
+            domains = self._resolved_domains_cache.get(cache_key)
+            if domains is None:
+                raise RuntimeError("ノードのドメインオブジェクト解決に失敗しました")
+            return domains
+
+        domains = self._domain_node_cache.get(cache_key)
         if domains is None:
-            raise RuntimeError("ノードのドメインオブジェクト解決に失敗しました")
+            domains = node.provide_domains(ctx=self)
+            self._domain_node_cache[cache_key] = domains
         return domains
 
     def run_output_runners(self) -> tuple[tuple[ResolvedOutput, ...], tuple[ResolvedRunner, ...]]:

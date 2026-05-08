@@ -1,4 +1,4 @@
-"""NodeSpec から typed MatrixNode を組み立てるファクトリ。
+"""NodeSpec から typed ApplicationNode ツリーの行列構築ノードを組み立てるファクトリ。
 
 インフラ層がロードした NodeSpec を受け取り、
 対応する具象 MatrixNode インスタンスに変換して返す。
@@ -16,7 +16,7 @@ from monocycle_nash.application.node_spec import NodeSpec
 
 
 class MatrixNodeFactory:
-    """NodeSpec から typed MatrixNode を組み立てるファクトリ。
+    """NodeSpec から typed ApplicationNode ツリーの行列構築ノードを組み立てるファクトリ。
 
     ディスパッチと構築ロジックは各 MatrixNode サブクラスの _from_spec に委譲する。
     """
@@ -24,4 +24,3 @@ class MatrixNodeFactory:
     def build(self, spec: NodeSpec) -> MatrixNode:
         """NodeSpec を対応する MatrixNode に変換して返す。"""
         return MatrixNode.create_from_spec(spec, self.build)
-

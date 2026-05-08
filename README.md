@@ -98,7 +98,7 @@ runner = "..."                  # 任意（同名 runner で最終集約）
 [outputs.params]                # 任意
 ```
 
-### `method` 一覧（MatrixNode）
+### `method` 一覧（行列構築ノード）
 
 - `general_from_raw`（`params.matrix` 必須）
 - `monocycle_from_characters`（`params.characters` または `refs.characters`）
@@ -118,7 +118,7 @@ runner = "..."                  # 任意（同名 runner で最終集約）
   - 任意パラメータ: `filename`, `threshold`, `canvas_size`
 - `character_vector_graph`
   - 任意パラメータ: `filename`, `canvas_size`, `margin`
-  - `characters` 属性を持つ行列ノードにのみ利用可
+  - `characters` domain を持つノードにのみ利用可
 - `equilibrium`
   - 任意パラメータ: `filename`
   - 均衡解を `strategies = [{ id, probability }, ...]` 形式のTOMLで出力
