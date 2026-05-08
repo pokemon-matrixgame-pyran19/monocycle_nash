@@ -229,7 +229,7 @@ def test_resolver_runs_shared_runner_once_after_full_resolution(tmp_path: Path) 
 
 
 def test_monocycle_node_provides_characters_without_matrix_property() -> None:
-    node = MonocycleFromCharactersNode(
+    target_node = MonocycleFromCharactersNode(
         characters=CharacterInlineSource((
             CharacterNode(power=1.0, vector=(1.0, 0.0), label="A"),
             CharacterNode(power=0.0, vector=(0.0, 1.0), label="B"),
@@ -238,8 +238,13 @@ def test_monocycle_node_provides_characters_without_matrix_property() -> None:
     resolved = GeneralPayoffMatrix([[0.0, 1.0], [-1.0, 0.0]], ["A", "B"])
     # 直接 context 実装を使って source から characters を供給できることを確認する
     class _Ctx(NodeResolutionContext):
-        def resolve_node(self, node_: object) -> object:
-            if node_ is node:
+        def resolve_node(self, node: object) -> object:
+            if node is target_node:
+                return resolved
+            raise NotImplementedError
+
+        def get_resolved_matrix(self, node: object) -> object:
+            if node is target_node:
                 return resolved
             raise NotImplementedError
 
@@ -252,7 +257,7 @@ def test_monocycle_node_provides_characters_without_matrix_property() -> None:
         def load_teams_from_file(self, path: str) -> list[Team]:
             raise NotImplementedError
 
-    domains = node.provide_domains(ctx=_Ctx())
+    domains = target_node.provide_domains(ctx=_Ctx())
     assert len(domains.characters) == 2
     assert [c.label for c in domains.characters] == ["A", "B"]
 

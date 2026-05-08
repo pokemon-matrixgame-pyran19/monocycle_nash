@@ -188,6 +188,13 @@ class _ResolutionSession(NodeResolutionContext):
 
         return resolved
 
+    def get_resolved_matrix(self, node: MatrixNode) -> PayoffMatrix:
+        cache_key = id(node)
+        resolved = self._resolved_cache.get(cache_key)
+        if resolved is None:
+            raise RuntimeError("未解決ノードの matrix 参照はできません")
+        return resolved
+
     def resolve_node_domains(self, node: ApplicationNode[DomainT]) -> DomainT:
         cache_key = id(node)
         if isinstance(node, MatrixNode):

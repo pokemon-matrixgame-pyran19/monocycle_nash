@@ -111,6 +111,11 @@ class NodeResolutionContext(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def get_resolved_matrix(self, node: MatrixNode) -> PayoffMatrix:
+        """解決済み MatrixNode の PayoffMatrix を返す。"""
+        raise NotImplementedError
+
+    @abstractmethod
     def resolve_node_domains(self, node: "ApplicationNode[DomainT]") -> DomainT:
         """別ノードの解決済みドメインオブジェクトを返す。"""
         raise NotImplementedError
@@ -634,7 +639,7 @@ class MatrixNode(ApplicationNode[MatrixNodeDomainObject]):
         ctx: NodeResolutionContext,
     ) -> MatrixDomainObject:
         """解決済み結果から出力連携用ドメインオブジェクトを返す。"""
-        return MatrixDomainObject(matrix=ctx.resolve_node(self))
+        return MatrixDomainObject(matrix=ctx.get_resolved_matrix(self))
 
 
 # ---------------------------------------------------------------------------
