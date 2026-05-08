@@ -135,7 +135,7 @@ class CharacterSource(ApplicationNode[tuple[Character, ...]]):
         raise NotImplementedError
 
     def get_characters(self, *, ctx: NodeResolutionContext) -> tuple[Character, ...]:
-        """キャラクタータプルを返す。"""
+        """キャラクタータプルを返す（provide_object への便利メソッド）。"""
         return self.provide_object(ctx=ctx)
 
     def provide_object(
@@ -210,7 +210,7 @@ class TeamSource(ApplicationNode[tuple[Team, ...]]):
         raise NotImplementedError
 
     def get_teams(self, *, ctx: NodeResolutionContext) -> tuple[Team, ...]:
-        """チームタプルを返す。"""
+        """チームタプルを返す（provide_object への便利メソッド）。"""
         return self.provide_object(ctx=ctx)
 
     def provide_object(
@@ -586,11 +586,11 @@ class MatrixNode(ApplicationNode[PayoffMatrix]):
         return ctx.get_resolved_matrix(self)
 
     def provide_characters(self, *, ctx: NodeResolutionContext) -> tuple[Character, ...]:
-        """このノードに関連するキャラクター一覧を返す。"""
+        """このノードに関連するキャラクターを返す。デフォルトは空タプル。"""
         return ()
 
     def provide_teams(self, *, ctx: NodeResolutionContext) -> tuple[Team, ...]:
-        """このノードに関連するチーム一覧を返す。"""
+        """このノードに関連するチームを返す。デフォルトは空タプル。"""
         return ()
 
 
