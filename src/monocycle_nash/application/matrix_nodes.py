@@ -134,6 +134,10 @@ class CharacterSource(ApplicationNode[tuple[Character, ...]]):
         """キャラクターリストを返す。"""
         raise NotImplementedError
 
+    def get_characters(self, *, ctx: NodeResolutionContext) -> tuple[Character, ...]:
+        """キャラクター一覧を返す。"""
+        return self.provide_object(ctx=ctx)
+
     def provide_object(
         self,
         *,
@@ -204,6 +208,10 @@ class TeamSource(ApplicationNode[tuple[Team, ...]]):
     def load_teams(self, ctx: NodeResolutionContext) -> list[Team]:
         """チームリストを返す。"""
         raise NotImplementedError
+
+    def get_teams(self, *, ctx: NodeResolutionContext) -> tuple[Team, ...]:
+        """チーム一覧を返す。"""
+        return self.provide_object(ctx=ctx)
 
     def provide_object(
         self,
@@ -640,13 +648,13 @@ class MonocycleFromCharactersNode(MatrixNode, node_method="monocycle_from_charac
         )
 
     def build(self, ctx: NodeResolutionContext) -> PayoffMatrix:
-        characters = ctx.resolve_node_object(self.characters)
+        characters = self.characters.get_characters(ctx=ctx)
         return PayoffMatrixBuilder.from_characters(
             characters=list(characters), labels=self.labels
         )
 
     def provide_characters(self, *, ctx: NodeResolutionContext) -> tuple[Character, ...]:
-        return self.characters.provide_object(ctx=ctx)
+        return self.characters.get_characters(ctx=ctx)
 
 
 @dataclass(frozen=True)
@@ -674,11 +682,11 @@ class GeneralFromTeamsPayoffNode(MatrixNode, node_method="general_from_teams_pay
 
     def build(self, ctx: NodeResolutionContext) -> PayoffMatrix:
         team_payoff = np.asarray(self.team_payoff, dtype=float)
-        teams = ctx.resolve_node_object(self.teams)
+        teams = self.teams.get_teams(ctx=ctx)
         return PayoffMatrixBuilder.from_teams(team_payoff=team_payoff, teams=list(teams))
 
     def provide_teams(self, *, ctx: NodeResolutionContext) -> tuple[Team, ...]:
-        return self.teams.provide_object(ctx=ctx)
+        return self.teams.get_teams(ctx=ctx)
 
 
 @dataclass(frozen=True)
@@ -714,7 +722,7 @@ class GeneralFromTeamMatchupsNode(MatrixNode, node_method="general_from_team_mat
 
     def build(self, ctx: NodeResolutionContext) -> PayoffMatrix:
         character_matrix = ctx.resolve_node(self.character_matrix)
-        teams = ctx.resolve_node_object(self.teams)
+        teams = self.teams.get_teams(ctx=ctx)
         return PayoffMatrixBuilder.from_team_matchups(
             teams=list(teams),
             character_matrix=character_matrix,
@@ -725,7 +733,7 @@ class GeneralFromTeamMatchupsNode(MatrixNode, node_method="general_from_team_mat
         return self.character_matrix.provide_characters(ctx=ctx)
 
     def provide_teams(self, *, ctx: NodeResolutionContext) -> tuple[Team, ...]:
-        return self.teams.provide_object(ctx=ctx)
+        return self.teams.get_teams(ctx=ctx)
 
 
 @dataclass(frozen=True)
