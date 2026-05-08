@@ -163,7 +163,7 @@ class _ResolutionSession(NodeResolutionContext):
             self._active_node_path_stack.pop()
         self._resolved_cache[cache_key] = resolved
 
-        domains = node.provide_domains(ctx=self, resolved=resolved)
+        domains = node.provide_domains(ctx=self)
         self._resolved_domains_cache[cache_key] = domains
         for output_index, output_node in enumerate(node.outputs):
             runner = output_node.resolve_runner() or self._build_default_runner_id(

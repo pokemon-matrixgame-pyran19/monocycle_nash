@@ -139,13 +139,8 @@ class ApplicationNode(ABC, Generic[DomainT]):
         self,
         *,
         ctx: NodeResolutionContext,
-        resolved: PayoffMatrix | None = None,
     ) -> DomainT:
-        """ノードが提供するドメインオブジェクトを返す。
-
-        resolved は行列構築ノードのように build 結果を持つノードで利用し、
-        CharacterSource / TeamSource のような補助ノードでは未使用でよい。
-        """
+        """ノードが提供するドメインオブジェクトを返す。"""
         raise NotImplementedError
 
 
@@ -192,7 +187,6 @@ class CharacterSource(ApplicationNode[CharactersDomainObject]):
         self,
         *,
         ctx: NodeResolutionContext,
-        resolved: PayoffMatrix | None = None,
     ) -> CharactersDomainObject:
         return CharactersDomainObject(characters=tuple(self.load_characters(ctx)))
 
@@ -264,7 +258,6 @@ class TeamSource(ApplicationNode[TeamsDomainObject]):
         self,
         *,
         ctx: NodeResolutionContext,
-        resolved: PayoffMatrix | None = None,
     ) -> TeamsDomainObject:
         return TeamsDomainObject(teams=tuple(self.load_teams(ctx)))
 
@@ -639,12 +632,9 @@ class MatrixNode(ApplicationNode[MatrixNodeDomainObject]):
         self,
         *,
         ctx: NodeResolutionContext,
-        resolved: PayoffMatrix | None = None,
     ) -> MatrixDomainObject:
         """解決済み結果から出力連携用ドメインオブジェクトを返す。"""
-        if resolved is None:
-            raise ValueError("行列構築ノードの domain 提供には resolved matrix が必要です")
-        return MatrixDomainObject(matrix=resolved)
+        return MatrixDomainObject(matrix=ctx.resolve_node(self))
 
 
 # ---------------------------------------------------------------------------
@@ -710,9 +700,8 @@ class MonocycleFromCharactersNode(MatrixNode, node_method="monocycle_from_charac
         self,
         *,
         ctx: NodeResolutionContext,
-        resolved: PayoffMatrix | None = None,
     ) -> MatrixCharactersDomainObject:
-        base_domains = super().provide_domains(ctx=ctx, resolved=resolved)
+        base_domains = super().provide_domains(ctx=ctx)
         character_domains = self.characters.provide_domains(ctx=ctx)
         return MatrixCharactersDomainObject(
             matrix=base_domains.matrix,
@@ -752,9 +741,8 @@ class GeneralFromTeamsPayoffNode(MatrixNode, node_method="general_from_teams_pay
         self,
         *,
         ctx: NodeResolutionContext,
-        resolved: PayoffMatrix | None = None,
     ) -> MatrixTeamsDomainObject:
-        base_domains = super().provide_domains(ctx=ctx, resolved=resolved)
+        base_domains = super().provide_domains(ctx=ctx)
         team_domains = self.teams.provide_domains(ctx=ctx)
         return MatrixTeamsDomainObject(
             matrix=base_domains.matrix,
@@ -806,9 +794,8 @@ class GeneralFromTeamMatchupsNode(MatrixNode, node_method="general_from_team_mat
         self,
         *,
         ctx: NodeResolutionContext,
-        resolved: PayoffMatrix | None = None,
     ) -> MatrixCharactersTeamsDomainObject:
-        base_domains = super().provide_domains(ctx=ctx, resolved=resolved)
+        base_domains = super().provide_domains(ctx=ctx)
         team_domains = self.teams.provide_domains(ctx=ctx)
         child_domains = ctx.resolve_node_domains(self.character_matrix)
         child_characters = _extract_characters(child_domains)

@@ -238,7 +238,9 @@ def test_monocycle_node_provides_characters_without_matrix_property() -> None:
     resolved = GeneralPayoffMatrix([[0.0, 1.0], [-1.0, 0.0]], ["A", "B"])
     # 直接 context 実装を使って source から characters を供給できることを確認する
     class _Ctx(NodeResolutionContext):
-        def resolve_node(self, node: object) -> object:
+        def resolve_node(self, node_: object) -> object:
+            if node_ is node:
+                return resolved
             raise NotImplementedError
 
         def resolve_node_domains(self, node: object) -> object:
@@ -250,7 +252,7 @@ def test_monocycle_node_provides_characters_without_matrix_property() -> None:
         def load_teams_from_file(self, path: str) -> list[Team]:
             raise NotImplementedError
 
-    domains = node.provide_domains(ctx=_Ctx(), resolved=resolved)
+    domains = node.provide_domains(ctx=_Ctx())
     assert len(domains.characters) == 2
     assert [c.label for c in domains.characters] == ["A", "B"]
 
