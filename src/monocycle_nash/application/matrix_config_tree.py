@@ -187,8 +187,8 @@ class _ResolutionSession(NodeResolutionContext):
         return resolved
 
     def resolve_node_domains(self, node: ApplicationNode) -> NodeDomainObjects:
+        cache_key = id(node)
         if isinstance(node, MatrixNode):
-            cache_key = id(node)
             if cache_key not in self._resolved_cache:
                 self.resolve_node(node)
             domains = self._resolved_domains_cache.get(cache_key)
@@ -196,7 +196,6 @@ class _ResolutionSession(NodeResolutionContext):
                 raise RuntimeError("ノードのドメインオブジェクト解決に失敗しました")
             return domains
 
-        cache_key = id(node)
         domains = self._domain_node_cache.get(cache_key)
         if domains is None:
             domains = node.provide_domains(ctx=self)

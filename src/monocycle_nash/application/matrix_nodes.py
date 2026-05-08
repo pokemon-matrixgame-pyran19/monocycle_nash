@@ -83,6 +83,11 @@ class ApplicationNode(ABC):
         ctx: NodeResolutionContext,
         resolved: PayoffMatrix | None = None,
     ) -> "NodeDomainObjects":
+        """ノードが提供するドメインオブジェクトを返す。
+
+        resolved は MatrixNode のように build 結果を持つノードで利用し、
+        CharacterSource / TeamSource のような補助ノードでは未使用でよい。
+        """
         return NodeDomainObjects(matrix=resolved)
 
 
@@ -629,7 +634,7 @@ class MonocycleFromCharactersNode(MatrixNode, node_method="monocycle_from_charac
         resolved: PayoffMatrix | None = None,
     ) -> NodeDomainObjects:
         base_domains = super().provide_domains(ctx=ctx, resolved=resolved)
-        character_domains = ctx.resolve_node_domains(self.characters)
+        character_domains = self.characters.provide_domains(ctx=ctx)
         return NodeDomainObjects(
             matrix=base_domains.matrix,
             characters=character_domains.characters,
@@ -671,7 +676,7 @@ class GeneralFromTeamsPayoffNode(MatrixNode, node_method="general_from_teams_pay
         resolved: PayoffMatrix | None = None,
     ) -> NodeDomainObjects:
         base_domains = super().provide_domains(ctx=ctx, resolved=resolved)
-        team_domains = ctx.resolve_node_domains(self.teams)
+        team_domains = self.teams.provide_domains(ctx=ctx)
         return NodeDomainObjects(
             matrix=base_domains.matrix,
             teams=team_domains.teams,
@@ -725,7 +730,7 @@ class GeneralFromTeamMatchupsNode(MatrixNode, node_method="general_from_team_mat
         resolved: PayoffMatrix | None = None,
     ) -> NodeDomainObjects:
         base_domains = super().provide_domains(ctx=ctx, resolved=resolved)
-        team_domains = ctx.resolve_node_domains(self.teams)
+        team_domains = self.teams.provide_domains(ctx=ctx)
         child_domains = ctx.resolve_node_domains(self.character_matrix)
         return NodeDomainObjects(
             matrix=base_domains.matrix,
