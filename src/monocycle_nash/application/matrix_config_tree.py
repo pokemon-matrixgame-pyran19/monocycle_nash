@@ -10,11 +10,13 @@ from __future__ import annotations
 import itertools
 from dataclasses import dataclass
 from pathlib import Path
+from typing import cast
 
 from monocycle_nash.application.matrix_nodes import (
     ApplicationNode,
+    DomainT,
     MatrixNode,
-    NodeDomainObjects,
+    NodeDomainObject,
     NodeResolutionContext,
     OutputEmission,
     OutputNode,
@@ -140,8 +142,8 @@ class _ResolutionSession(NodeResolutionContext):
         self.resolved_output_emissions: list[ResolvedOutputEmission] = []
         self._emissions_by_runner: dict[str, list[OutputEmission]] = {}
         self._resolved_cache: dict[int, PayoffMatrix] = {}
-        self._resolved_domains_cache: dict[int, NodeDomainObjects] = {}
-        self._domain_node_cache: dict[int, NodeDomainObjects] = {}
+        self._resolved_domains_cache: dict[int, NodeDomainObject] = {}
+        self._domain_node_cache: dict[int, NodeDomainObject] = {}
         self._active_node_path_stack: list[tuple[str, ...]] = []
 
     def resolve_node(self, node: MatrixNode) -> PayoffMatrix:
@@ -161,7 +163,7 @@ class _ResolutionSession(NodeResolutionContext):
             self._active_node_path_stack.pop()
         self._resolved_cache[cache_key] = resolved
 
-        domains = node.provide_domains(ctx=self, resolved=resolved)
+        domains = node.provide_domains(ctx=self)
         self._resolved_domains_cache[cache_key] = domains
         for output_index, output_node in enumerate(node.outputs):
             runner = output_node.resolve_runner() or self._build_default_runner_id(
@@ -186,7 +188,14 @@ class _ResolutionSession(NodeResolutionContext):
 
         return resolved
 
-    def resolve_node_domains(self, node: ApplicationNode) -> NodeDomainObjects:
+    def get_resolved_matrix(self, node: MatrixNode) -> PayoffMatrix:
+        cache_key = id(node)
+        resolved = self._resolved_cache.get(cache_key)
+        if resolved is None:
+            raise RuntimeError("未解決ノードの matrix 参照はできません")
+        return resolved
+
+    def resolve_node_domains(self, node: ApplicationNode[DomainT]) -> DomainT:
         cache_key = id(node)
         if isinstance(node, MatrixNode):
             if cache_key not in self._resolved_cache:
@@ -194,13 +203,13 @@ class _ResolutionSession(NodeResolutionContext):
             domains = self._resolved_domains_cache.get(cache_key)
             if domains is None:
                 raise RuntimeError("ノードのドメインオブジェクト解決に失敗しました")
-            return domains
+            return cast(DomainT, domains)
 
         domains = self._domain_node_cache.get(cache_key)
         if domains is None:
             domains = node.provide_domains(ctx=self)
             self._domain_node_cache[cache_key] = domains
-        return domains
+        return cast(DomainT, domains)
 
     def run_output_runners(self) -> tuple[tuple[ResolvedOutput, ...], tuple[ResolvedRunner, ...]]:
         if self._emissions_by_runner and self._output_path_port is None:
