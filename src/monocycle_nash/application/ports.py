@@ -74,7 +74,7 @@ class MatrixTreeConfigPort(ABC):
 
     インフラ層が実装し、設定 ID またはパスから NodeSpec を返す。
     アプリ層はこのポートを通じてノード設定を取得し、
-    MatrixNodeFactory を使って typed MatrixNode に変換する。
+    MatrixNodeFactory を使って typed ApplicationNode ツリーの行列構築ノードに変換する。
     """
 
     @abstractmethod

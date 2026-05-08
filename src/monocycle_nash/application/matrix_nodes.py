@@ -46,7 +46,7 @@ from monocycle_nash.domain.visualization.payoff_graph import PayoffDirectedGraph
 
 
 class NodeResolutionContext(ABC):
-    """MatrixNode.build() が再帰解決やファイル読み込みに使用するコンテキスト。"""
+    """ApplicationNode 解決時に再帰参照やファイル読み込みで使うコンテキスト。"""
 
     @abstractmethod
     def resolve_node(self, node: MatrixNode) -> PayoffMatrix:
@@ -85,7 +85,7 @@ class ApplicationNode(ABC):
     ) -> "NodeDomainObjects":
         """ノードが提供するドメインオブジェクトを返す。
 
-        resolved は MatrixNode のように build 結果を持つノードで利用し、
+        resolved は行列構築ノードのように build 結果を持つノードで利用し、
         CharacterSource / TeamSource のような補助ノードでは未使用でよい。
         """
         return NodeDomainObjects(matrix=resolved)
@@ -564,7 +564,7 @@ class MatrixNode(ApplicationNode):
     ) -> NodeDomainObjects:
         """解決済み結果から出力連携用ドメインオブジェクトを返す。"""
         if resolved is None:
-            raise ValueError("MatrixNode の domain 提供には resolved matrix が必要です")
+            raise ValueError("行列構築ノードの domain 提供には resolved matrix が必要です")
         return NodeDomainObjects(matrix=resolved)
 
 
