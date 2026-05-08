@@ -94,6 +94,7 @@ name = "..."                    # 任意
 method = "..."
 [[outputs]]                     # 任意
 method = "..."                  # outputsでは必須
+runner = "..."                  # 任意（同名 runner で最終集約）
 [outputs.params]                # 任意
 ```
 
@@ -110,6 +111,9 @@ method = "..."                  # outputsでは必須
 
 ### `outputs[].method` 一覧（OutputNode）
 
+- `outputs[].runner`
+  - 任意。同じ値を指定した出力は同一 runner に送信され、**全ノード解決後に runner が1回だけ**実行されます。
+  - 省略時は後方互換の単体実行（出力ごとに独立 runner）です。
 - `payoff_directed_graph`
   - 任意パラメータ: `filename`, `threshold`, `canvas_size`
 - `character_vector_graph`

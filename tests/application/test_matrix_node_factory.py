@@ -280,6 +280,7 @@ def test_build_approx_equilibrium_preserving() -> None:
 def test_build_with_payoff_directed_graph_output() -> None:
     out = OutputSpec(
         method="payoff_directed_graph",
+        runner="final",
         params={"filename": "out.svg", "threshold": 0.2, "canvas_size": 600},
     )
     spec = NodeSpec(
@@ -291,6 +292,7 @@ def test_build_with_payoff_directed_graph_output() -> None:
     assert len(node.outputs) == 1
     output_node = node.outputs[0]
     assert isinstance(output_node, PayoffDirectedGraphOutputNode)
+    assert output_node.runner == "final"
     assert output_node.filename == "out.svg"
     assert output_node.threshold == pytest.approx(0.2)
     assert output_node.canvas_size == 600
@@ -299,6 +301,7 @@ def test_build_with_payoff_directed_graph_output() -> None:
 def test_build_with_character_vector_graph_output() -> None:
     out = OutputSpec(
         method="character_vector_graph",
+        runner="final",
         params={"filename": "chars.svg", "canvas_size": 720, "margin": 60},
     )
     spec = NodeSpec(
@@ -310,12 +313,14 @@ def test_build_with_character_vector_graph_output() -> None:
     assert len(node.outputs) == 1
     output_node = node.outputs[0]
     assert isinstance(output_node, CharacterVectorGraphOutputNode)
+    assert output_node.runner == "final"
     assert output_node.margin == 60
 
 
 def test_build_with_equilibrium_output() -> None:
     out = OutputSpec(
         method="equilibrium",
+        runner="final",
         params={"filename": "equilibrium_out.toml"},
     )
     spec = NodeSpec(
@@ -327,6 +332,7 @@ def test_build_with_equilibrium_output() -> None:
     assert len(node.outputs) == 1
     output_node = node.outputs[0]
     assert isinstance(output_node, EquilibriumOutputNode)
+    assert output_node.runner == "final"
     assert output_node.filename == "equilibrium_out.toml"
 
 

@@ -23,6 +23,7 @@ class OutputSpec:
     """OutputNode の設定 DTO。"""
 
     method: str
+    runner: str | None = None
     params: dict[str, Any] = field(default_factory=dict)
 
 

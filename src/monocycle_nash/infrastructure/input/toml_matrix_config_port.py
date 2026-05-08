@@ -6,8 +6,9 @@ TOML ファイルのスキーマ（トップレベルキー）:
   [params] : テーブル — method 固有のパラメータ
   [refs]   : テーブル — 補助データへのファイルパス参照（値は文字列）
   [children.<key>] : ネストしたノード仕様（再帰的に同スキーマを適用）
-  [[outputs]] : 出力ノード仕様の配列
+ [[outputs]] : 出力ノード仕様の配列
     method   : str
+    runner   : str | null  — 同一 runner 名で最終集約実行（省略可）
     [params] : テーブル — 出力固有のパラメータ
 
 使用例（data/rps.toml）::
@@ -108,5 +109,6 @@ class TomlMatrixConfigPort(MatrixTreeConfigPort):
             raise KeyError("outputs エントリに 'method' キーが必要です")
         return OutputSpec(
             method=data["method"],
+            runner=data.get("runner"),
             params=dict(data.get("params", {})),
         )

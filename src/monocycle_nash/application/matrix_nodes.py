@@ -2,7 +2,7 @@
 
 各ノード型が「この生成方式はこういう値や設定を受け取る」を明示する。
 依存する他ドメインモデルは型付きフィールドとして直接保持し、
-各ノードは build / run / load_characters / load_teams でそれぞれの解決ロジックを担う。
+各ノードは build / emit / execute / load_characters / load_teams でそれぞれの解決ロジックを担う。
 
 新規ノード種別を追加する場合は:
   1. 具象 MatrixNode サブクラスを作り、class 宣言に `node_method="..."` を付ける
@@ -12,6 +12,7 @@
 新規出力種別を追加する場合は:
   1. 具象 OutputNode サブクラスを作り、class 宣言に `output_method="..."` を付ける
   2. `_from_output_spec(cls, spec)` classmethod を実装する
+  3. `emit(...)` と `execute(...)` を実装する
 """
 
 from __future__ import annotations
@@ -50,6 +51,11 @@ class NodeResolutionContext(ABC):
     @abstractmethod
     def resolve_node(self, node: MatrixNode) -> PayoffMatrix:
         """別ノードを再帰的に解決して PayoffMatrix を返す。"""
+        raise NotImplementedError
+
+    @abstractmethod
+    def resolve_node_domains(self, node: MatrixNode) -> "NodeDomainObjects":
+        """別ノードの解決済みドメインオブジェクトを返す。"""
         raise NotImplementedError
 
     @abstractmethod
@@ -195,6 +201,26 @@ class TeamListFromFileNode(TeamSource):
 # ---------------------------------------------------------------------------
 
 
+@dataclass(frozen=True)
+class NodeDomainObjects:
+    """ノード解決後に出力連携へ渡すドメインオブジェクト群。"""
+
+    matrix: PayoffMatrix
+    characters: tuple[Character, ...] = ()
+    teams: tuple[Team, ...] = ()
+
+
+@dataclass(frozen=True)
+class OutputEmission:
+    """OutputNode が runner へ送る出力イベント。"""
+
+    output_node: "OutputNode"
+    node_name: str
+    node_path: tuple[str, ...]
+    runner: str | None
+    domains: NodeDomainObjects
+
+
 class OutputNode(ABC):
     """出力ノードの抽象基底。
 
@@ -204,10 +230,12 @@ class OutputNode(ABC):
     """
 
     _output_registry: ClassVar[dict[str, type[OutputNode]]] = {}
+    _output_method: ClassVar[str] = ""
 
     def __init_subclass__(cls, output_method: str | None = None, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
         if output_method is not None:
+            cls._output_method = output_method
             OutputNode._output_registry[output_method] = cls
 
     @classmethod
@@ -230,15 +258,33 @@ class OutputNode(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def run(
+    def emit(
+        self,
+        *,
+        node_name: str,
+        node_path: tuple[str, ...],
+        domains: NodeDomainObjects,
+    ) -> OutputEmission:
+        """Runner に渡す出力イベントを生成する。"""
+        raise NotImplementedError
+
+    @property
+    def output_method(self) -> str:
+        return self._output_method
+
+    def resolve_runner(self) -> str | None:
+        return getattr(self, "runner", None)
+
+    @abstractmethod
+    def execute(
         self,
         *,
         output_path_port: OutputPathPort,
         run_id: str,
         node_path: tuple[str, ...],
-        matrix: PayoffMatrix,
+        domains: NodeDomainObjects,
     ) -> Path:
-        """出力を実行してファイルパスを返す。"""
+        """Runner から呼び出され、最終成果物を生成する。"""
         raise NotImplementedError
 
 
@@ -246,6 +292,7 @@ class OutputNode(ABC):
 class PayoffDirectedGraphOutputNode(OutputNode, output_method="payoff_directed_graph"):
     """有向グラフ出力設定ノード。"""
 
+    runner: str | None = None
     filename: str = "payoff_directed_graph.svg"
     threshold: float = 0.0
     canvas_size: int = 840
@@ -253,28 +300,44 @@ class PayoffDirectedGraphOutputNode(OutputNode, output_method="payoff_directed_g
     @classmethod
     def _from_output_spec(cls, spec: OutputSpec) -> PayoffDirectedGraphOutputNode:
         return cls(
+            runner=spec.runner,
             filename=spec.params.get("filename", "payoff_directed_graph.svg"),
             threshold=spec.params.get("threshold", 0.0),
             canvas_size=spec.params.get("canvas_size", 840),
         )
 
-    def run(
+    def emit(
+        self,
+        *,
+        node_name: str,
+        node_path: tuple[str, ...],
+        domains: NodeDomainObjects,
+    ) -> OutputEmission:
+        return OutputEmission(
+            output_node=self,
+            node_name=node_name,
+            node_path=node_path,
+            runner=self.runner,
+            domains=domains,
+        )
+
+    def execute(
         self,
         *,
         output_path_port: OutputPathPort,
         run_id: str,
         node_path: tuple[str, ...],
-        matrix: PayoffMatrix,
+        domains: NodeDomainObjects,
     ) -> Path:
         path = output_path_port.resolve_output_path(
             run_id=run_id,
             node_path=node_path,
-            output_method="payoff_directed_graph",
+            output_method=self.output_method,
             filename=self.filename,
         )
         PayoffDirectedGraphPlotter(
-            payoff_matrix=matrix.matrix,
-            labels=matrix.labels,
+            payoff_matrix=domains.matrix.matrix,
+            labels=domains.matrix.labels,
             threshold=self.threshold,
         ).draw(path, canvas_size=self.canvas_size)
         return path
@@ -284,6 +347,7 @@ class PayoffDirectedGraphOutputNode(OutputNode, output_method="payoff_directed_g
 class CharacterVectorGraphOutputNode(OutputNode, output_method="character_vector_graph"):
     """キャラクターベクトルグラフ出力設定ノード。"""
 
+    runner: str | None = None
     filename: str = "character_vector_graph.svg"
     canvas_size: int = 840
     margin: int = 90
@@ -291,31 +355,46 @@ class CharacterVectorGraphOutputNode(OutputNode, output_method="character_vector
     @classmethod
     def _from_output_spec(cls, spec: OutputSpec) -> CharacterVectorGraphOutputNode:
         return cls(
+            runner=spec.runner,
             filename=spec.params.get("filename", "character_vector_graph.svg"),
             canvas_size=spec.params.get("canvas_size", 840),
             margin=spec.params.get("margin", 90),
         )
 
-    def run(
+    def emit(
+        self,
+        *,
+        node_name: str,
+        node_path: tuple[str, ...],
+        domains: NodeDomainObjects,
+    ) -> OutputEmission:
+        return OutputEmission(
+            output_node=self,
+            node_name=node_name,
+            node_path=node_path,
+            runner=self.runner,
+            domains=domains,
+        )
+
+    def execute(
         self,
         *,
         output_path_port: OutputPathPort,
         run_id: str,
         node_path: tuple[str, ...],
-        matrix: PayoffMatrix,
+        domains: NodeDomainObjects,
     ) -> Path:
         path = output_path_port.resolve_output_path(
             run_id=run_id,
             node_path=node_path,
-            output_method="character_vector_graph",
+            output_method=self.output_method,
             filename=self.filename,
         )
-        characters = getattr(matrix, "characters", None)
-        if not isinstance(characters, list) or not characters:
+        if not domains.characters:
             raise ValueError(
                 "character_vector_graph は characters を持つノードでのみ使用できます"
             )
-        CharacterVectorGraphPlotter(characters).draw(
+        CharacterVectorGraphPlotter(list(domains.characters)).draw(
             output_path=path,
             canvas_size=self.canvas_size,
             margin=self.margin,
@@ -327,29 +406,46 @@ class CharacterVectorGraphOutputNode(OutputNode, output_method="character_vector
 class EquilibriumOutputNode(OutputNode, output_method="equilibrium"):
     """均衡解ファイル出力設定ノード。"""
 
+    runner: str | None = None
     filename: str = "equilibrium.toml"
 
     @classmethod
     def _from_output_spec(cls, spec: OutputSpec) -> EquilibriumOutputNode:
         return cls(
+            runner=spec.runner,
             filename=spec.params.get("filename", "equilibrium.toml"),
         )
 
-    def run(
+    def emit(
+        self,
+        *,
+        node_name: str,
+        node_path: tuple[str, ...],
+        domains: NodeDomainObjects,
+    ) -> OutputEmission:
+        return OutputEmission(
+            output_node=self,
+            node_name=node_name,
+            node_path=node_path,
+            runner=self.runner,
+            domains=domains,
+        )
+
+    def execute(
         self,
         *,
         output_path_port: OutputPathPort,
         run_id: str,
         node_path: tuple[str, ...],
-        matrix: PayoffMatrix,
+        domains: NodeDomainObjects,
     ) -> Path:
         path = output_path_port.resolve_output_path(
             run_id=run_id,
             node_path=node_path,
-            output_method="equilibrium",
+            output_method=self.output_method,
             filename=self.filename,
         )
-        mixed = SolverSelector().solve(matrix)
+        mixed = SolverSelector().solve(domains.matrix)
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("wb") as f:
             tomli_w.dump(
@@ -418,6 +514,10 @@ class MatrixNode(ABC):
         """コンテキストを使って PayoffMatrix を構築して返す。"""
         raise NotImplementedError
 
+    def provide_domains(self, *, ctx: NodeResolutionContext, resolved: PayoffMatrix) -> NodeDomainObjects:
+        """解決済み結果から出力連携用ドメインオブジェクトを返す。"""
+        return NodeDomainObjects(matrix=resolved)
+
 
 # ---------------------------------------------------------------------------
 # Matrix nodes — 各生成方式ごとの具象ノード
@@ -476,6 +576,10 @@ class MonocycleFromCharactersNode(MatrixNode, node_method="monocycle_from_charac
         characters = self.characters.load_characters(ctx)
         return PayoffMatrixBuilder.from_characters(characters=characters, labels=self.labels)
 
+    def provide_domains(self, *, ctx: NodeResolutionContext, resolved: PayoffMatrix) -> NodeDomainObjects:
+        characters = self.characters.load_characters(ctx)
+        return NodeDomainObjects(matrix=resolved, characters=tuple(characters))
+
 
 @dataclass(frozen=True)
 class GeneralFromTeamsPayoffNode(MatrixNode, node_method="general_from_teams_payoff"):
@@ -504,6 +608,10 @@ class GeneralFromTeamsPayoffNode(MatrixNode, node_method="general_from_teams_pay
         team_payoff = np.asarray(self.team_payoff, dtype=float)
         teams = self.teams.load_teams(ctx)
         return PayoffMatrixBuilder.from_teams(team_payoff=team_payoff, teams=teams)
+
+    def provide_domains(self, *, ctx: NodeResolutionContext, resolved: PayoffMatrix) -> NodeDomainObjects:
+        teams = self.teams.load_teams(ctx)
+        return NodeDomainObjects(matrix=resolved, teams=tuple(teams))
 
 
 @dataclass(frozen=True)
@@ -544,6 +652,15 @@ class GeneralFromTeamMatchupsNode(MatrixNode, node_method="general_from_team_mat
             teams=teams,
             character_matrix=character_matrix,
             use_monocycle_formula=self.use_monocycle_formula,
+        )
+
+    def provide_domains(self, *, ctx: NodeResolutionContext, resolved: PayoffMatrix) -> NodeDomainObjects:
+        teams = self.teams.load_teams(ctx)
+        child_domains = ctx.resolve_node_domains(self.character_matrix)
+        return NodeDomainObjects(
+            matrix=resolved,
+            characters=child_domains.characters,
+            teams=tuple(teams),
         )
 
 

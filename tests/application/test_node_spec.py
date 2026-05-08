@@ -20,12 +20,18 @@ def test_output_spec_default_params() -> None:
     """params のデフォルトは空辞書。"""
     spec = OutputSpec(method="character_vector_graph")
     assert spec.params == {}
+    assert spec.runner is None
 
 
 def test_output_spec_with_params() -> None:
     spec = OutputSpec(method="payoff_directed_graph", params={"filename": "out.svg", "threshold": 0.1})
     assert spec.params["filename"] == "out.svg"
     assert spec.params["threshold"] == pytest.approx(0.1)
+
+
+def test_output_spec_with_runner() -> None:
+    spec = OutputSpec(method="equilibrium", runner="final")
+    assert spec.runner == "final"
 
 
 # ---------------------------------------------------------------------------

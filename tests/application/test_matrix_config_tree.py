@@ -20,6 +20,7 @@ from monocycle_nash.application.matrix_nodes import (
     EquilibriumOutputNode,
     GeneralFromTeamMatchupsNode,
     MonocycleFromCharactersNode,
+    NodeResolutionContext,
     PayoffDirectedGraphOutputNode,
     TeamInlineSource,
     TeamListFromFileNode,
@@ -129,7 +130,9 @@ def test_resolver_builds_team_matrix_with_nested_dependency_and_outputs(tmp_path
     assert result.root.matrix.shape == (2, 2)
     assert result.run_id == 1
     assert len(result.outputs) == 2
+    assert len(result.output_emissions) == 2
     assert all(output.path.exists() for output in result.outputs)
+    assert len(result.runners) == 2
     assert all(
         run_id == str(result.run_id)
         for run_id, _, _, _ in output_port.calls
@@ -158,6 +161,7 @@ def test_resolver_runs_equilibrium_output_node(tmp_path: Path) -> None:
     result = resolver.resolve(tree)
 
     assert len(result.outputs) == 1
+    assert len(result.runners) == 1
     output = result.outputs[0]
     assert output.path.exists()
     assert output_port.calls[0][2] == "equilibrium"
@@ -187,6 +191,97 @@ def test_resolver_without_output_path_port_rejects_output() -> None:
 
     with pytest.raises(ValueError, match="OutputPathPort"):
         resolver.resolve(tree)
+
+
+def test_resolver_runs_shared_runner_once_after_full_resolution(tmp_path: Path) -> None:
+    tree = MatrixConfigTree(
+        root=GeneralFromTeamMatchupsNode(
+            name="team-root",
+            teams=TeamInlineSource((
+                TeamNode(label="A+B", member_ids=("A", "B")),
+                TeamNode(label="B+C", member_ids=("B", "C")),
+            )),
+            character_matrix=MonocycleFromCharactersNode(
+                name="character-source",
+                characters=CharacterInlineSource((
+                    CharacterNode(power=1.0, vector=(1.0, 0.0), label="A"),
+                    CharacterNode(power=0.0, vector=(0.0, 1.0), label="B"),
+                    CharacterNode(power=-1.0, vector=(-1.0, 0.0), label="C"),
+                )),
+                labels=["A", "B", "C"],
+                outputs=(CharacterVectorGraphOutputNode(runner="final", filename="chars.svg"),),
+            ),
+            use_monocycle_formula=True,
+            outputs=(PayoffDirectedGraphOutputNode(runner="final", filename="team.svg"),),
+        )
+    )
+    output_port = StubOutputPathPort(tmp_path)
+    resolver = MatrixConfigTreeResolver(output_path_port=output_port)
+
+    result = resolver.resolve(tree)
+
+    assert len(result.output_emissions) == 2
+    assert len(result.runners) == 1
+    assert result.runners[0].runner == "final"
+    assert result.runners[0].emitted_count == 2
+    assert result.runners[0].output_count == 2
+    assert all(o.runner == "final" for o in result.outputs)
+
+
+def test_monocycle_node_provides_characters_without_matrix_property() -> None:
+    node = MonocycleFromCharactersNode(
+        characters=CharacterInlineSource((
+            CharacterNode(power=1.0, vector=(1.0, 0.0), label="A"),
+            CharacterNode(power=0.0, vector=(0.0, 1.0), label="B"),
+        )),
+    )
+    resolved = GeneralPayoffMatrix([[0.0, 1.0], [-1.0, 0.0]], ["A", "B"])
+    # 直接 context 実装を使って source から characters を供給できることを確認する
+    class _Ctx(NodeResolutionContext):
+        def resolve_node(self, node: object) -> object:
+            raise NotImplementedError
+
+        def resolve_node_domains(self, node: object) -> object:
+            raise NotImplementedError
+
+        def load_characters_from_file(self, path: str) -> list[Character]:
+            raise NotImplementedError
+
+        def load_teams_from_file(self, path: str) -> list[Team]:
+            raise NotImplementedError
+
+    domains = node.provide_domains(ctx=_Ctx(), resolved=resolved)
+    assert len(domains.characters) == 2
+    assert [c.label for c in domains.characters] == ["A", "B"]
+
+
+def test_team_matchups_node_can_emit_character_vector_from_child_domain(tmp_path: Path) -> None:
+    tree = MatrixConfigTree(
+        root=GeneralFromTeamMatchupsNode(
+            name="team-root",
+            teams=TeamInlineSource((
+                TeamNode(label="A+B", member_ids=("A", "B")),
+                TeamNode(label="B+C", member_ids=("B", "C")),
+            )),
+            character_matrix=MonocycleFromCharactersNode(
+                name="character-source",
+                characters=CharacterInlineSource((
+                    CharacterNode(power=1.0, vector=(1.0, 0.0), label="A"),
+                    CharacterNode(power=0.0, vector=(0.0, 1.0), label="B"),
+                    CharacterNode(power=-1.0, vector=(-1.0, 0.0), label="C"),
+                )),
+                labels=["A", "B", "C"],
+            ),
+            outputs=(CharacterVectorGraphOutputNode(filename="team_chars.svg"),),
+        )
+    )
+    output_port = StubOutputPathPort(tmp_path)
+    resolver = MatrixConfigTreeResolver(output_path_port=output_port)
+
+    result = resolver.resolve(tree)
+
+    assert len(result.outputs) == 1
+    assert result.outputs[0].path.exists()
 
 
 # ---------------------------------------------------------------------------

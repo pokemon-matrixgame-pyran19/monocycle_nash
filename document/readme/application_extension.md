@@ -45,7 +45,14 @@ TOML 設定の `[[outputs]]` で指定できる新しい出力の種類を追加
 
 1. `OutputNode` を継承したクラスを作り、クラス宣言に `output_method="新しいmethod名"` を付ける
 2. `_from_output_spec(cls, spec)` classmethod を実装する（TOML の `outputs.params` をもとにインスタンスを組み立てる）
-3. `run(self, *, output_path_port, run_id, node_path, matrix) -> Path` メソッドを実装する（出力ファイルを生成してパスを返す）
+3. `emit(self, *, node_name, node_path, domains)` を実装する（Runner に送るイベントを生成）
+4. `execute(self, *, output_path_port, run_id, node_path, domains) -> Path` を実装する（Runner から呼ばれる最終成果物生成）
+
+### `outputs[].runner` について
+
+- `OutputSpec.runner`（TOMLでは `outputs[].runner`）で集約先 runner を明示指定する
+- 同じ runner 名の出力は、resolver が全ノード解決後にまとめて最終1回実行する
+- 未指定時は後方互換として出力ごとに独立 runner で実行される
 
 ### クラス登録の作業は不要
 

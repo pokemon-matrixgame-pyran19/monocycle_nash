@@ -204,6 +204,21 @@ def test_load_node_spec_with_outputs(tmp_path: Path) -> None:
     assert out.method == "payoff_directed_graph"
     assert out.params["filename"] == "graph.svg"
     assert out.params["threshold"] == pytest.approx(0.1)
+    assert out.runner is None
+
+
+def test_load_node_spec_with_output_runner(tmp_path: Path) -> None:
+    write_toml(tmp_path / "output_runner.toml", """
+        method = "monocycle_from_characters"
+
+        [[outputs]]
+        method = "payoff_directed_graph"
+        runner = "final"
+    """)
+    port = TomlMatrixConfigPort(data_dir=tmp_path)
+    spec = port.load_node_spec("output_runner")
+    assert len(spec.outputs) == 1
+    assert spec.outputs[0].runner == "final"
 
 
 def test_load_node_spec_multiple_outputs(tmp_path: Path) -> None:

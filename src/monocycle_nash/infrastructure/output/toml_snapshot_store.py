@@ -59,6 +59,8 @@ class TomlConfigTreeSnapshotStore(ConfigTreeSnapshotStorePort):
 
     def _output_spec_to_dict(self, spec: OutputSpec) -> dict[str, Any]:
         d: dict[str, Any] = {"method": spec.method}
+        if spec.runner is not None:
+            d["runner"] = spec.runner
         if spec.params:
             d["params"] = spec.params
         return d
