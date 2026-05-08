@@ -87,6 +87,12 @@ NodeDomainObject = (
     | MatrixTeamsDomainObject
     | MatrixCharactersTeamsDomainObject
 )
+MatrixNodeDomainObject = (
+    MatrixDomainObject
+    | MatrixCharactersDomainObject
+    | MatrixTeamsDomainObject
+    | MatrixCharactersTeamsDomainObject
+)
 
 DomainT = TypeVar("DomainT", bound=NodeDomainObject)
 
@@ -384,9 +390,14 @@ def _extract_matrix(domains: NodeDomainObject) -> PayoffMatrix | None:
 
 
 def _extract_characters(domains: NodeDomainObject) -> tuple[Character, ...]:
-    if isinstance(domains, (CharactersDomainObject, MatrixCharactersDomainObject)):
-        return domains.characters
-    if isinstance(domains, MatrixCharactersTeamsDomainObject):
+    if isinstance(
+        domains,
+        (
+            CharactersDomainObject,
+            MatrixCharactersDomainObject,
+            MatrixCharactersTeamsDomainObject,
+        ),
+    ):
         return domains.characters
     return ()
 
@@ -575,7 +586,7 @@ class EquilibriumOutputNode(OutputNode, output_method="equilibrium"):
 # ---------------------------------------------------------------------------
 
 
-class MatrixNode(ApplicationNode[NodeDomainObject]):
+class MatrixNode(ApplicationNode[MatrixNodeDomainObject]):
     """行列構築ノードの抽象基底。
 
     すべての具象ノードは name・outputs フィールドと build メソッドを実装する。
