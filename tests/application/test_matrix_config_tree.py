@@ -248,7 +248,7 @@ def test_monocycle_node_provides_characters_without_matrix_property() -> None:
                 return resolved
             raise NotImplementedError
 
-        def resolve_node_domains(self, node: object) -> object:
+        def resolve_node_object(self, node: object) -> object:
             raise NotImplementedError
 
         def load_characters_from_file(self, path: str) -> list[Character]:
@@ -257,9 +257,9 @@ def test_monocycle_node_provides_characters_without_matrix_property() -> None:
         def load_teams_from_file(self, path: str) -> list[Team]:
             raise NotImplementedError
 
-    domains = target_node.provide_domains(ctx=_Ctx())
-    assert len(domains.characters) == 2
-    assert [c.label for c in domains.characters] == ["A", "B"]
+    characters = target_node.provide_characters(ctx=_Ctx())
+    assert len(characters) == 2
+    assert [c.label for c in characters] == ["A", "B"]
 
 
 def test_team_matchups_node_can_emit_character_vector_from_child_domain(tmp_path: Path) -> None:
