@@ -135,7 +135,7 @@ class CharacterSource(ApplicationNode[tuple[Character, ...]]):
         raise NotImplementedError
 
     def get_characters(self, *, ctx: NodeResolutionContext) -> tuple[Character, ...]:
-        """キャラクター一覧を返す。"""
+        """キャラクタータプルを返す。"""
         return self.provide_object(ctx=ctx)
 
     def provide_object(
@@ -210,7 +210,7 @@ class TeamSource(ApplicationNode[tuple[Team, ...]]):
         raise NotImplementedError
 
     def get_teams(self, *, ctx: NodeResolutionContext) -> tuple[Team, ...]:
-        """チーム一覧を返す。"""
+        """チームタプルを返す。"""
         return self.provide_object(ctx=ctx)
 
     def provide_object(
