@@ -22,7 +22,7 @@ import tomli_w
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, ClassVar, Generic, TypeVar, cast
+from typing import Callable, ClassVar, Generic, TypeVar, cast
 
 from monocycle_nash.application.node_spec import NodeSpec, OutputSpec
 from monocycle_nash.application.ports import OutputPathPort
@@ -41,6 +41,8 @@ from monocycle_nash.domain.visualization.payoff_graph import PayoffDirectedGraph
 
 
 DomainT = TypeVar("DomainT")
+# TOML 由来のネスト配列か、既に数値化済みの ndarray を受け付ける。
+RawMatrix = list[list[float]] | np.ndarray
 
 
 # ---------------------------------------------------------------------------
@@ -103,10 +105,10 @@ class ApplicationNode(ABC, Generic[DomainT]):
             return name
         raise TypeError("ApplicationNode.name は str である必要があります")
 
-    def resolve_outputs(self) -> tuple["OutputNode[Any]", ...]:
+    def resolve_outputs(self) -> tuple["OutputNode", ...]:
         """resolver 上の出力ノード列。outputs 属性がある場合のみ返す。"""
         outputs = getattr(self, "outputs", ())
-        resolved_outputs: list["OutputNode[Any]"] = []
+        resolved_outputs: list["OutputNode"] = []
         for output in outputs:
             if not isinstance(output, OutputNode):
                 raise TypeError("ApplicationNode.outputs は OutputNode の列である必要があります")
@@ -123,7 +125,7 @@ class ApplicationNode(ABC, Generic[DomainT]):
         raise NotImplementedError
 
 
-NodeT = TypeVar("NodeT", bound=ApplicationNode[Any])
+NodeT = TypeVar("NodeT", bound=ApplicationNode)
 
 
 # ---------------------------------------------------------------------------
@@ -288,7 +290,7 @@ class OutputEmission:
     node_name: str
     node_path: tuple[str, ...]
     runner: str | None
-    node: "ApplicationNode[Any]"
+    node: "ApplicationNode"
 
 
 class OutputNode(ABC, Generic[NodeT]):
@@ -302,8 +304,8 @@ class OutputNode(ABC, Generic[NodeT]):
     _output_registry: ClassVar[dict[str, type[OutputNode]]] = {}
     _output_method: ClassVar[str] = ""
 
-    def __init_subclass__(cls, output_method: str | None = None, **kwargs: Any) -> None:
-        super().__init_subclass__(**kwargs)
+    def __init_subclass__(cls, output_method: str | None = None) -> None:
+        super().__init_subclass__()
         if output_method is not None:
             cls._output_method = output_method
             OutputNode._output_registry[output_method] = cls
@@ -559,8 +561,8 @@ class MatrixNode(ApplicationNode[PayoffMatrix]):
     name: str
     outputs: tuple[OutputNode, ...]
 
-    def __init_subclass__(cls, node_method: str | None = None, **kwargs: Any) -> None:
-        super().__init_subclass__(**kwargs)
+    def __init_subclass__(cls, node_method: str | None = None) -> None:
+        super().__init_subclass__()
         if node_method is not None:
             MatrixNode._node_registry[node_method] = cls
 
@@ -624,7 +626,7 @@ class MatrixNode(ApplicationNode[PayoffMatrix]):
 class GeneralFromRawNode(MatrixNode, node_method="general_from_raw"):
     """生行列データから一般利得行列を構築するノード。"""
 
-    matrix: Any  # list[list[float]] または np.ndarray
+    matrix: RawMatrix
     labels: list[str] | None = None
     name: str = "root"
     outputs: tuple[OutputNode, ...] = field(default_factory=tuple)
@@ -685,7 +687,7 @@ class GeneralFromTeamsPayoffNode(MatrixNode, node_method="general_from_teams_pay
     teams には TeamInlineSource または TeamListFromFileNode を指定する。
     """
 
-    team_payoff: Any  # list[list[float]] または np.ndarray
+    team_payoff: RawMatrix
     teams: TeamSource
     name: str = "root"
     outputs: tuple[OutputNode, ...] = field(default_factory=tuple)
