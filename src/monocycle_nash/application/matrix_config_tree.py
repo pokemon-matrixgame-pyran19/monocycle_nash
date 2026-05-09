@@ -14,11 +14,13 @@ from typing import cast
 
 from monocycle_nash.application.matrix_nodes import (
     ApplicationNode,
+    CharacterListFromFileNode,
     DomainT,
     MatrixNode,
     NodeResolutionContext,
     OutputEmission,
     OutputNode,
+    TeamListFromFileNode,
 )
 from monocycle_nash.application.ports import (
     CharacterListFilePort,
@@ -26,8 +28,6 @@ from monocycle_nash.application.ports import (
     OutputPathPort,
     TeamListFilePort,
 )
-from monocycle_nash.domain.character import Character
-from monocycle_nash.domain.team import Team
 
 
 @dataclass(frozen=True)
@@ -157,6 +157,7 @@ class _ResolutionSession(NodeResolutionContext):
             self._active_node_path_stack.append(node_path)
 
         try:
+            self._bind_file_ports(node)
             resolved = node.resolve_value(ctx=self)
         finally:
             if node_path is not None:
@@ -238,16 +239,8 @@ class _ResolutionSession(NodeResolutionContext):
     ) -> str:
         return "__single__:" + "/".join(node_path) + f":{output_method}:{output_index}"
 
-    def load_characters_from_file(self, path: str) -> list[Character]:
-        if self._character_list_file_port is None:
-            raise ValueError(
-                "CharacterListFromFileNode を解決するには CharacterListFilePort が必要です"
-            )
-        return self._character_list_file_port.load_characters(path)
-
-    def load_teams_from_file(self, path: str) -> list[Team]:
-        if self._team_list_file_port is None:
-            raise ValueError(
-                "TeamListFromFileNode を解決するには TeamListFilePort が必要です"
-            )
-        return self._team_list_file_port.load_teams(path)
+    def _bind_file_ports(self, node: ApplicationNode[DomainT]) -> None:
+        if isinstance(node, CharacterListFromFileNode):
+            node.character_list_file_port = self._character_list_file_port
+        if isinstance(node, TeamListFromFileNode):
+            node.team_list_file_port = self._team_list_file_port

@@ -140,7 +140,7 @@ class PureStrategySet:
     @classmethod
     def from_characters(
         cls,
-        characters: list[Character],
+        characters: Sequence[Character],
         player_name: str = "",
         ids: list[str] | None = None,
         id_prefix: str = "c",
@@ -173,7 +173,7 @@ class PureStrategySet:
     @classmethod
     def from_teams(
         cls,
-        teams: list["Team"],
+        teams: Sequence["Team"],
         player_name: str = "",
         ids: list[str] | None = None,
         id_prefix: str = "t",

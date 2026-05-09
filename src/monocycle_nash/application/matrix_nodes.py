@@ -25,7 +25,11 @@ from pathlib import Path
 from typing import Callable, ClassVar, Generic, TypeVar, cast
 
 from monocycle_nash.application.node_spec import NodeSpec, OutputSpec
-from monocycle_nash.application.ports import OutputPathPort
+from monocycle_nash.application.ports import (
+    CharacterListFilePort,
+    OutputPathPort,
+    TeamListFilePort,
+)
 from monocycle_nash.domain.character import Character, MatchupVector
 from monocycle_nash.domain.matrix.approximation import (
     DominantEigenpairMonocycleApproximation,
@@ -51,7 +55,7 @@ RawMatrix = list[list[float]] | np.ndarray
 
 
 class NodeResolutionContext(ABC):
-    """ApplicationNode 解決時に再帰参照やファイル読み込みで使うコンテキスト。"""
+    """ApplicationNode 解決時に再帰参照で使うコンテキスト。"""
 
     @abstractmethod
     def resolve_node(self, node: "ApplicationNode[DomainT]") -> "ApplicationNode[DomainT]":
@@ -62,17 +66,6 @@ class NodeResolutionContext(ABC):
     def get_node_value(self, node: "ApplicationNode[DomainT]") -> DomainT:
         """解決済みノードの value を返す。"""
         raise NotImplementedError
-
-    @abstractmethod
-    def load_characters_from_file(self, path: str) -> list[Character]:
-        """ファイルからキャラクターリストを読み込む。"""
-        raise NotImplementedError
-
-    @abstractmethod
-    def load_teams_from_file(self, path: str) -> list[Team]:
-        """ファイルからチームリストを読み込む。"""
-        raise NotImplementedError
-
 
 # ---------------------------------------------------------------------------
 # ApplicationNode — 全ノード共通の抽象基底
@@ -169,7 +162,7 @@ class CharacterSource(ApplicationNode[tuple[Character, ...]]):
         )
 
     @abstractmethod
-    def load_characters(self, ctx: NodeResolutionContext) -> list[Character]:
+    def load_characters(self, ctx: NodeResolutionContext) -> tuple[Character, ...]:
         """キャラクターリストを返す。"""
         raise NotImplementedError
 
@@ -182,7 +175,7 @@ class CharacterSource(ApplicationNode[tuple[Character, ...]]):
         *,
         ctx: NodeResolutionContext,
     ) -> tuple[Character, ...]:
-        return tuple(self.load_characters(ctx))
+        return self.load_characters(ctx)
 
 
 @dataclass
@@ -191,24 +184,29 @@ class CharacterInlineSource(CharacterSource):
 
     characters: tuple[CharacterNode, ...]
 
-    def load_characters(self, ctx: NodeResolutionContext) -> list[Character]:
-        return [
+    def load_characters(self, ctx: NodeResolutionContext) -> tuple[Character, ...]:
+        return tuple(
             Character(c.power, MatchupVector(c.vector[0], c.vector[1]), c.label)
             for c in self.characters
-        ]
+        )
 
 
 @dataclass
 class CharacterListFromFileNode(CharacterSource):
     """ファイルからキャラクターリストを読み込む設定ノード。
 
-    NodeResolutionContext の load_characters_from_file を呼び出して解決する。
+    CharacterListFilePort を用いて解決する。
     """
 
     path: str
+    character_list_file_port: CharacterListFilePort | None = None
 
-    def load_characters(self, ctx: NodeResolutionContext) -> list[Character]:
-        return ctx.load_characters_from_file(self.path)
+    def load_characters(self, ctx: NodeResolutionContext) -> tuple[Character, ...]:
+        if self.character_list_file_port is None:
+            raise ValueError(
+                "CharacterListFromFileNode を解決するには CharacterListFilePort が必要です"
+            )
+        return self.character_list_file_port.load_characters(self.path)
 
 
 # ---------------------------------------------------------------------------
@@ -244,7 +242,7 @@ class TeamSource(ApplicationNode[tuple[Team, ...]]):
         )
 
     @abstractmethod
-    def load_teams(self, ctx: NodeResolutionContext) -> list[Team]:
+    def load_teams(self, ctx: NodeResolutionContext) -> tuple[Team, ...]:
         """チームリストを返す。"""
         raise NotImplementedError
 
@@ -257,7 +255,7 @@ class TeamSource(ApplicationNode[tuple[Team, ...]]):
         *,
         ctx: NodeResolutionContext,
     ) -> tuple[Team, ...]:
-        return tuple(self.load_teams(ctx))
+        return self.load_teams(ctx)
 
 
 @dataclass
@@ -266,21 +264,24 @@ class TeamInlineSource(TeamSource):
 
     teams: tuple[TeamNode, ...]
 
-    def load_teams(self, ctx: NodeResolutionContext) -> list[Team]:
-        return [Team(label=t.label, member_ids=t.member_ids) for t in self.teams]
+    def load_teams(self, ctx: NodeResolutionContext) -> tuple[Team, ...]:
+        return tuple(Team(label=t.label, member_ids=t.member_ids) for t in self.teams)
 
 
 @dataclass
 class TeamListFromFileNode(TeamSource):
     """ファイルからチームリストを読み込む設定ノード。
 
-    NodeResolutionContext の load_teams_from_file を呼び出して解決する。
+    TeamListFilePort を用いて解決する。
     """
 
     path: str
+    team_list_file_port: TeamListFilePort | None = None
 
-    def load_teams(self, ctx: NodeResolutionContext) -> list[Team]:
-        return ctx.load_teams_from_file(self.path)
+    def load_teams(self, ctx: NodeResolutionContext) -> tuple[Team, ...]:
+        if self.team_list_file_port is None:
+            raise ValueError("TeamListFromFileNode を解決するには TeamListFilePort が必要です")
+        return self.team_list_file_port.load_teams(self.path)
 
 
 # ---------------------------------------------------------------------------
@@ -677,13 +678,11 @@ class MonocycleFromCharactersNode(MatrixNode, node_method="monocycle_from_charac
         )
 
     def build(self, ctx: NodeResolutionContext) -> PayoffMatrix:
-        characters = self.characters.get_characters(ctx=ctx)
-        return PayoffMatrixBuilder.from_characters(
-            characters=list(characters), labels=self.labels
-        )
+        characters = cast(tuple[Character, ...], ctx.get_node_value(self.characters))
+        return PayoffMatrixBuilder.from_characters(characters=characters, labels=self.labels)
 
     def provide_characters(self, *, ctx: NodeResolutionContext) -> tuple[Character, ...]:
-        return self.characters.get_characters(ctx=ctx)
+        return cast(tuple[Character, ...], ctx.get_node_value(self.characters))
 
 
 @dataclass
@@ -711,11 +710,11 @@ class GeneralFromTeamsPayoffNode(MatrixNode, node_method="general_from_teams_pay
 
     def build(self, ctx: NodeResolutionContext) -> PayoffMatrix:
         team_payoff = np.asarray(self.team_payoff, dtype=float)
-        teams = self.teams.get_teams(ctx=ctx)
-        return PayoffMatrixBuilder.from_teams(team_payoff=team_payoff, teams=list(teams))
+        teams = cast(tuple[Team, ...], ctx.get_node_value(self.teams))
+        return PayoffMatrixBuilder.from_teams(team_payoff=team_payoff, teams=teams)
 
     def provide_teams(self, *, ctx: NodeResolutionContext) -> tuple[Team, ...]:
-        return self.teams.get_teams(ctx=ctx)
+        return cast(tuple[Team, ...], ctx.get_node_value(self.teams))
 
 
 @dataclass
@@ -752,9 +751,9 @@ class GeneralFromTeamMatchupsNode(MatrixNode, node_method="general_from_team_mat
     def build(self, ctx: NodeResolutionContext) -> PayoffMatrix:
         character_matrix_node = ctx.resolve_node(self.character_matrix)
         character_matrix = cast(PayoffMatrix, character_matrix_node.value)
-        teams = self.teams.get_teams(ctx=ctx)
+        teams = cast(tuple[Team, ...], ctx.get_node_value(self.teams))
         return PayoffMatrixBuilder.from_team_matchups(
-            teams=list(teams),
+            teams=teams,
             character_matrix=character_matrix,
             use_monocycle_formula=self.use_monocycle_formula,
         )
@@ -763,7 +762,7 @@ class GeneralFromTeamMatchupsNode(MatrixNode, node_method="general_from_team_mat
         return self.character_matrix.provide_characters(ctx=ctx)
 
     def provide_teams(self, *, ctx: NodeResolutionContext) -> tuple[Team, ...]:
-        return self.teams.get_teams(ctx=ctx)
+        return cast(tuple[Team, ...], ctx.get_node_value(self.teams))
 
 
 @dataclass

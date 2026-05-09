@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 
 import nashpy as nash
 import numpy as np
@@ -158,7 +159,7 @@ class TwoPlayerTeamMatrixCalculator:
     def calculate_team_value(self, team1: Team, team2: Team) -> float:
         return self.selector.calculate(team1, team2, self.character_matrix)
 
-    def generate_matrix(self, teams: list[Team]) -> GeneralPayoffMatrix:
+    def generate_matrix(self, teams: Sequence[Team]) -> GeneralPayoffMatrix:
         n = len(teams)
         matrix = np.zeros((n, n), dtype=float)
         for i in range(n):

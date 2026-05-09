@@ -1,4 +1,5 @@
 import numpy as np
+from collections.abc import Sequence
 
 from monocycle_nash.domain.matrix.base import PayoffMatrix
 from monocycle_nash.domain.character import Character, MatchupVector
@@ -15,9 +16,9 @@ class MonocyclePayoffMatrix(PayoffMatrix):
 
     def __init__(
         self,
-        characters_or_row_strategies: list[Character] | PureStrategySet,
+        characters_or_row_strategies: Sequence[Character] | PureStrategySet,
         labels: list[str] | None = None,
-        col_strategies: list[Character] | PureStrategySet | None = None,
+        col_strategies: Sequence[Character] | PureStrategySet | None = None,
     ):
         if isinstance(characters_or_row_strategies, PureStrategySet):
             if labels is not None:
@@ -50,7 +51,7 @@ class MonocyclePayoffMatrix(PayoffMatrix):
     @classmethod
     def from_characters(
         cls,
-        characters: list[Character],
+        characters: Sequence[Character],
         labels: list[str] | None = None,
     ) -> "MonocyclePayoffMatrix":
         return cls(characters, labels=labels)
