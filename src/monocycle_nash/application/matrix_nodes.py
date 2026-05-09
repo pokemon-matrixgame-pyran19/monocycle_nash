@@ -20,7 +20,7 @@ from __future__ import annotations
 import numpy as np
 import tomli_w
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import FrozenInstanceError, dataclass, field
 from pathlib import Path
 from typing import Callable, ClassVar, Generic, TypeVar, cast
 
@@ -89,8 +89,12 @@ class ApplicationNode(ABC, Generic[DomainT]):
 
     def set_value(self, value: DomainT) -> None:
         """解決済み value をノードへ設定する。"""
-        object.__setattr__(self, "value", value)
-        object.__setattr__(self, "_is_resolved", True)
+        try:
+            setattr(self, "value", value)
+            setattr(self, "_is_resolved", True)
+        except FrozenInstanceError:
+            object.__setattr__(self, "value", value)
+            object.__setattr__(self, "_is_resolved", True)
 
     def is_resolved(self) -> bool:
         """このノードが解決済みかどうかを返す。"""
