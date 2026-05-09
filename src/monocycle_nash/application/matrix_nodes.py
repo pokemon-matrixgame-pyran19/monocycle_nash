@@ -105,10 +105,10 @@ class ApplicationNode(ABC, Generic[DomainT]):
             return name
         raise TypeError("ApplicationNode.name は str である必要があります")
 
-    def resolve_outputs(self) -> tuple["OutputNode[ApplicationNode]", ...]:
+    def resolve_outputs(self) -> tuple["OutputNode", ...]:
         """resolver 上の出力ノード列。outputs 属性がある場合のみ返す。"""
         outputs = getattr(self, "outputs", ())
-        resolved_outputs: list["OutputNode[ApplicationNode]"] = []
+        resolved_outputs: list["OutputNode"] = []
         for output in outputs:
             if not isinstance(output, OutputNode):
                 raise TypeError("ApplicationNode.outputs は OutputNode の列である必要があります")
@@ -125,7 +125,7 @@ class ApplicationNode(ABC, Generic[DomainT]):
         raise NotImplementedError
 
 
-NodeT = TypeVar("NodeT", bound=ApplicationNode, contravariant=True)
+NodeT = TypeVar("NodeT", bound=ApplicationNode)
 
 
 # ---------------------------------------------------------------------------
