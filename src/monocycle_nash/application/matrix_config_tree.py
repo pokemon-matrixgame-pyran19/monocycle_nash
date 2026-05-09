@@ -126,8 +126,8 @@ class _ResolutionSession(NodeResolutionContext):
     解決済み状態はノード自身に run 単位で保持し、出力結果リストを管理する。
     """
 
-    _MATRIX_RESOLUTION_STATE_ATTR = "__monocycle_matrix_resolution_state__"
-    _APPLICATION_RESOLUTION_STATE_ATTR = "__monocycle_application_resolution_state__"
+    _MATRIX_RESOLUTION_STATE_ATTR = "_monocycle_matrix_resolution_state"
+    _APPLICATION_RESOLUTION_STATE_ATTR = "_monocycle_application_resolution_state"
 
     def __init__(
         self,
