@@ -2,7 +2,8 @@
 
 各ノード型が「この生成方式はこういう値や設定を受け取る」を明示する。
 依存する他ドメインモデルは型付きフィールドとして直接保持し、
-各ノードは build / emit / execute / load_characters / load_teams でそれぞれの解決ロジックを担う。
+各ノードは resolve_value / emit / execute / load_characters / load_teams で
+それぞれの解決ロジックを担う。
 
 新規ノード種別を追加する場合は:
   1. 具象 MatrixNode サブクラスを作り、class 宣言に `node_method="..."` を付ける
@@ -165,10 +166,6 @@ class CharacterSource(ApplicationNode[tuple[Character, ...]]):
     def load_characters(self, ctx: NodeResolutionContext) -> tuple[Character, ...]:
         """キャラクターリストを返す。"""
         raise NotImplementedError
-
-    def get_characters(self, *, ctx: NodeResolutionContext) -> tuple[Character, ...]:
-        """キャラクタータプルを返す（provide_object への便利メソッド）。"""
-        return self.provide_object(ctx=ctx)
 
     def provide_object(
         self,
@@ -473,7 +470,7 @@ class CharacterVectorGraphOutputNode(OutputNode["CharacterSource"], output_metho
             output_method=self.output_method,
             filename=self.filename,
         )
-        characters = node.provide_characters(ctx=ctx)
+        characters = node.provide_object(ctx=ctx)
         if not characters:
             raise ValueError(
                 "character_vector_graph は characters を持つノードでのみ使用できます"
@@ -554,12 +551,12 @@ class EquilibriumOutputNode(OutputNode["MatrixNode"], output_method="equilibrium
 class MatrixNode(ApplicationNode[PayoffMatrix]):
     """行列構築ノードの抽象基底。
 
-    すべての具象ノードは name・outputs フィールドと build メソッドを実装する。
+    すべての具象ノードは name・outputs フィールドと resolve_value メソッドを実装する。
 
     ノード種別を追加するには:
       1. MatrixNode を継承し class 宣言に `node_method="..."` を指定する
       2. `_from_spec(cls, spec, build_child)` classmethod を実装する
-      3. `build(self, ctx)` を実装する
+      3. `resolve_value(self, ctx)` を実装する
       以上のみ。MatrixNodeFactory への変更は不要。
     """
 
@@ -596,16 +593,13 @@ class MatrixNode(ApplicationNode[PayoffMatrix]):
         raise NotImplementedError
 
     @abstractmethod
-    def build(self, ctx: NodeResolutionContext) -> PayoffMatrix:
-        """コンテキストを使って PayoffMatrix を構築して返す。"""
-        raise NotImplementedError
-
     def resolve_value(
         self,
         *,
         ctx: NodeResolutionContext,
     ) -> PayoffMatrix:
-        return self.build(ctx)
+        """コンテキストを使って PayoffMatrix を構築して返す。"""
+        raise NotImplementedError
 
     def provide_object(
         self,
@@ -614,14 +608,6 @@ class MatrixNode(ApplicationNode[PayoffMatrix]):
     ) -> PayoffMatrix:
         """解決済み結果の行列を返す。"""
         return cast(PayoffMatrix, ctx.get_node_value(self))
-
-    def provide_characters(self, *, ctx: NodeResolutionContext) -> tuple[Character, ...]:
-        """このノードに関連するキャラクターを返す。デフォルトは空タプル。"""
-        return ()
-
-    def provide_teams(self, *, ctx: NodeResolutionContext) -> tuple[Team, ...]:
-        """このノードに関連するチームを返す。デフォルトは空タプル。"""
-        return ()
 
 
 # ---------------------------------------------------------------------------
@@ -649,7 +635,11 @@ class GeneralFromRawNode(MatrixNode, node_method="general_from_raw"):
             outputs=OutputNode.create_all_from_specs(spec.outputs),
         )
 
-    def build(self, ctx: NodeResolutionContext) -> PayoffMatrix:
+    def resolve_value(
+        self,
+        *,
+        ctx: NodeResolutionContext,
+    ) -> PayoffMatrix:
         matrix = np.asarray(self.matrix, dtype=float)
         return PayoffMatrixBuilder.from_general_matrix(matrix=matrix, labels=self.labels)
 
@@ -677,12 +667,13 @@ class MonocycleFromCharactersNode(MatrixNode, node_method="monocycle_from_charac
             outputs=OutputNode.create_all_from_specs(spec.outputs),
         )
 
-    def build(self, ctx: NodeResolutionContext) -> PayoffMatrix:
+    def resolve_value(
+        self,
+        *,
+        ctx: NodeResolutionContext,
+    ) -> PayoffMatrix:
         characters = cast(tuple[Character, ...], ctx.get_node_value(self.characters))
         return PayoffMatrixBuilder.from_characters(characters=characters, labels=self.labels)
-
-    def provide_characters(self, *, ctx: NodeResolutionContext) -> tuple[Character, ...]:
-        return cast(tuple[Character, ...], ctx.get_node_value(self.characters))
 
 
 @dataclass
@@ -708,13 +699,14 @@ class GeneralFromTeamsPayoffNode(MatrixNode, node_method="general_from_teams_pay
             outputs=OutputNode.create_all_from_specs(spec.outputs),
         )
 
-    def build(self, ctx: NodeResolutionContext) -> PayoffMatrix:
+    def resolve_value(
+        self,
+        *,
+        ctx: NodeResolutionContext,
+    ) -> PayoffMatrix:
         team_payoff = np.asarray(self.team_payoff, dtype=float)
         teams = cast(tuple[Team, ...], ctx.get_node_value(self.teams))
         return PayoffMatrixBuilder.from_teams(team_payoff=team_payoff, teams=teams)
-
-    def provide_teams(self, *, ctx: NodeResolutionContext) -> tuple[Team, ...]:
-        return cast(tuple[Team, ...], ctx.get_node_value(self.teams))
 
 
 @dataclass
@@ -748,7 +740,11 @@ class GeneralFromTeamMatchupsNode(MatrixNode, node_method="general_from_team_mat
             outputs=OutputNode.create_all_from_specs(spec.outputs),
         )
 
-    def build(self, ctx: NodeResolutionContext) -> PayoffMatrix:
+    def resolve_value(
+        self,
+        *,
+        ctx: NodeResolutionContext,
+    ) -> PayoffMatrix:
         character_matrix_node = ctx.resolve_node(self.character_matrix)
         character_matrix = cast(PayoffMatrix, character_matrix_node.value)
         teams = cast(tuple[Team, ...], ctx.get_node_value(self.teams))
@@ -757,12 +753,6 @@ class GeneralFromTeamMatchupsNode(MatrixNode, node_method="general_from_team_mat
             character_matrix=character_matrix,
             use_monocycle_formula=self.use_monocycle_formula,
         )
-
-    def provide_characters(self, *, ctx: NodeResolutionContext) -> tuple[Character, ...]:
-        return self.character_matrix.provide_characters(ctx=ctx)
-
-    def provide_teams(self, *, ctx: NodeResolutionContext) -> tuple[Team, ...]:
-        return cast(tuple[Team, ...], ctx.get_node_value(self.teams))
 
 
 @dataclass
@@ -793,7 +783,11 @@ class RandomSkewSymmetricNode(MatrixNode, node_method="random_skew_symmetric"):
             outputs=OutputNode.create_all_from_specs(spec.outputs),
         )
 
-    def build(self, ctx: NodeResolutionContext) -> PayoffMatrix:
+    def resolve_value(
+        self,
+        *,
+        ctx: NodeResolutionContext,
+    ) -> PayoffMatrix:
         rng = np.random.default_rng(self.seed) if self.seed is not None else None
         return PayoffMatrixBuilder.from_random_matrix(
             size=self.size,
@@ -829,7 +823,11 @@ class ApproxMonocycleToGeneralNode(MatrixNode, node_method="approx_monocycle_to_
             outputs=OutputNode.create_all_from_specs(spec.outputs),
         )
 
-    def build(self, ctx: NodeResolutionContext) -> PayoffMatrix:
+    def resolve_value(
+        self,
+        *,
+        ctx: NodeResolutionContext,
+    ) -> PayoffMatrix:
         source_node = ctx.resolve_node(self.source)
         source = cast(PayoffMatrix, source_node.value)
         return MonocycleToGeneralApproximation().approximate(source).matrix
@@ -861,7 +859,11 @@ class ApproxDominantEigenpairNode(MatrixNode, node_method="approx_dominant_eigen
             outputs=OutputNode.create_all_from_specs(spec.outputs),
         )
 
-    def build(self, ctx: NodeResolutionContext) -> PayoffMatrix:
+    def resolve_value(
+        self,
+        *,
+        ctx: NodeResolutionContext,
+    ) -> PayoffMatrix:
         source_node = ctx.resolve_node(self.source)
         source = cast(PayoffMatrix, source_node.value)
         return DominantEigenpairMonocycleApproximation(atol=self.atol).approximate(source).matrix
@@ -893,7 +895,11 @@ class ApproxEquilibriumPreservingNode(MatrixNode, node_method="approx_equilibriu
             outputs=OutputNode.create_all_from_specs(spec.outputs),
         )
 
-    def build(self, ctx: NodeResolutionContext) -> PayoffMatrix:
+    def resolve_value(
+        self,
+        *,
+        ctx: NodeResolutionContext,
+    ) -> PayoffMatrix:
         source_node = ctx.resolve_node(self.source)
         source = cast(PayoffMatrix, source_node.value)
         return EquilibriumPreservingResidualMonocycleApproximation(atol=self.atol).approximate(source).matrix

@@ -120,7 +120,7 @@ def test_resolver_builds_team_matrix_with_nested_dependency_and_outputs(tmp_path
                     CharacterNode(power=-1.0, vector=(-1.0, 0.0), label="C"),
                 )),
                 labels=["A", "B", "C"],
-                outputs=(CharacterVectorGraphOutputNode(filename="chars.svg"),),
+                outputs=(PayoffDirectedGraphOutputNode(filename="chars.svg"),),
             ),
             use_monocycle_formula=True,
             outputs=(PayoffDirectedGraphOutputNode(filename="team.svg"),),
@@ -189,7 +189,7 @@ def test_resolver_without_output_path_port_rejects_output() -> None:
                 CharacterNode(power=1.0, vector=(1.0, 0.0), label="A"),
                 CharacterNode(power=0.0, vector=(0.0, 1.0), label="B"),
             )),
-            outputs=(CharacterVectorGraphOutputNode(filename="chars.svg"),),
+            outputs=(PayoffDirectedGraphOutputNode(filename="chars.svg"),),
         )
     )
     resolver = MatrixConfigTreeResolver()
@@ -214,7 +214,7 @@ def test_resolver_runs_shared_runner_once_after_full_resolution(tmp_path: Path) 
                     CharacterNode(power=-1.0, vector=(-1.0, 0.0), label="C"),
                 )),
                 labels=["A", "B", "C"],
-                outputs=(CharacterVectorGraphOutputNode(runner="final", filename="chars.svg"),),
+                outputs=(PayoffDirectedGraphOutputNode(runner="final", filename="chars.svg"),),
             ),
             use_monocycle_formula=True,
             outputs=(PayoffDirectedGraphOutputNode(runner="final", filename="team.svg"),),
@@ -233,7 +233,7 @@ def test_resolver_runs_shared_runner_once_after_full_resolution(tmp_path: Path) 
     assert all(o.runner == "final" for o in result.outputs)
 
 
-def test_monocycle_node_provides_characters_without_matrix_property() -> None:
+def test_monocycle_node_resolves_characters_from_character_source() -> None:
     target_node = MonocycleFromCharactersNode(
         characters=CharacterInlineSource((
             CharacterNode(power=1.0, vector=(1.0, 0.0), label="A"),
@@ -259,38 +259,39 @@ def test_monocycle_node_provides_characters_without_matrix_property() -> None:
                 return self.resolve_node(node).value
             raise NotImplementedError
 
-    characters = target_node.provide_characters(ctx=_Ctx())
+    characters = target_node.characters.get_characters(ctx=_Ctx())
     assert len(characters) == 2
     assert [c.label for c in characters] == ["A", "B"]
 
 
-def test_team_matchups_node_can_emit_character_vector_from_child_domain(tmp_path: Path) -> None:
-    tree = MatrixConfigTree(
-        root=GeneralFromTeamMatchupsNode(
-            name="team-root",
-            teams=TeamInlineSource((
-                TeamNode(label="A+B", member_ids=("A", "B")),
-                TeamNode(label="B+C", member_ids=("B", "C")),
-            )),
-            character_matrix=MonocycleFromCharactersNode(
-                name="character-source",
-                characters=CharacterInlineSource((
-                    CharacterNode(power=1.0, vector=(1.0, 0.0), label="A"),
-                    CharacterNode(power=0.0, vector=(0.0, 1.0), label="B"),
-                    CharacterNode(power=-1.0, vector=(-1.0, 0.0), label="C"),
-                )),
-                labels=["A", "B", "C"],
-            ),
-            outputs=(CharacterVectorGraphOutputNode(filename="team_chars.svg"),),
-        )
+def test_character_vector_output_executes_for_character_source(tmp_path: Path) -> None:
+    source = CharacterInlineSource((
+        CharacterNode(power=1.0, vector=(1.0, 0.0), label="A"),
+        CharacterNode(power=0.0, vector=(0.0, 1.0), label="B"),
+    ))
+    output_node = CharacterVectorGraphOutputNode(filename="team_chars.svg")
+
+    class _Ctx(NodeResolutionContext):
+        def resolve_node(self, node: object) -> object:
+            if isinstance(node, ApplicationNode):
+                node.set_value(node.provide_object(ctx=self))
+                return node
+            raise NotImplementedError
+
+        def get_node_value(self, node: object) -> object:
+            if isinstance(node, ApplicationNode):
+                return self.resolve_node(node).value
+            raise NotImplementedError
+
+    path = output_node.execute(
+        output_path_port=StubOutputPathPort(tmp_path),
+        run_id="1",
+        node_path=("source",),
+        node=source,
+        ctx=_Ctx(),
     )
-    output_port = StubOutputPathPort(tmp_path)
-    resolver = MatrixConfigTreeResolver(output_path_port=output_port)
 
-    result = resolver.resolve(tree)
-
-    assert len(result.outputs) == 1
-    assert result.outputs[0].path.exists()
+    assert path.exists()
 
 
 def test_resolver_resolves_non_matrix_node_with_name_and_outputs(tmp_path: Path) -> None:
@@ -360,7 +361,7 @@ def test_resolver_resolves_non_matrix_node_with_name_and_outputs(tmp_path: Path)
         def _from_spec(cls, spec, build_child):  # pragma: no cover
             raise NotImplementedError
 
-        def build(self, ctx: NodeResolutionContext):
+        def resolve_value(self, *, ctx: NodeResolutionContext):
             ctx.resolve_node(self.child)
             return GeneralPayoffMatrix([[0.0, 1.0], [-1.0, 0.0]], ["A", "B"])
 
@@ -454,7 +455,7 @@ def test_resolver_resolves_shared_node_once(
         def _from_spec(cls, matrix_spec, child_builder):  # pragma: no cover
             raise NotImplementedError
 
-        def build(self, ctx: NodeResolutionContext):
+        def resolve_value(self, *, ctx: NodeResolutionContext):
             ctx.resolve_node(self.child)
             ctx.resolve_node(self.child)
             return GeneralPayoffMatrix([[0.0, 1.0], [-1.0, 0.0]], ["A", "B"])
