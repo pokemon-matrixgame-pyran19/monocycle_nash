@@ -387,7 +387,7 @@ def test_resolver_resolves_non_matrix_node_with_name_and_outputs(tmp_path: Path)
 def test_resolver_resolves_shared_node_once(
     tmp_path: Path,
 ) -> None:
-    call_count = {"count": 0}
+    call_count = [0]
 
     @dataclass(frozen=True)
     class _DummyTextOutputNode(OutputNode["_CountingValueNode"], output_method="dummy_text_counting"):
@@ -442,8 +442,8 @@ def test_resolver_resolves_shared_node_once(
             *,
             ctx: NodeResolutionContext,
         ) -> str:
-            call_count["count"] += 1
-            return f"value-{call_count['count']}"
+            call_count[0] += 1
+            return f"value-{call_count[0]}"
 
     @dataclass(frozen=True)
     class _BridgeMatrixNode(MatrixNode):
@@ -472,7 +472,7 @@ def test_resolver_resolves_shared_node_once(
 
     result = resolver.resolve(tree)
 
-    assert call_count["count"] == 1
+    assert call_count[0] == 1
     assert len(result.output_emissions) == 1
     assert len(result.outputs) == 1
     assert [run_id for run_id, _, _, _ in output_port.calls] == [str(result.run_id)]
