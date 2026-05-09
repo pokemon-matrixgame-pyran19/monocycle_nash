@@ -94,8 +94,8 @@ class ApplicationNode(ABC, Generic[DomainT]):
             object.__setattr__(self, "value", value)
             object.__setattr__(self, "_is_resolved", True)
             return
-        setattr(self, "value", value)
-        setattr(self, "_is_resolved", True)
+        self.value = value
+        self._is_resolved = True
 
     def is_resolved(self) -> bool:
         """このノードが解決済みかどうかを返す。"""
