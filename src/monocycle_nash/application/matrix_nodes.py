@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, ClassVar, Generic, TypeVar, cast
 
-from monocycle_nash.application.node_spec import NodeSpec, OutputSpec
+from monocycle_nash.application.node_spec import NodeSpec, OutputSpec, ApplicationNode
 from monocycle_nash.application.ports import OutputPathPort
 from monocycle_nash.domain.character import Character, MatchupVector
 from monocycle_nash.domain.matrix.approximation import (
@@ -41,6 +41,7 @@ from monocycle_nash.domain.visualization.payoff_graph import PayoffDirectedGraph
 
 
 DomainT = TypeVar("DomainT")
+NodeT = TypeVar("NodeT", bound=ApplicationNode)
 
 
 # ---------------------------------------------------------------------------
@@ -263,7 +264,7 @@ class OutputEmission:
     node: "MatrixNode"
 
 
-class OutputNode(ABC):
+class OutputNode(ABC, Generic[NodeT]):
     """出力ノードの抽象基底。
 
     出力種別を追加するには:
@@ -305,7 +306,7 @@ class OutputNode(ABC):
         *,
         node_name: str,
         node_path: tuple[str, ...],
-        node: "MatrixNode",
+        node: NodeT,
     ) -> OutputEmission:
         """Runner に渡す出力イベントを生成する。"""
         raise NotImplementedError
@@ -324,7 +325,7 @@ class OutputNode(ABC):
         output_path_port: OutputPathPort,
         run_id: str,
         node_path: tuple[str, ...],
-        node: "MatrixNode",
+        node: NodeT,
         ctx: NodeResolutionContext,
     ) -> Path:
         """Runner から呼び出され、最終成果物を生成する。"""
@@ -332,7 +333,7 @@ class OutputNode(ABC):
 
 
 @dataclass(frozen=True)
-class PayoffDirectedGraphOutputNode(OutputNode, output_method="payoff_directed_graph"):
+class PayoffDirectedGraphOutputNode(OutputNode["MatrixNode"], output_method="payoff_directed_graph"):
     """有向グラフ出力設定ノード。"""
 
     runner: str | None = None
@@ -389,7 +390,7 @@ class PayoffDirectedGraphOutputNode(OutputNode, output_method="payoff_directed_g
 
 
 @dataclass(frozen=True)
-class CharacterVectorGraphOutputNode(OutputNode, output_method="character_vector_graph"):
+class CharacterVectorGraphOutputNode(OutputNode["CharacterSource"], output_method="character_vector_graph"):
     """キャラクターベクトルグラフ出力設定ノード。"""
 
     runner: str | None = None
@@ -411,7 +412,7 @@ class CharacterVectorGraphOutputNode(OutputNode, output_method="character_vector
         *,
         node_name: str,
         node_path: tuple[str, ...],
-        node: "MatrixNode",
+        node: "CharacterSource",
     ) -> OutputEmission:
         return OutputEmission(
             output_node=self,
@@ -427,7 +428,7 @@ class CharacterVectorGraphOutputNode(OutputNode, output_method="character_vector
         output_path_port: OutputPathPort,
         run_id: str,
         node_path: tuple[str, ...],
-        node: "MatrixNode",
+        node: "CharacterSource",
         ctx: NodeResolutionContext,
     ) -> Path:
         path = output_path_port.resolve_output_path(
@@ -450,7 +451,7 @@ class CharacterVectorGraphOutputNode(OutputNode, output_method="character_vector
 
 
 @dataclass(frozen=True)
-class EquilibriumOutputNode(OutputNode, output_method="equilibrium"):
+class EquilibriumOutputNode(OutputNode["MatrixNode"], output_method="equilibrium"):
     """均衡解ファイル出力設定ノード。"""
 
     runner: str | None = None
