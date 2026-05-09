@@ -89,8 +89,8 @@ class ApplicationNode(ABC, Generic[DomainT]):
 
     def set_value(self, value: DomainT) -> None:
         """解決済み value をノードへ設定する。"""
-        object.__setattr__(self, "value", value)
-        object.__setattr__(self, "_is_resolved", True)
+        self.value = value
+        self._is_resolved = True
 
     def is_resolved(self) -> bool:
         """このノードが解決済みかどうかを返す。"""
@@ -185,7 +185,7 @@ class CharacterSource(ApplicationNode[tuple[Character, ...]]):
         return tuple(self.load_characters(ctx))
 
 
-@dataclass(frozen=True)
+@dataclass
 class CharacterInlineSource(CharacterSource):
     """インラインのキャラクター設定ソース。"""
 
@@ -198,7 +198,7 @@ class CharacterInlineSource(CharacterSource):
         ]
 
 
-@dataclass(frozen=True)
+@dataclass
 class CharacterListFromFileNode(CharacterSource):
     """ファイルからキャラクターリストを読み込む設定ノード。
 
@@ -260,7 +260,7 @@ class TeamSource(ApplicationNode[tuple[Team, ...]]):
         return tuple(self.load_teams(ctx))
 
 
-@dataclass(frozen=True)
+@dataclass
 class TeamInlineSource(TeamSource):
     """インラインのチーム設定ソース。"""
 
@@ -270,7 +270,7 @@ class TeamInlineSource(TeamSource):
         return [Team(label=t.label, member_ids=t.member_ids) for t in self.teams]
 
 
-@dataclass(frozen=True)
+@dataclass
 class TeamListFromFileNode(TeamSource):
     """ファイルからチームリストを読み込む設定ノード。
 
@@ -628,7 +628,7 @@ class MatrixNode(ApplicationNode[PayoffMatrix]):
 # ---------------------------------------------------------------------------
 
 
-@dataclass(frozen=True)
+@dataclass
 class GeneralFromRawNode(MatrixNode, node_method="general_from_raw"):
     """生行列データから一般利得行列を構築するノード。"""
 
@@ -653,7 +653,7 @@ class GeneralFromRawNode(MatrixNode, node_method="general_from_raw"):
         return PayoffMatrixBuilder.from_general_matrix(matrix=matrix, labels=self.labels)
 
 
-@dataclass(frozen=True)
+@dataclass
 class MonocycleFromCharactersNode(MatrixNode, node_method="monocycle_from_characters"):
     """キャラクターリストから単相性モデル利得行列を構築するノード。
 
@@ -686,7 +686,7 @@ class MonocycleFromCharactersNode(MatrixNode, node_method="monocycle_from_charac
         return self.characters.get_characters(ctx=ctx)
 
 
-@dataclass(frozen=True)
+@dataclass
 class GeneralFromTeamsPayoffNode(MatrixNode, node_method="general_from_teams_payoff"):
     """計算済みチーム利得行列から一般利得行列を構築するノード。
 
@@ -718,7 +718,7 @@ class GeneralFromTeamsPayoffNode(MatrixNode, node_method="general_from_teams_pay
         return self.teams.get_teams(ctx=ctx)
 
 
-@dataclass(frozen=True)
+@dataclass
 class GeneralFromTeamMatchupsNode(MatrixNode, node_method="general_from_team_matchups"):
     """キャラクター行列とチーム定義からチーム利得行列を構築するノード。
 
@@ -766,7 +766,7 @@ class GeneralFromTeamMatchupsNode(MatrixNode, node_method="general_from_team_mat
         return self.teams.get_teams(ctx=ctx)
 
 
-@dataclass(frozen=True)
+@dataclass
 class RandomSkewSymmetricNode(MatrixNode, node_method="random_skew_symmetric"):
     """ランダム交代行列を生成するノード。"""
 
@@ -806,7 +806,7 @@ class RandomSkewSymmetricNode(MatrixNode, node_method="random_skew_symmetric"):
         )
 
 
-@dataclass(frozen=True)
+@dataclass
 class ApproxMonocycleToGeneralNode(MatrixNode, node_method="approx_monocycle_to_general"):
     """単相性行列を一般行列へ変換する近似ノード。
 
@@ -836,7 +836,7 @@ class ApproxMonocycleToGeneralNode(MatrixNode, node_method="approx_monocycle_to_
         return MonocycleToGeneralApproximation().approximate(source).matrix
 
 
-@dataclass(frozen=True)
+@dataclass
 class ApproxDominantEigenpairNode(MatrixNode, node_method="approx_dominant_eigenpair"):
     """支配固有値ペアによる近似変換ノード。
 
@@ -868,7 +868,7 @@ class ApproxDominantEigenpairNode(MatrixNode, node_method="approx_dominant_eigen
         return DominantEigenpairMonocycleApproximation(atol=self.atol).approximate(source).matrix
 
 
-@dataclass(frozen=True)
+@dataclass
 class ApproxEquilibriumPreservingNode(MatrixNode, node_method="approx_equilibrium_preserving"):
     """均衡保存残差近似変換ノード。
 
