@@ -338,7 +338,7 @@ def test_resolver_resolves_non_matrix_node_with_name_and_outputs(tmp_path: Path)
             path.write_text(node.provide_object(ctx=ctx), encoding="utf-8")
             return path
 
-    @dataclass(frozen=True)
+    @dataclass
     class _DummyValueNode(ApplicationNode[str]):
         payload: str
         name: str = "payload"
@@ -351,7 +351,7 @@ def test_resolver_resolves_non_matrix_node_with_name_and_outputs(tmp_path: Path)
         ) -> str:
             return self.payload
 
-    @dataclass(frozen=True)
+    @dataclass
     class _BridgeMatrixNode(MatrixNode):
         child: _DummyValueNode
         name: str = "root"
@@ -432,7 +432,7 @@ def test_resolver_resolves_shared_node_once(
             path.write_text(node.value, encoding="utf-8")
             return path
 
-    @dataclass(frozen=True)
+    @dataclass
     class _CountingValueNode(ApplicationNode[str]):
         name: str = "leaf"
         outputs: tuple[OutputNode, ...] = ()
@@ -445,7 +445,7 @@ def test_resolver_resolves_shared_node_once(
             call_count[0] += 1
             return f"value-{call_count[0]}"
 
-    @dataclass(frozen=True)
+    @dataclass
     class _BridgeMatrixNode(MatrixNode):
         child: _CountingValueNode
         name: str = "root"
