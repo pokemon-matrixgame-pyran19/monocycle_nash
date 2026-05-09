@@ -2,7 +2,8 @@
 
 各ノード型が「この生成方式はこういう値や設定を受け取る」を明示する。
 依存する他ドメインモデルは型付きフィールドとして直接保持し、
-各ノードは build / emit / execute / load_characters / load_teams でそれぞれの解決ロジックを担う。
+各ノードは resolve_value / emit / execute / load_characters / load_teams で
+それぞれの解決ロジックを担う。
 
 新規ノード種別を追加する場合は:
   1. 具象 MatrixNode サブクラスを作り、class 宣言に `node_method="..."` を付ける
@@ -501,6 +502,8 @@ class CharacterVectorGraphOutputNode(
             return cast(tuple[Character, ...], ctx.get_node_value(character_source))
 
         character_matrix = getattr(node, "character_matrix", None)
+        if character_matrix is None:
+            return ()
         nested_character_source = getattr(character_matrix, "characters", None)
         if isinstance(nested_character_source, CharacterSource):
             return cast(tuple[Character, ...], ctx.get_node_value(nested_character_source))
