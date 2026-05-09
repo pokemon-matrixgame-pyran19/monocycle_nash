@@ -139,12 +139,12 @@ class _ResolutionSession(NodeResolutionContext):
         self._team_list_file_port = team_list_file_port
         self.resolved_output_emissions: list[ResolvedOutputEmission] = []
         self._emissions_by_runner: dict[str, list[OutputEmission]] = {}
-        self._resolved_cache: dict[int, Any] = {}
+        self._node_value_cache: dict[int, Any] = {}
         self._active_node_path_stack: list[tuple[str, ...]] = []
 
     def resolve_node(self, node: ApplicationNode[DomainT]) -> ApplicationNode[DomainT]:
         cache_key = id(node)
-        if cache_key in self._resolved_cache:
+        if cache_key in self._node_value_cache:
             # 同一ノード参照は初回探索時に1回だけ解決し、出力実行も初回のみ行う。
             return node
 
@@ -165,7 +165,7 @@ class _ResolutionSession(NodeResolutionContext):
             if node_path is not None:
                 self._active_node_path_stack.pop()
         node.set_value(cast(DomainT, resolved))
-        self._resolved_cache[cache_key] = resolved
+        self._node_value_cache[cache_key] = resolved
 
         if isinstance(node, MatrixNode) and node_path is not None:
             for output_index, output_node in enumerate(node.outputs):
@@ -193,13 +193,9 @@ class _ResolutionSession(NodeResolutionContext):
 
     def get_node_value(self, node: ApplicationNode[DomainT]) -> DomainT:
         cache_key = id(node)
-        resolved = self._resolved_cache.get(cache_key)
-        if resolved is None:
+        if cache_key not in self._node_value_cache:
             self.resolve_node(node)
-            resolved = self._resolved_cache.get(cache_key)
-        if resolved is None:
-            raise RuntimeError("ノードの value 解決に失敗しました")
-        return cast(DomainT, resolved)
+        return cast(DomainT, self._node_value_cache[cache_key])
 
     def run_output_runners(self) -> tuple[tuple[ResolvedOutput, ...], tuple[ResolvedRunner, ...]]:
         if self._emissions_by_runner and self._output_path_port is None:

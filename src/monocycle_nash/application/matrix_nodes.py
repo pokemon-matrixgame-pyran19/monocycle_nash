@@ -80,6 +80,8 @@ class NodeResolutionContext(ABC):
 class ApplicationNode(ABC, Generic[DomainT]):
     """解決済みオブジェクトを提供する全ノード共通抽象。"""
 
+    # MatrixConfigTreeResolver による解決後に設定されるノード値。
+    # 解決前にアクセスした場合の挙動は未定義。
     value: DomainT
 
     def set_value(self, value: DomainT) -> None:
