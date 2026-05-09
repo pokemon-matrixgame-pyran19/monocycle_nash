@@ -60,19 +60,19 @@ class StubOutputPathPort(OutputPathPort):
 
 
 class StubCharacterListFilePort(CharacterListFilePort):
-    def __init__(self, characters: list[Character]):
+    def __init__(self, characters: tuple[Character, ...]):
         self._characters = characters
 
-    def load_characters(self, path: str) -> list[Character]:
-        return list(self._characters)
+    def load_characters(self, path: str) -> tuple[Character, ...]:
+        return self._characters
 
 
 class StubTeamListFilePort(TeamListFilePort):
-    def __init__(self, teams: list[Team]):
+    def __init__(self, teams: tuple[Team, ...]):
         self._teams = teams
 
-    def load_teams(self, path: str) -> list[Team]:
-        return list(self._teams)
+    def load_teams(self, path: str) -> tuple[Team, ...]:
+        return self._teams
 
 
 # ---------------------------------------------------------------------------
@@ -247,17 +247,16 @@ def test_monocycle_node_provides_characters_without_matrix_property() -> None:
             if node is target_node:
                 target_node.set_value(resolved)
                 return target_node
+            if isinstance(node, ApplicationNode):
+                node.set_value(node.provide_object(ctx=self))
+                return node
             raise NotImplementedError
 
         def get_node_value(self, node: object) -> object:
             if node is target_node:
                 return resolved
-            raise NotImplementedError
-
-        def load_characters_from_file(self, path: str) -> list[Character]:
-            raise NotImplementedError
-
-        def load_teams_from_file(self, path: str) -> list[Team]:
+            if isinstance(node, ApplicationNode):
+                return self.resolve_node(node).value
             raise NotImplementedError
 
     characters = target_node.provide_characters(ctx=_Ctx())
@@ -505,10 +504,10 @@ def test_resolver_monocycle_node_produces_monocycle_matrix() -> None:
 
 
 def test_resolver_file_backed_characters(tmp_path: Path) -> None:
-    characters = [
+    characters = (
         Character(1.0, MatchupVector(1.0, 0.0), "A"),
         Character(0.0, MatchupVector(0.0, 1.0), "B"),
-    ]
+    )
     tree = MatrixConfigTree(
         root=MonocycleFromCharactersNode(
             characters=CharacterListFromFileNode(path="dummy.toml"),
@@ -546,10 +545,10 @@ def test_resolver_file_backed_teams(tmp_path: Path) -> None:
         CharacterNode(power=0.0, vector=(0.0, 1.0), label="B"),
         CharacterNode(power=-1.0, vector=(-1.0, 0.0), label="C"),
     ))
-    teams = [
+    teams = (
         Team(label="A+B", member_ids=("A", "B")),
         Team(label="B+C", member_ids=("B", "C")),
-    ]
+    )
     tree = MatrixConfigTree(
         root=GeneralFromTeamMatchupsNode(
             teams=TeamListFromFileNode(path="teams.toml"),

@@ -30,7 +30,7 @@ class CharacterListFilePort(ABC):
     """ファイルからキャラクターリストを読み込むポート。"""
 
     @abstractmethod
-    def load_characters(self, path: str) -> list[Character]:
+    def load_characters(self, path: str) -> tuple[Character, ...]:
         """指定パスのファイルからキャラクターリストを読み込む。"""
         raise NotImplementedError
 
@@ -39,7 +39,7 @@ class TeamListFilePort(ABC):
     """ファイルからチームリストを読み込むポート。"""
 
     @abstractmethod
-    def load_teams(self, path: str) -> list[Team]:
+    def load_teams(self, path: str) -> tuple[Team, ...]:
         """指定パスのファイルからチームリストを読み込む。"""
         raise NotImplementedError
 

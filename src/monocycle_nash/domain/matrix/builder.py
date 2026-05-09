@@ -1,5 +1,6 @@
 import numpy as np
 from typing import TYPE_CHECKING
+from collections.abc import Sequence
 
 from monocycle_nash.domain.matrix.general import GeneralPayoffMatrix
 from monocycle_nash.domain.matrix.monocycle import MonocyclePayoffMatrix
@@ -25,7 +26,7 @@ class PayoffMatrixBuilder:
 
     @staticmethod
     def from_characters(
-        characters: list[Character],
+        characters: Sequence[Character],
         labels: list[str] | None = None,
     ) -> MonocyclePayoffMatrix:
         """Characterリストから単相性モデル利得行列を生成。"""
@@ -48,14 +49,14 @@ class PayoffMatrixBuilder:
         return GeneralPayoffMatrix(matrix, labels, col_strategies)
 
     @staticmethod
-    def from_teams(team_payoff: np.ndarray, teams: list["Team"]) -> GeneralPayoffMatrix:
+    def from_teams(team_payoff: np.ndarray, teams: Sequence["Team"]) -> GeneralPayoffMatrix:
         """既に計算済みのTeam利得行列から一般利得行列を生成。"""
         row_strategies = PureStrategySet.from_teams(teams, player_name="row")
         return GeneralPayoffMatrix(team_payoff, row_strategies, row_strategies)
 
     @staticmethod
     def from_team_matchups(
-        teams: list["Team"],
+        teams: Sequence["Team"],
         character_matrix: "PayoffMatrix",
         use_monocycle_formula: bool = True,
     ) -> GeneralPayoffMatrix:

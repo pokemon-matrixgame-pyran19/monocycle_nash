@@ -61,7 +61,7 @@ class _BaseTomlRefFilePort:
 class TomlCharacterListFilePort(_BaseTomlRefFilePort, CharacterListFilePort):
     """refs.characters 向けの CharacterListFilePort 実装。"""
 
-    def load_characters(self, path: str) -> list[Character]:
+    def load_characters(self, path: str) -> tuple[Character, ...]:
         source_path = self._resolve_path(path)
         data = self._load_toml(source_path)
         items = self._extract_list(data, "characters", source_path)
@@ -86,13 +86,13 @@ class TomlCharacterListFilePort(_BaseTomlRefFilePort, CharacterListFilePort):
                     label=label,
                 )
             )
-        return characters
+        return tuple(characters)
 
 
 class TomlTeamListFilePort(_BaseTomlRefFilePort, TeamListFilePort):
     """refs.teams 向けの TeamListFilePort 実装。"""
 
-    def load_teams(self, path: str) -> list[Team]:
+    def load_teams(self, path: str) -> tuple[Team, ...]:
         source_path = self._resolve_path(path)
         data = self._load_toml(source_path)
         items = self._extract_list(data, "teams", source_path)
@@ -110,4 +110,4 @@ class TomlTeamListFilePort(_BaseTomlRefFilePort, TeamListFilePort):
                 ) from exc
 
             teams.append(Team(label=label, member_ids=tuple(member_ids)))
-        return teams
+        return tuple(teams)
