@@ -169,7 +169,9 @@ class _ResolutionSession(NodeResolutionContext):
     ) -> None:
         node_dict = getattr(node, "__dict__", None)
         if node_dict is None:
-            raise RuntimeError("ノード解決状態を保持できません")
+            raise RuntimeError(
+                "ノード解決状態を保持するには __dict__ を持つノードが必要です"
+            )
         node_dict[attr_name] = (self.run_id, value)
 
     def resolve_node(self, node: MatrixNode) -> PayoffMatrix:

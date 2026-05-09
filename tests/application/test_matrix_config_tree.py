@@ -231,7 +231,7 @@ def test_resolver_runs_shared_runner_once_after_full_resolution(tmp_path: Path) 
     assert all(o.runner == "final" for o in result.outputs)
 
 
-@dataclass(frozen=True)
+@dataclass
 class _CountingMatrixNode(MatrixNode):
     calls: list[str]
     mark: str
@@ -247,7 +247,7 @@ class _CountingMatrixNode(MatrixNode):
         return GeneralPayoffMatrix([[0.0, 1.0], [-1.0, 0.0]], ["A", "B"])
 
 
-@dataclass(frozen=True)
+@dataclass
 class _ResolveTwiceNode(MatrixNode):
     child: MatrixNode
     calls: list[str]
