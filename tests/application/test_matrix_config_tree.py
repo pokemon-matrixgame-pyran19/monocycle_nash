@@ -384,6 +384,105 @@ def test_resolver_resolves_non_matrix_node_with_name_and_outputs(tmp_path: Path)
     assert result.outputs[0].path.read_text(encoding="utf-8") == "hello"
 
 
+def test_resolver_resolves_shared_node_once_per_run_and_re_resolves_next_run(
+    tmp_path: Path,
+) -> None:
+    call_count = {"count": 0}
+
+    @dataclass(frozen=True)
+    class _DummyTextOutputNode(OutputNode["_CountingValueNode"], output_method="dummy_text_counting"):
+        runner: str | None = None
+        filename: str = "leaf.txt"
+
+        @classmethod
+        def _from_output_spec(cls, spec):  # pragma: no cover
+            raise NotImplementedError
+
+        def emit(
+            self,
+            *,
+            node_name: str,
+            node_path: tuple[str, ...],
+            node: "_CountingValueNode",
+        ) -> OutputEmission:
+            return OutputEmission(
+                output_node=self,
+                node_name=node_name,
+                node_path=node_path,
+                runner=self.runner,
+                node=node,
+            )
+
+        def execute(
+            self,
+            *,
+            output_path_port: OutputPathPort,
+            run_id: str,
+            node_path: tuple[str, ...],
+            node: "_CountingValueNode",
+            ctx: NodeResolutionContext,
+        ) -> Path:
+            path = output_path_port.resolve_output_path(
+                run_id=run_id,
+                node_path=node_path,
+                output_method=self.output_method,
+                filename=self.filename,
+            )
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(node.value, encoding="utf-8")
+            return path
+
+    @dataclass(frozen=True)
+    class _CountingValueNode(ApplicationNode[str]):
+        name: str = "leaf"
+        outputs: tuple[OutputNode, ...] = ()
+
+        def provide_object(
+            self,
+            *,
+            ctx: NodeResolutionContext,
+        ) -> str:
+            call_count["count"] += 1
+            return f"value-{call_count['count']}"
+
+    @dataclass(frozen=True)
+    class _BridgeMatrixNode(MatrixNode):
+        child: _CountingValueNode
+        name: str = "root"
+        outputs: tuple[OutputNode, ...] = ()
+
+        @classmethod
+        def _from_spec(cls, spec, build_child):  # pragma: no cover
+            raise NotImplementedError
+
+        def build(self, ctx: NodeResolutionContext):
+            ctx.resolve_node(self.child)
+            ctx.resolve_node(self.child)
+            return GeneralPayoffMatrix([[0.0, 1.0], [-1.0, 0.0]], ["A", "B"])
+
+    tree = MatrixConfigTree(
+        root=_BridgeMatrixNode(
+            child=_CountingValueNode(
+                outputs=(_DummyTextOutputNode(filename="leaf.txt"),),
+            ),
+        )
+    )
+    output_port = StubOutputPathPort(tmp_path)
+    resolver = MatrixConfigTreeResolver(output_path_port=output_port)
+
+    first = resolver.resolve(tree)
+    second = resolver.resolve(tree)
+
+    assert call_count["count"] == 2
+    assert first.run_id == 1
+    assert second.run_id == 2
+    assert len(first.output_emissions) == 1
+    assert len(first.outputs) == 1
+    assert len(second.output_emissions) == 1
+    assert len(second.outputs) == 1
+    assert [run_id for run_id, _, _, _ in output_port.calls] == ["1", "2"]
+
+
 # ---------------------------------------------------------------------------
 # Resolver — inline character nodes produce MonocyclePayoffMatrix
 # ---------------------------------------------------------------------------

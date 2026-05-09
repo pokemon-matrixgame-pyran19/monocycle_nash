@@ -10,7 +10,7 @@ from __future__ import annotations
 import itertools
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, cast
+from typing import cast
 
 from monocycle_nash.application.matrix_nodes import (
     ApplicationNode,
@@ -122,7 +122,8 @@ class _ResolutionSession(NodeResolutionContext):
     """単一の resolve() 呼び出しに対応するセッション。
 
     NodeResolutionContext を実装し、各ノードの build から呼び出される。
-    キャッシュと出力結果リストを保持する。
+    ノード自身へ run_id を記録して、同一参照の再解決を抑止する。
+    出力結果リストも保持する。
     """
 
     def __init__(
@@ -139,12 +140,10 @@ class _ResolutionSession(NodeResolutionContext):
         self._team_list_file_port = team_list_file_port
         self.resolved_output_emissions: list[ResolvedOutputEmission] = []
         self._emissions_by_runner: dict[str, list[OutputEmission]] = {}
-        self._node_value_cache: dict[int, Any] = {}
         self._active_node_path_stack: list[tuple[str, ...]] = []
 
     def resolve_node(self, node: ApplicationNode[DomainT]) -> ApplicationNode[DomainT]:
-        cache_key = id(node)
-        if cache_key in self._node_value_cache:
+        if self._is_resolved_in_current_run(node):
             # 同一ノード参照は初回探索時に1回だけ解決し、出力実行も初回のみ行う。
             return node
 
@@ -163,7 +162,7 @@ class _ResolutionSession(NodeResolutionContext):
             if node_path is not None:
                 self._active_node_path_stack.pop()
         node.set_value(cast(DomainT, resolved))
-        self._node_value_cache[cache_key] = resolved
+        self._mark_resolved_in_current_run(node)
 
         if node_path is not None:
             for output_index, output_node in enumerate(node.resolve_outputs()):
@@ -190,10 +189,15 @@ class _ResolutionSession(NodeResolutionContext):
         return node
 
     def get_node_value(self, node: ApplicationNode[DomainT]) -> DomainT:
-        cache_key = id(node)
-        if cache_key not in self._node_value_cache:
+        if not self._is_resolved_in_current_run(node):
             self.resolve_node(node)
-        return cast(DomainT, self._node_value_cache[cache_key])
+        return cast(DomainT, node.value)
+
+    def _is_resolved_in_current_run(self, node: ApplicationNode[DomainT]) -> bool:
+        return getattr(node, "_resolved_run_id", None) == self.run_id
+
+    def _mark_resolved_in_current_run(self, node: ApplicationNode[DomainT]) -> None:
+        object.__setattr__(node, "_resolved_run_id", self.run_id)
 
     def run_output_runners(self) -> tuple[tuple[ResolvedOutput, ...], tuple[ResolvedRunner, ...]]:
         if self._emissions_by_runner and self._output_path_port is None:
