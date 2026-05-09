@@ -126,8 +126,8 @@ def test_resolver_builds_team_matrix_with_nested_dependency_and_outputs(tmp_path
     resolver = MatrixConfigTreeResolver(output_path_port=output_port)
     result = resolver.resolve(tree)
 
-    assert isinstance(result.root, GeneralPayoffMatrix)
-    assert result.root.matrix.shape == (2, 2)
+    assert isinstance(result.root.value, GeneralPayoffMatrix)
+    assert result.root.value.matrix.shape == (2, 2)
     assert result.run_id == 1
     assert len(result.outputs) == 2
     assert len(result.output_emissions) == 2
@@ -240,15 +240,13 @@ def test_monocycle_node_provides_characters_without_matrix_property() -> None:
     class _Ctx(NodeResolutionContext):
         def resolve_node(self, node: object) -> object:
             if node is target_node:
-                return resolved
+                target_node.set_value(resolved)
+                return target_node
             raise NotImplementedError
 
-        def get_resolved_matrix(self, node: object) -> object:
+        def get_node_value(self, node: object) -> object:
             if node is target_node:
                 return resolved
-            raise NotImplementedError
-
-        def resolve_node_object(self, node: object) -> object:
             raise NotImplementedError
 
         def load_characters_from_file(self, path: str) -> list[Character]:
@@ -308,8 +306,8 @@ def test_resolver_monocycle_node_produces_monocycle_matrix() -> None:
     )
 
     result = MatrixConfigTreeResolver().resolve(tree)
-    assert isinstance(result.root, MonocyclePayoffMatrix)
-    assert result.root.labels == ["A", "B"]
+    assert isinstance(result.root.value, MonocyclePayoffMatrix)
+    assert result.root.value.labels == ["A", "B"]
 
 
 # ---------------------------------------------------------------------------
@@ -332,8 +330,8 @@ def test_resolver_file_backed_characters(tmp_path: Path) -> None:
         character_list_file_port=StubCharacterListFilePort(characters)
     )
     result = resolver.resolve(tree)
-    assert isinstance(result.root, MonocyclePayoffMatrix)
-    assert result.root.matrix.shape == (2, 2)
+    assert isinstance(result.root.value, MonocyclePayoffMatrix)
+    assert result.root.value.matrix.shape == (2, 2)
 
 
 def test_resolver_file_backed_characters_without_port_raises() -> None:
@@ -377,8 +375,8 @@ def test_resolver_file_backed_teams(tmp_path: Path) -> None:
         team_list_file_port=StubTeamListFilePort(teams)
     )
     result = resolver.resolve(tree)
-    assert isinstance(result.root, GeneralPayoffMatrix)
-    assert result.root.matrix.shape == (2, 2)
+    assert isinstance(result.root.value, GeneralPayoffMatrix)
+    assert result.root.value.matrix.shape == (2, 2)
 
 
 def test_resolver_file_backed_teams_without_port_raises() -> None:

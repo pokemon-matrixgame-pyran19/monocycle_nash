@@ -63,7 +63,7 @@ def run(
     )
 
     print(f"run_id: {result.run_id}")
-    print(f"matrix shape: {result.root.matrix.shape}")
+    print(f"matrix shape: {result.root.value.matrix.shape}")
     print(f"snapshot: {snapshot_path}")
     if result.outputs:
         print("outputs:")
