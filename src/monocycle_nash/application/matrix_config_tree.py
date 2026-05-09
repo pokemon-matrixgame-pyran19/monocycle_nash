@@ -122,7 +122,7 @@ class _ResolutionSession(NodeResolutionContext):
     """単一の resolve() 呼び出しに対応するセッション。
 
     NodeResolutionContext を実装し、各ノードの build から呼び出される。
-    ノード自身へ run_id を記録して、同一参照の再解決を抑止する。
+    ノード自身の解決済み状態を参照して、同一参照の再解決を抑止する。
     出力結果リストも保持する。
     """
 
@@ -143,7 +143,7 @@ class _ResolutionSession(NodeResolutionContext):
         self._active_node_path_stack: list[tuple[str, ...]] = []
 
     def resolve_node(self, node: ApplicationNode[DomainT]) -> ApplicationNode[DomainT]:
-        if self._is_resolved_in_current_run(node):
+        if self._is_resolved(node):
             # 同一ノード参照は初回探索時に1回だけ解決し、出力実行も初回のみ行う。
             return node
 
@@ -162,7 +162,6 @@ class _ResolutionSession(NodeResolutionContext):
             if node_path is not None:
                 self._active_node_path_stack.pop()
         node.set_value(cast(DomainT, resolved))
-        self._mark_resolved_in_current_run(node)
 
         if node_path is not None:
             for output_index, output_node in enumerate(node.resolve_outputs()):
@@ -189,15 +188,12 @@ class _ResolutionSession(NodeResolutionContext):
         return node
 
     def get_node_value(self, node: ApplicationNode[DomainT]) -> DomainT:
-        if not self._is_resolved_in_current_run(node):
+        if not self._is_resolved(node):
             self.resolve_node(node)
         return cast(DomainT, node.value)
 
-    def _is_resolved_in_current_run(self, node: ApplicationNode[DomainT]) -> bool:
-        return node.resolved_run_id() == self.run_id
-
-    def _mark_resolved_in_current_run(self, node: ApplicationNode[DomainT]) -> None:
-        node.mark_resolved_run_id(self.run_id)
+    def _is_resolved(self, node: ApplicationNode[DomainT]) -> bool:
+        return node.is_resolved()
 
     def run_output_runners(self) -> tuple[tuple[ResolvedOutput, ...], tuple[ResolvedRunner, ...]]:
         if self._emissions_by_runner and self._output_path_port is None:

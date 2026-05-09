@@ -90,16 +90,9 @@ class ApplicationNode(ABC, Generic[DomainT]):
         """解決済み value をノードへ設定する。"""
         object.__setattr__(self, "value", value)
 
-    def mark_resolved_run_id(self, run_id: int) -> None:
-        """このノードが解決済みの run_id を設定する。"""
-        object.__setattr__(self, "_resolved_run_id", run_id)
-
-    def resolved_run_id(self) -> int | None:
-        """このノードが解決済みの run_id を返す。"""
-        run_id = getattr(self, "_resolved_run_id", None)
-        if run_id is None or isinstance(run_id, int):
-            return run_id
-        raise TypeError("ApplicationNode._resolved_run_id は int である必要があります")
+    def is_resolved(self) -> bool:
+        """このノードが解決済みかどうかを返す。"""
+        return hasattr(self, "value")
 
     def resolve_value(
         self,

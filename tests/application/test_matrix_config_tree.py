@@ -384,7 +384,7 @@ def test_resolver_resolves_non_matrix_node_with_name_and_outputs(tmp_path: Path)
     assert result.outputs[0].path.read_text(encoding="utf-8") == "hello"
 
 
-def test_resolver_resolves_shared_node_once_per_run_and_re_resolves_next_run(
+def test_resolver_resolves_shared_node_once(
     tmp_path: Path,
 ) -> None:
     call_count = {"count": 0}
@@ -470,19 +470,12 @@ def test_resolver_resolves_shared_node_once_per_run_and_re_resolves_next_run(
     output_port = StubOutputPathPort(tmp_path)
     resolver = MatrixConfigTreeResolver(output_path_port=output_port)
 
-    first = resolver.resolve(tree)
-    second = resolver.resolve(tree)
+    result = resolver.resolve(tree)
 
-    assert call_count["count"] == 2
-    assert second.run_id > first.run_id
-    assert len(first.output_emissions) == 1
-    assert len(first.outputs) == 1
-    assert len(second.output_emissions) == 1
-    assert len(second.outputs) == 1
-    assert [run_id for run_id, _, _, _ in output_port.calls] == [
-        str(first.run_id),
-        str(second.run_id),
-    ]
+    assert call_count["count"] == 1
+    assert len(result.output_emissions) == 1
+    assert len(result.outputs) == 1
+    assert [run_id for run_id, _, _, _ in output_port.calls] == [str(result.run_id)]
 
 
 # ---------------------------------------------------------------------------
