@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, ClassVar, Generic, TypeVar, cast
 
-from monocycle_nash.application.node_spec import NodeSpec, OutputSpec, ApplicationNode
+from monocycle_nash.application.node_spec import NodeSpec, OutputSpec
 from monocycle_nash.application.ports import OutputPathPort
 from monocycle_nash.domain.character import Character, MatchupVector
 from monocycle_nash.domain.matrix.approximation import (
@@ -41,7 +41,6 @@ from monocycle_nash.domain.visualization.payoff_graph import PayoffDirectedGraph
 
 
 DomainT = TypeVar("DomainT")
-NodeT = TypeVar("NodeT", bound=ApplicationNode)
 
 
 # ---------------------------------------------------------------------------
@@ -89,6 +88,24 @@ class ApplicationNode(ABC, Generic[DomainT]):
         """解決済み value をノードへ設定する。"""
         object.__setattr__(self, "value", value)
 
+    def resolve_value(
+        self,
+        *,
+        ctx: NodeResolutionContext,
+    ) -> DomainT:
+        """resolver がこのノードを評価するときの値計算処理。"""
+        return self.provide_object(ctx=ctx)
+
+    def resolve_name(self) -> str | None:
+        """resolver 上のノード名。name 属性がある場合のみ返す。"""
+        name = getattr(self, "name", None)
+        return name if isinstance(name, str) else None
+
+    def resolve_outputs(self) -> tuple["OutputNode[Any]", ...]:
+        """resolver 上の出力ノード列。outputs 属性がある場合のみ返す。"""
+        outputs = getattr(self, "outputs", ())
+        return tuple(cast("OutputNode[Any]", output) for output in outputs)
+
     @abstractmethod
     def provide_object(
         self,
@@ -97,6 +114,9 @@ class ApplicationNode(ABC, Generic[DomainT]):
     ) -> DomainT:
         """ノードが提供するオブジェクトを返す。"""
         raise NotImplementedError
+
+
+NodeT = TypeVar("NodeT", bound=ApplicationNode[Any])
 
 
 # ---------------------------------------------------------------------------
@@ -261,7 +281,7 @@ class OutputEmission:
     node_name: str
     node_path: tuple[str, ...]
     runner: str | None
-    node: "MatrixNode"
+    node: "ApplicationNode[Any]"
 
 
 class OutputNode(ABC, Generic[NodeT]):
@@ -563,6 +583,13 @@ class MatrixNode(ApplicationNode[PayoffMatrix]):
     def build(self, ctx: NodeResolutionContext) -> PayoffMatrix:
         """コンテキストを使って PayoffMatrix を構築して返す。"""
         raise NotImplementedError
+
+    def resolve_value(
+        self,
+        *,
+        ctx: NodeResolutionContext,
+    ) -> PayoffMatrix:
+        return self.build(ctx)
 
     def provide_object(
         self,

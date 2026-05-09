@@ -149,40 +149,38 @@ class _ResolutionSession(NodeResolutionContext):
             return node
 
         node_path: tuple[str, ...] | None = None
-        if isinstance(node, MatrixNode):
+        node_name = node.resolve_name()
+        if node_name is not None:
             if self._active_node_path_stack:
-                node_path = (*self._active_node_path_stack[-1], node.name)
+                node_path = (*self._active_node_path_stack[-1], node_name)
             else:
-                node_path = (node.name,)
+                node_path = (node_name,)
             self._active_node_path_stack.append(node_path)
 
         try:
-            if isinstance(node, MatrixNode):
-                resolved = node.build(self)
-            else:
-                resolved = node.provide_object(ctx=self)
+            resolved = node.resolve_value(ctx=self)
         finally:
             if node_path is not None:
                 self._active_node_path_stack.pop()
         node.set_value(cast(DomainT, resolved))
         self._node_value_cache[cache_key] = resolved
 
-        if isinstance(node, MatrixNode) and node_path is not None:
-            for output_index, output_node in enumerate(node.outputs):
+        if node_path is not None:
+            for output_index, output_node in enumerate(node.resolve_outputs()):
                 runner = output_node.resolve_runner() or self._build_default_runner_id(
                     node_path=node_path,
                     output_method=output_node.output_method,
                     output_index=output_index,
                 )
                 emission = output_node.emit(
-                    node_name=node.name,
+                    node_name=node_path[-1],
                     node_path=node_path,
-                    node=node,
+                    node=cast(Any, node),
                 )
                 self._emissions_by_runner.setdefault(runner, []).append(emission)
                 self.resolved_output_emissions.append(
                     ResolvedOutputEmission(
-                        node_name=node.name,
+                        node_name=node_path[-1],
                         output_node=output_node,
                         runner=runner,
                         node_path=node_path,
