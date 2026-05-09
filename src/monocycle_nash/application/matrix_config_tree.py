@@ -175,7 +175,7 @@ class _ResolutionSession(NodeResolutionContext):
                 emission = output_node.emit(
                     node_name=node_path[-1],
                     node_path=node_path,
-                    node=cast(Any, node),
+                    node=node,
                 )
                 self._emissions_by_runner.setdefault(runner, []).append(emission)
                 self.resolved_output_emissions.append(

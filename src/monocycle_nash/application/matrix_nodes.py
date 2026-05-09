@@ -99,12 +99,19 @@ class ApplicationNode(ABC, Generic[DomainT]):
     def resolve_name(self) -> str | None:
         """resolver 上のノード名。name 属性がある場合のみ返す。"""
         name = getattr(self, "name", None)
-        return name if isinstance(name, str) else None
+        if name is None or isinstance(name, str):
+            return name
+        raise TypeError("ApplicationNode.name は str である必要があります")
 
     def resolve_outputs(self) -> tuple["OutputNode[Any]", ...]:
         """resolver 上の出力ノード列。outputs 属性がある場合のみ返す。"""
         outputs = getattr(self, "outputs", ())
-        return tuple(cast("OutputNode[Any]", output) for output in outputs)
+        resolved_outputs: list["OutputNode[Any]"] = []
+        for output in outputs:
+            if not isinstance(output, OutputNode):
+                raise TypeError("ApplicationNode.outputs は OutputNode の列である必要があります")
+            resolved_outputs.append(output)
+        return tuple(resolved_outputs)
 
     @abstractmethod
     def provide_object(
