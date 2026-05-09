@@ -90,7 +90,7 @@ class ApplicationNode(ABC, Generic[DomainT]):
     def set_value(self, value: DomainT) -> None:
         """解決済み value をノードへ設定する。"""
         dataclass_params = getattr(type(self), "__dataclass_params__", None)
-        if dataclass_params is not None and dataclass_params.frozen:
+        if dataclass_params is not None and getattr(dataclass_params, "frozen", False):
             object.__setattr__(self, "value", value)
             object.__setattr__(self, "_is_resolved", True)
             return
