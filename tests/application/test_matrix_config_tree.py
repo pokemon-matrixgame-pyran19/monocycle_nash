@@ -3,6 +3,7 @@ from __future__ import annotations
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any, Callable
 
 import pytest
 
@@ -239,7 +240,11 @@ class _CountingMatrixNode(MatrixNode):
     outputs: tuple[OutputNode, ...] = field(default_factory=tuple)
 
     @classmethod
-    def _from_spec(cls, spec: object, build_child: object) -> MatrixNode:
+    def _from_spec(
+        cls,
+        spec: Any,
+        build_child: Callable[[Any], MatrixNode],
+    ) -> MatrixNode:
         raise NotImplementedError
 
     def build(self, ctx: NodeResolutionContext) -> GeneralPayoffMatrix:
@@ -255,10 +260,14 @@ class _ResolveTwiceNode(MatrixNode):
     outputs: tuple[OutputNode, ...] = field(default_factory=tuple)
 
     @classmethod
-    def _from_spec(cls, spec: object, build_child: object) -> MatrixNode:
+    def _from_spec(
+        cls,
+        spec: Any,
+        build_child: Callable[[Any], MatrixNode],
+    ) -> MatrixNode:
         raise NotImplementedError
 
-    def build(self, ctx: NodeResolutionContext) -> object:
+    def build(self, ctx: NodeResolutionContext) -> GeneralPayoffMatrix:
         first = ctx.resolve_node(self.child)
         second = ctx.resolve_node(self.child)
         assert first is second
