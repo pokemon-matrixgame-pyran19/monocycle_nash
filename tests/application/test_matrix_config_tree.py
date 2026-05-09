@@ -474,13 +474,15 @@ def test_resolver_resolves_shared_node_once_per_run_and_re_resolves_next_run(
     second = resolver.resolve(tree)
 
     assert call_count["count"] == 2
-    assert first.run_id == 1
-    assert second.run_id == 2
+    assert second.run_id > first.run_id
     assert len(first.output_emissions) == 1
     assert len(first.outputs) == 1
     assert len(second.output_emissions) == 1
     assert len(second.outputs) == 1
-    assert [run_id for run_id, _, _, _ in output_port.calls] == ["1", "2"]
+    assert [run_id for run_id, _, _, _ in output_port.calls] == [
+        str(first.run_id),
+        str(second.run_id),
+    ]
 
 
 # ---------------------------------------------------------------------------

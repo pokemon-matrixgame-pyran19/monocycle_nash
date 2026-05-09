@@ -194,10 +194,10 @@ class _ResolutionSession(NodeResolutionContext):
         return cast(DomainT, node.value)
 
     def _is_resolved_in_current_run(self, node: ApplicationNode[DomainT]) -> bool:
-        return getattr(node, "_resolved_run_id", None) == self.run_id
+        return node.resolved_run_id() == self.run_id
 
     def _mark_resolved_in_current_run(self, node: ApplicationNode[DomainT]) -> None:
-        object.__setattr__(node, "_resolved_run_id", self.run_id)
+        node.mark_resolved_run_id(self.run_id)
 
     def run_output_runners(self) -> tuple[tuple[ResolvedOutput, ...], tuple[ResolvedRunner, ...]]:
         if self._emissions_by_runner and self._output_path_port is None:
