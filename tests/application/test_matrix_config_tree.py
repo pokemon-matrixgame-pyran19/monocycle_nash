@@ -395,7 +395,7 @@ def test_resolver_resolves_shared_node_once(
         filename: str = "leaf.txt"
 
         @classmethod
-        def _from_output_spec(cls, spec):  # pragma: no cover
+        def _from_output_spec(cls, output_spec):  # pragma: no cover
             raise NotImplementedError
 
         def emit(
@@ -452,7 +452,7 @@ def test_resolver_resolves_shared_node_once(
         outputs: tuple[OutputNode, ...] = ()
 
         @classmethod
-        def _from_spec(cls, spec, build_child):  # pragma: no cover
+        def _from_spec(cls, matrix_spec, child_builder):  # pragma: no cover
             raise NotImplementedError
 
         def build(self, ctx: NodeResolutionContext):

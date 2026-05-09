@@ -89,10 +89,11 @@ class ApplicationNode(ABC, Generic[DomainT]):
     def set_value(self, value: DomainT) -> None:
         """解決済み value をノードへ設定する。"""
         object.__setattr__(self, "value", value)
+        object.__setattr__(self, "_is_resolved", True)
 
     def is_resolved(self) -> bool:
         """このノードが解決済みかどうかを返す。"""
-        return hasattr(self, "value")
+        return getattr(self, "_is_resolved", False)
 
     def resolve_value(
         self,
