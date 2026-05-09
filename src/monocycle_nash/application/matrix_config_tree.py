@@ -10,7 +10,7 @@ from __future__ import annotations
 import itertools
 from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 from monocycle_nash.application.matrix_nodes import (
     ApplicationNode,
@@ -27,7 +27,6 @@ from monocycle_nash.application.ports import (
     TeamListFilePort,
 )
 from monocycle_nash.domain.character import Character
-from monocycle_nash.domain.matrix.base import PayoffMatrix
 from monocycle_nash.domain.team import Team
 
 
@@ -72,7 +71,7 @@ class MatrixResolutionResult:
     """設定ツリー解決結果。"""
 
     run_id: int
-    root: PayoffMatrix
+    root: MatrixNode
     output_emissions: tuple[ResolvedOutputEmission, ...] = ()
     runners: tuple[ResolvedRunner, ...] = ()
     outputs: tuple[ResolvedOutput, ...] = ()
@@ -140,77 +139,67 @@ class _ResolutionSession(NodeResolutionContext):
         self._team_list_file_port = team_list_file_port
         self.resolved_output_emissions: list[ResolvedOutputEmission] = []
         self._emissions_by_runner: dict[str, list[OutputEmission]] = {}
-        self._resolved_cache: dict[int, PayoffMatrix] = {}
-        self._application_node_cache: dict[int, object] = {}
+        self._resolved_cache: dict[int, Any] = {}
         self._active_node_path_stack: list[tuple[str, ...]] = []
 
-    def resolve_node(self, node: MatrixNode) -> PayoffMatrix:
+    def resolve_node(self, node: ApplicationNode[DomainT]) -> ApplicationNode[DomainT]:
         cache_key = id(node)
-        if self._active_node_path_stack:
-            node_path = (*self._active_node_path_stack[-1], node.name)
-        else:
-            node_path = (node.name,)
         if cache_key in self._resolved_cache:
             # 同一ノード参照は初回探索時に1回だけ解決し、出力実行も初回のみ行う。
-            return self._resolved_cache[cache_key]
+            return node
 
-        self._active_node_path_stack.append(node_path)
+        node_path: tuple[str, ...] | None = None
+        if isinstance(node, MatrixNode):
+            if self._active_node_path_stack:
+                node_path = (*self._active_node_path_stack[-1], node.name)
+            else:
+                node_path = (node.name,)
+            self._active_node_path_stack.append(node_path)
+
         try:
-            resolved = node.build(self)
+            if isinstance(node, MatrixNode):
+                resolved = node.build(self)
+            else:
+                resolved = node.provide_object(ctx=self)
         finally:
-            self._active_node_path_stack.pop()
+            if node_path is not None:
+                self._active_node_path_stack.pop()
+        node.set_value(cast(DomainT, resolved))
         self._resolved_cache[cache_key] = resolved
 
-        matrix = node.provide_object(ctx=self)
-        characters = node.provide_characters(ctx=self)
-        teams = node.provide_teams(ctx=self)
-        for output_index, output_node in enumerate(node.outputs):
-            runner = output_node.resolve_runner() or self._build_default_runner_id(
-                node_path=node_path,
-                output_method=output_node.output_method,
-                output_index=output_index,
-            )
-            emission = output_node.emit(
-                node_name=node.name,
-                node_path=node_path,
-                matrix=matrix,
-                characters=characters,
-                teams=teams,
-            )
-            self._emissions_by_runner.setdefault(runner, []).append(emission)
-            self.resolved_output_emissions.append(
-                ResolvedOutputEmission(
-                    node_name=node.name,
-                    output_node=output_node,
-                    runner=runner,
+        if isinstance(node, MatrixNode) and node_path is not None:
+            for output_index, output_node in enumerate(node.outputs):
+                runner = output_node.resolve_runner() or self._build_default_runner_id(
                     node_path=node_path,
+                    output_method=output_node.output_method,
+                    output_index=output_index,
                 )
-            )
+                emission = output_node.emit(
+                    node_name=node.name,
+                    node_path=node_path,
+                    node=node,
+                )
+                self._emissions_by_runner.setdefault(runner, []).append(emission)
+                self.resolved_output_emissions.append(
+                    ResolvedOutputEmission(
+                        node_name=node.name,
+                        output_node=output_node,
+                        runner=runner,
+                        node_path=node_path,
+                    )
+                )
 
-        return resolved
+        return node
 
-    def get_resolved_matrix(self, node: MatrixNode) -> PayoffMatrix:
+    def get_node_value(self, node: ApplicationNode[DomainT]) -> DomainT:
         cache_key = id(node)
         resolved = self._resolved_cache.get(cache_key)
         if resolved is None:
-            raise RuntimeError("未解決ノードの matrix 参照はできません")
-        return resolved
-
-    def resolve_node_object(self, node: ApplicationNode[DomainT]) -> DomainT:
-        cache_key = id(node)
-        if isinstance(node, MatrixNode):
-            if cache_key not in self._resolved_cache:
-                self.resolve_node(node)
+            self.resolve_node(node)
             resolved = self._resolved_cache.get(cache_key)
-            if resolved is None:
-                raise RuntimeError("ノードのオブジェクト解決に失敗しました")
-            return cast(DomainT, resolved)
-
-        obj = self._application_node_cache.get(cache_key)
-        if obj is None:
-            obj = node.provide_object(ctx=self)
-            self._application_node_cache[cache_key] = obj
-        return cast(DomainT, obj)
+        if resolved is None:
+            raise RuntimeError("ノードの value 解決に失敗しました")
+        return cast(DomainT, resolved)
 
     def run_output_runners(self) -> tuple[tuple[ResolvedOutput, ...], tuple[ResolvedRunner, ...]]:
         if self._emissions_by_runner and self._output_path_port is None:
@@ -228,9 +217,8 @@ class _ResolutionSession(NodeResolutionContext):
                     output_path_port=output_path_port,
                     run_id=str(self.run_id),
                     node_path=emission.node_path,
-                    matrix=emission.matrix,
-                    characters=emission.characters,
-                    teams=emission.teams,
+                    node=emission.node,
+                    ctx=self,
                 )
                 output_count += 1
                 resolved_outputs.append(

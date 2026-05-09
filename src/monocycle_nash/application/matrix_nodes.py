@@ -22,7 +22,7 @@ import tomli_w
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, ClassVar, Generic, TypeVar
+from typing import Any, Callable, ClassVar, Generic, TypeVar, cast
 
 from monocycle_nash.application.node_spec import NodeSpec, OutputSpec
 from monocycle_nash.application.ports import OutputPathPort
@@ -52,18 +52,13 @@ class NodeResolutionContext(ABC):
     """ApplicationNode 解決時に再帰参照やファイル読み込みで使うコンテキスト。"""
 
     @abstractmethod
-    def resolve_node(self, node: MatrixNode) -> PayoffMatrix:
-        """別ノードを再帰的に解決して PayoffMatrix を返す。"""
+    def resolve_node(self, node: "ApplicationNode[DomainT]") -> "ApplicationNode[DomainT]":
+        """別ノードを再帰的に解決してノード自身を返す。"""
         raise NotImplementedError
 
     @abstractmethod
-    def get_resolved_matrix(self, node: MatrixNode) -> PayoffMatrix:
-        """解決済み MatrixNode の PayoffMatrix を返す。"""
-        raise NotImplementedError
-
-    @abstractmethod
-    def resolve_node_object(self, node: "ApplicationNode[DomainT]") -> DomainT:
-        """別ノードの解決済みオブジェクトを返す。"""
+    def get_node_value(self, node: "ApplicationNode[DomainT]") -> DomainT:
+        """解決済みノードの value を返す。"""
         raise NotImplementedError
 
     @abstractmethod
@@ -84,6 +79,12 @@ class NodeResolutionContext(ABC):
 
 class ApplicationNode(ABC, Generic[DomainT]):
     """解決済みオブジェクトを提供する全ノード共通抽象。"""
+
+    value: DomainT
+
+    def set_value(self, value: DomainT) -> None:
+        """解決済み value をノードへ設定する。"""
+        object.__setattr__(self, "value", value)
 
     @abstractmethod
     def provide_object(
@@ -257,9 +258,7 @@ class OutputEmission:
     node_name: str
     node_path: tuple[str, ...]
     runner: str | None
-    matrix: PayoffMatrix
-    characters: tuple[Character, ...]
-    teams: tuple[Team, ...]
+    node: "MatrixNode"
 
 
 class OutputNode(ABC):
@@ -304,9 +303,7 @@ class OutputNode(ABC):
         *,
         node_name: str,
         node_path: tuple[str, ...],
-        matrix: PayoffMatrix,
-        characters: tuple[Character, ...],
-        teams: tuple[Team, ...],
+        node: "MatrixNode",
     ) -> OutputEmission:
         """Runner に渡す出力イベントを生成する。"""
         raise NotImplementedError
@@ -325,9 +322,8 @@ class OutputNode(ABC):
         output_path_port: OutputPathPort,
         run_id: str,
         node_path: tuple[str, ...],
-        matrix: PayoffMatrix,
-        characters: tuple[Character, ...],
-        teams: tuple[Team, ...],
+        node: "MatrixNode",
+        ctx: NodeResolutionContext,
     ) -> Path:
         """Runner から呼び出され、最終成果物を生成する。"""
         raise NotImplementedError
@@ -356,18 +352,14 @@ class PayoffDirectedGraphOutputNode(OutputNode, output_method="payoff_directed_g
         *,
         node_name: str,
         node_path: tuple[str, ...],
-        matrix: PayoffMatrix,
-        characters: tuple[Character, ...],
-        teams: tuple[Team, ...],
+        node: "MatrixNode",
     ) -> OutputEmission:
         return OutputEmission(
             output_node=self,
             node_name=node_name,
             node_path=node_path,
             runner=self.runner,
-            matrix=matrix,
-            characters=characters,
-            teams=teams,
+            node=node,
         )
 
     def execute(
@@ -376,9 +368,8 @@ class PayoffDirectedGraphOutputNode(OutputNode, output_method="payoff_directed_g
         output_path_port: OutputPathPort,
         run_id: str,
         node_path: tuple[str, ...],
-        matrix: PayoffMatrix,
-        characters: tuple[Character, ...],
-        teams: tuple[Team, ...],
+        node: "MatrixNode",
+        ctx: NodeResolutionContext,
     ) -> Path:
         path = output_path_port.resolve_output_path(
             run_id=run_id,
@@ -386,6 +377,7 @@ class PayoffDirectedGraphOutputNode(OutputNode, output_method="payoff_directed_g
             output_method=self.output_method,
             filename=self.filename,
         )
+        matrix = node.provide_object(ctx=ctx)
         PayoffDirectedGraphPlotter(
             payoff_matrix=matrix.matrix,
             labels=matrix.labels,
@@ -417,18 +409,14 @@ class CharacterVectorGraphOutputNode(OutputNode, output_method="character_vector
         *,
         node_name: str,
         node_path: tuple[str, ...],
-        matrix: PayoffMatrix,
-        characters: tuple[Character, ...],
-        teams: tuple[Team, ...],
+        node: "MatrixNode",
     ) -> OutputEmission:
         return OutputEmission(
             output_node=self,
             node_name=node_name,
             node_path=node_path,
             runner=self.runner,
-            matrix=matrix,
-            characters=characters,
-            teams=teams,
+            node=node,
         )
 
     def execute(
@@ -437,9 +425,8 @@ class CharacterVectorGraphOutputNode(OutputNode, output_method="character_vector
         output_path_port: OutputPathPort,
         run_id: str,
         node_path: tuple[str, ...],
-        matrix: PayoffMatrix,
-        characters: tuple[Character, ...],
-        teams: tuple[Team, ...],
+        node: "MatrixNode",
+        ctx: NodeResolutionContext,
     ) -> Path:
         path = output_path_port.resolve_output_path(
             run_id=run_id,
@@ -447,6 +434,7 @@ class CharacterVectorGraphOutputNode(OutputNode, output_method="character_vector
             output_method=self.output_method,
             filename=self.filename,
         )
+        characters = node.provide_characters(ctx=ctx)
         if not characters:
             raise ValueError(
                 "character_vector_graph は characters を持つノードでのみ使用できます"
@@ -478,18 +466,14 @@ class EquilibriumOutputNode(OutputNode, output_method="equilibrium"):
         *,
         node_name: str,
         node_path: tuple[str, ...],
-        matrix: PayoffMatrix,
-        characters: tuple[Character, ...],
-        teams: tuple[Team, ...],
+        node: "MatrixNode",
     ) -> OutputEmission:
         return OutputEmission(
             output_node=self,
             node_name=node_name,
             node_path=node_path,
             runner=self.runner,
-            matrix=matrix,
-            characters=characters,
-            teams=teams,
+            node=node,
         )
 
     def execute(
@@ -498,9 +482,8 @@ class EquilibriumOutputNode(OutputNode, output_method="equilibrium"):
         output_path_port: OutputPathPort,
         run_id: str,
         node_path: tuple[str, ...],
-        matrix: PayoffMatrix,
-        characters: tuple[Character, ...],
-        teams: tuple[Team, ...],
+        node: "MatrixNode",
+        ctx: NodeResolutionContext,
     ) -> Path:
         path = output_path_port.resolve_output_path(
             run_id=run_id,
@@ -508,6 +491,7 @@ class EquilibriumOutputNode(OutputNode, output_method="equilibrium"):
             output_method=self.output_method,
             filename=self.filename,
         )
+        matrix = node.provide_object(ctx=ctx)
         mixed = SolverSelector().solve(matrix)
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("wb") as f:
@@ -583,7 +567,7 @@ class MatrixNode(ApplicationNode[PayoffMatrix]):
         ctx: NodeResolutionContext,
     ) -> PayoffMatrix:
         """解決済み結果の行列を返す。"""
-        return ctx.get_resolved_matrix(self)
+        return cast(PayoffMatrix, ctx.get_node_value(self))
 
     def provide_characters(self, *, ctx: NodeResolutionContext) -> tuple[Character, ...]:
         """このノードに関連するキャラクターを返す。デフォルトは空タプル。"""
@@ -721,7 +705,8 @@ class GeneralFromTeamMatchupsNode(MatrixNode, node_method="general_from_team_mat
         )
 
     def build(self, ctx: NodeResolutionContext) -> PayoffMatrix:
-        character_matrix = ctx.resolve_node(self.character_matrix)
+        character_matrix_node = ctx.resolve_node(self.character_matrix)
+        character_matrix = cast(PayoffMatrix, character_matrix_node.value)
         teams = self.teams.get_teams(ctx=ctx)
         return PayoffMatrixBuilder.from_team_matchups(
             teams=list(teams),
@@ -801,7 +786,8 @@ class ApproxMonocycleToGeneralNode(MatrixNode, node_method="approx_monocycle_to_
         )
 
     def build(self, ctx: NodeResolutionContext) -> PayoffMatrix:
-        source = ctx.resolve_node(self.source)
+        source_node = ctx.resolve_node(self.source)
+        source = cast(PayoffMatrix, source_node.value)
         return MonocycleToGeneralApproximation().approximate(source).matrix
 
 
@@ -832,7 +818,8 @@ class ApproxDominantEigenpairNode(MatrixNode, node_method="approx_dominant_eigen
         )
 
     def build(self, ctx: NodeResolutionContext) -> PayoffMatrix:
-        source = ctx.resolve_node(self.source)
+        source_node = ctx.resolve_node(self.source)
+        source = cast(PayoffMatrix, source_node.value)
         return DominantEigenpairMonocycleApproximation(atol=self.atol).approximate(source).matrix
 
 
@@ -863,5 +850,6 @@ class ApproxEquilibriumPreservingNode(MatrixNode, node_method="approx_equilibriu
         )
 
     def build(self, ctx: NodeResolutionContext) -> PayoffMatrix:
-        source = ctx.resolve_node(self.source)
+        source_node = ctx.resolve_node(self.source)
+        source = cast(PayoffMatrix, source_node.value)
         return EquilibriumPreservingResidualMonocycleApproximation(atol=self.atol).approximate(source).matrix
