@@ -360,7 +360,7 @@ def test_resolver_resolves_non_matrix_node_with_name_and_outputs(tmp_path: Path)
         def _from_spec(cls, spec, build_child):  # pragma: no cover
             raise NotImplementedError
 
-        def build(self, ctx: NodeResolutionContext):
+        def resolve_value(self, *, ctx: NodeResolutionContext):
             ctx.resolve_node(self.child)
             return GeneralPayoffMatrix([[0.0, 1.0], [-1.0, 0.0]], ["A", "B"])
 
@@ -454,7 +454,7 @@ def test_resolver_resolves_shared_node_once(
         def _from_spec(cls, matrix_spec, child_builder):  # pragma: no cover
             raise NotImplementedError
 
-        def build(self, ctx: NodeResolutionContext):
+        def resolve_value(self, *, ctx: NodeResolutionContext):
             ctx.resolve_node(self.child)
             ctx.resolve_node(self.child)
             return GeneralPayoffMatrix([[0.0, 1.0], [-1.0, 0.0]], ["A", "B"])
