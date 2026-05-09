@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import tomllib
+from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
@@ -12,6 +13,7 @@ from monocycle_nash.application.matrix_config_tree import (
     ResolvedOutput,
 )
 from monocycle_nash.application.matrix_nodes import (
+    ApplicationNode,
     ApproxMonocycleToGeneralNode,
     CharacterInlineSource,
     CharacterListFromFileNode,
@@ -19,8 +21,11 @@ from monocycle_nash.application.matrix_nodes import (
     CharacterVectorGraphOutputNode,
     EquilibriumOutputNode,
     GeneralFromTeamMatchupsNode,
+    MatrixNode,
     MonocycleFromCharactersNode,
     NodeResolutionContext,
+    OutputEmission,
+    OutputNode,
     PayoffDirectedGraphOutputNode,
     TeamInlineSource,
     TeamListFromFileNode,
@@ -287,6 +292,96 @@ def test_team_matchups_node_can_emit_character_vector_from_child_domain(tmp_path
 
     assert len(result.outputs) == 1
     assert result.outputs[0].path.exists()
+
+
+def test_resolver_resolves_non_matrix_node_with_name_and_outputs(tmp_path: Path) -> None:
+    @dataclass(frozen=True)
+    class _DummyTextOutputNode(OutputNode["_DummyValueNode"], output_method="dummy_text"):
+        runner: str | None = None
+        filename: str = "dummy.txt"
+
+        @classmethod
+        def _from_output_spec(cls, spec):  # pragma: no cover
+            raise NotImplementedError
+
+        def emit(
+            self,
+            *,
+            node_name: str,
+            node_path: tuple[str, ...],
+            node: "_DummyValueNode",
+        ) -> OutputEmission:
+            return OutputEmission(
+                output_node=self,
+                node_name=node_name,
+                node_path=node_path,
+                runner=self.runner,
+                node=node,
+            )
+
+        def execute(
+            self,
+            *,
+            output_path_port: OutputPathPort,
+            run_id: str,
+            node_path: tuple[str, ...],
+            node: "_DummyValueNode",
+            ctx: NodeResolutionContext,
+        ) -> Path:
+            path = output_path_port.resolve_output_path(
+                run_id=run_id,
+                node_path=node_path,
+                output_method=self.output_method,
+                filename=self.filename,
+            )
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(node.provide_object(ctx=ctx), encoding="utf-8")
+            return path
+
+    @dataclass(frozen=True)
+    class _DummyValueNode(ApplicationNode[str]):
+        payload: str
+        name: str = "payload"
+        outputs: tuple[OutputNode, ...] = ()
+
+        def provide_object(
+            self,
+            *,
+            ctx: NodeResolutionContext,
+        ) -> str:
+            return self.payload
+
+    @dataclass(frozen=True)
+    class _BridgeMatrixNode(MatrixNode):
+        child: _DummyValueNode
+        name: str = "root"
+        outputs: tuple[OutputNode, ...] = ()
+
+        @classmethod
+        def _from_spec(cls, spec, build_child):  # pragma: no cover
+            raise NotImplementedError
+
+        def build(self, ctx: NodeResolutionContext):
+            ctx.resolve_node(self.child)
+            return GeneralPayoffMatrix([[0.0, 1.0], [-1.0, 0.0]], ["A", "B"])
+
+    tree = MatrixConfigTree(
+        root=_BridgeMatrixNode(
+            child=_DummyValueNode(
+                payload="hello",
+                outputs=(_DummyTextOutputNode(filename="dummy.txt"),),
+            ),
+        )
+    )
+    output_port = StubOutputPathPort(tmp_path)
+    resolver = MatrixConfigTreeResolver(output_path_port=output_port)
+
+    result = resolver.resolve(tree)
+
+    assert len(result.outputs) == 1
+    assert result.outputs[0].node_name == "payload"
+    assert output_port.calls[0][1] == ("root", "payload")
+    assert result.outputs[0].path.read_text(encoding="utf-8") == "hello"
 
 
 # ---------------------------------------------------------------------------
