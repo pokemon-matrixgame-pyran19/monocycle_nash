@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import tomllib
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import pytest
@@ -20,6 +21,8 @@ from monocycle_nash.application.matrix_nodes import (
     EquilibriumOutputNode,
     GeneralFromTeamMatchupsNode,
     MonocycleFromCharactersNode,
+    OutputNode,
+    MatrixNode,
     NodeResolutionContext,
     PayoffDirectedGraphOutputNode,
     TeamInlineSource,
@@ -226,6 +229,58 @@ def test_resolver_runs_shared_runner_once_after_full_resolution(tmp_path: Path) 
     assert result.runners[0].emitted_count == 2
     assert result.runners[0].output_count == 2
     assert all(o.runner == "final" for o in result.outputs)
+
+
+@dataclass(frozen=True)
+class _CountingMatrixNode(MatrixNode):
+    calls: list[str]
+    mark: str
+    name: str = "counting"
+    outputs: tuple[OutputNode, ...] = field(default_factory=tuple)
+
+    @classmethod
+    def _from_spec(cls, spec: object, build_child: object) -> MatrixNode:
+        raise NotImplementedError
+
+    def build(self, ctx: NodeResolutionContext) -> GeneralPayoffMatrix:
+        self.calls.append(self.mark)
+        return GeneralPayoffMatrix([[0.0, 1.0], [-1.0, 0.0]], ["A", "B"])
+
+
+@dataclass(frozen=True)
+class _ResolveTwiceNode(MatrixNode):
+    child: MatrixNode
+    calls: list[str]
+    name: str = "resolve-twice"
+    outputs: tuple[OutputNode, ...] = field(default_factory=tuple)
+
+    @classmethod
+    def _from_spec(cls, spec: object, build_child: object) -> MatrixNode:
+        raise NotImplementedError
+
+    def build(self, ctx: NodeResolutionContext) -> object:
+        first = ctx.resolve_node(self.child)
+        second = ctx.resolve_node(self.child)
+        assert first is second
+        self.calls.append("parent")
+        return first
+
+
+def test_resolver_reuses_shared_node_once_per_run_and_rebuilds_on_next_run() -> None:
+    child_calls: list[str] = []
+    parent_calls: list[str] = []
+    child = _CountingMatrixNode(calls=child_calls, mark="child", name="child")
+    root = _ResolveTwiceNode(child=child, calls=parent_calls, name="root")
+    tree = MatrixConfigTree(root=root)
+    resolver = MatrixConfigTreeResolver()
+
+    first = resolver.resolve(tree)
+    second = resolver.resolve(tree)
+
+    assert first.run_id == 1
+    assert second.run_id == 2
+    assert child_calls == ["child", "child"]
+    assert parent_calls == ["parent", "parent"]
 
 
 def test_monocycle_node_provides_characters_without_matrix_property() -> None:

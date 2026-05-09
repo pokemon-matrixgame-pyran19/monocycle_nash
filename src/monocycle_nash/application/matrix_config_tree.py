@@ -123,8 +123,11 @@ class _ResolutionSession(NodeResolutionContext):
     """単一の resolve() 呼び出しに対応するセッション。
 
     NodeResolutionContext を実装し、各ノードの build から呼び出される。
-    キャッシュと出力結果リストを保持する。
+    解決済み状態はノード自身に run 単位で保持し、出力結果リストを管理する。
     """
+
+    _MATRIX_RESOLUTION_STATE_ATTR = "__monocycle_matrix_resolution_state__"
+    _APPLICATION_RESOLUTION_STATE_ATTR = "__monocycle_application_resolution_state__"
 
     def __init__(
         self,
@@ -140,26 +143,55 @@ class _ResolutionSession(NodeResolutionContext):
         self._team_list_file_port = team_list_file_port
         self.resolved_output_emissions: list[ResolvedOutputEmission] = []
         self._emissions_by_runner: dict[str, list[OutputEmission]] = {}
-        self._resolved_cache: dict[int, PayoffMatrix] = {}
-        self._application_node_cache: dict[int, object] = {}
         self._active_node_path_stack: list[tuple[str, ...]] = []
 
+    def _get_resolution_state(
+        self,
+        node: object,
+        *,
+        attr_name: str,
+    ) -> object | None:
+        state = getattr(node, attr_name, None)
+        if (
+            isinstance(state, tuple)
+            and len(state) == 2
+            and state[0] == self.run_id
+        ):
+            return state[1]
+        return None
+
+    def _set_resolution_state(
+        self,
+        node: object,
+        *,
+        attr_name: str,
+        value: object,
+    ) -> None:
+        object.__setattr__(node, attr_name, (self.run_id, value))
+
     def resolve_node(self, node: MatrixNode) -> PayoffMatrix:
-        cache_key = id(node)
         if self._active_node_path_stack:
             node_path = (*self._active_node_path_stack[-1], node.name)
         else:
             node_path = (node.name,)
-        if cache_key in self._resolved_cache:
+        resolved = self._get_resolution_state(
+            node,
+            attr_name=self._MATRIX_RESOLUTION_STATE_ATTR,
+        )
+        if resolved is not None:
             # 同一ノード参照は初回探索時に1回だけ解決し、出力実行も初回のみ行う。
-            return self._resolved_cache[cache_key]
+            return cast(PayoffMatrix, resolved)
 
         self._active_node_path_stack.append(node_path)
         try:
             resolved = node.build(self)
         finally:
             self._active_node_path_stack.pop()
-        self._resolved_cache[cache_key] = resolved
+        self._set_resolution_state(
+            node,
+            attr_name=self._MATRIX_RESOLUTION_STATE_ATTR,
+            value=resolved,
+        )
 
         matrix = node.provide_object(ctx=self)
         characters = node.provide_characters(ctx=self)
@@ -190,26 +222,43 @@ class _ResolutionSession(NodeResolutionContext):
         return resolved
 
     def get_resolved_matrix(self, node: MatrixNode) -> PayoffMatrix:
-        cache_key = id(node)
-        resolved = self._resolved_cache.get(cache_key)
+        resolved = self._get_resolution_state(
+            node,
+            attr_name=self._MATRIX_RESOLUTION_STATE_ATTR,
+        )
         if resolved is None:
             raise RuntimeError("未解決ノードの matrix 参照はできません")
-        return resolved
+        return cast(PayoffMatrix, resolved)
 
     def resolve_node_object(self, node: ApplicationNode[DomainT]) -> DomainT:
-        cache_key = id(node)
         if isinstance(node, MatrixNode):
-            if cache_key not in self._resolved_cache:
+            if (
+                self._get_resolution_state(
+                    node,
+                    attr_name=self._MATRIX_RESOLUTION_STATE_ATTR,
+                )
+                is None
+            ):
                 self.resolve_node(node)
-            resolved = self._resolved_cache.get(cache_key)
+            resolved = self._get_resolution_state(
+                node,
+                attr_name=self._MATRIX_RESOLUTION_STATE_ATTR,
+            )
             if resolved is None:
                 raise RuntimeError("ノードのオブジェクト解決に失敗しました")
             return cast(DomainT, resolved)
 
-        obj = self._application_node_cache.get(cache_key)
+        obj = self._get_resolution_state(
+            node,
+            attr_name=self._APPLICATION_RESOLUTION_STATE_ATTR,
+        )
         if obj is None:
             obj = node.provide_object(ctx=self)
-            self._application_node_cache[cache_key] = obj
+            self._set_resolution_state(
+                node,
+                attr_name=self._APPLICATION_RESOLUTION_STATE_ATTR,
+                value=obj,
+            )
         return cast(DomainT, obj)
 
     def run_output_runners(self) -> tuple[tuple[ResolvedOutput, ...], tuple[ResolvedRunner, ...]]:
