@@ -143,7 +143,7 @@ class _ResolutionSession(NodeResolutionContext):
         self._active_node_path_stack: list[tuple[str, ...]] = []
 
     def resolve_node(self, node: ApplicationNode[DomainT]) -> ApplicationNode[DomainT]:
-        if self._is_resolved(node):
+        if node.is_resolved():
             # 同一ノード参照は初回探索時に1回だけ解決し、出力実行も初回のみ行う。
             return node
 
@@ -188,12 +188,9 @@ class _ResolutionSession(NodeResolutionContext):
         return node
 
     def get_node_value(self, node: ApplicationNode[DomainT]) -> DomainT:
-        if not self._is_resolved(node):
+        if not node.is_resolved():
             self.resolve_node(node)
         return cast(DomainT, node.value)
-
-    def _is_resolved(self, node: ApplicationNode[DomainT]) -> bool:
-        return node.is_resolved()
 
     def run_output_runners(self) -> tuple[tuple[ResolvedOutput, ...], tuple[ResolvedRunner, ...]]:
         if self._emissions_by_runner and self._output_path_port is None:
