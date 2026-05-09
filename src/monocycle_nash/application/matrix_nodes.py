@@ -167,10 +167,6 @@ class CharacterSource(ApplicationNode[tuple[Character, ...]]):
         """キャラクターリストを返す。"""
         raise NotImplementedError
 
-    def get_characters(self, *, ctx: NodeResolutionContext) -> tuple[Character, ...]:
-        """キャラクタータプルを返す（provide_object への便利メソッド）。"""
-        return self.provide_object(ctx=ctx)
-
     def provide_object(
         self,
         *,
@@ -474,7 +470,7 @@ class CharacterVectorGraphOutputNode(OutputNode["CharacterSource"], output_metho
             output_method=self.output_method,
             filename=self.filename,
         )
-        characters = node.get_characters(ctx=ctx)
+        characters = node.provide_object(ctx=ctx)
         if not characters:
             raise ValueError(
                 "character_vector_graph は characters を持つノードでのみ使用できます"
