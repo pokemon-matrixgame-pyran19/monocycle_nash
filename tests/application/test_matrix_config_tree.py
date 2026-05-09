@@ -233,7 +233,7 @@ def test_resolver_runs_shared_runner_once_after_full_resolution(tmp_path: Path) 
     assert all(o.runner == "final" for o in result.outputs)
 
 
-def test_monocycle_node_provides_characters_without_matrix_property() -> None:
+def test_monocycle_node_resolves_characters_from_character_source() -> None:
     target_node = MonocycleFromCharactersNode(
         characters=CharacterInlineSource((
             CharacterNode(power=1.0, vector=(1.0, 0.0), label="A"),
@@ -259,7 +259,7 @@ def test_monocycle_node_provides_characters_without_matrix_property() -> None:
                 return self.resolve_node(node).value
             raise NotImplementedError
 
-    characters = target_node.provide_characters(ctx=_Ctx())
+    characters = target_node.characters.get_characters(ctx=_Ctx())
     assert len(characters) == 2
     assert [c.label for c in characters] == ["A", "B"]
 
