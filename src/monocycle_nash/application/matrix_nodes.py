@@ -427,9 +427,7 @@ class PayoffDirectedGraphOutputNode(OutputNode["MatrixNode"], output_method="pay
 
 
 @dataclass(frozen=True)
-class CharacterVectorGraphOutputNode(
-    OutputNode["ApplicationNode"], output_method="character_vector_graph"
-):
+class CharacterVectorGraphOutputNode(OutputNode["CharacterSource"], output_method="character_vector_graph"):
     """キャラクターベクトルグラフ出力設定ノード。"""
 
     runner: str | None = None
@@ -451,7 +449,7 @@ class CharacterVectorGraphOutputNode(
         *,
         node_name: str,
         node_path: tuple[str, ...],
-        node: "ApplicationNode",
+        node: "CharacterSource",
     ) -> OutputEmission:
         return OutputEmission(
             output_node=self,
@@ -467,7 +465,7 @@ class CharacterVectorGraphOutputNode(
         output_path_port: OutputPathPort,
         run_id: str,
         node_path: tuple[str, ...],
-        node: "ApplicationNode",
+        node: "CharacterSource",
         ctx: NodeResolutionContext,
     ) -> Path:
         path = output_path_port.resolve_output_path(
@@ -476,7 +474,7 @@ class CharacterVectorGraphOutputNode(
             output_method=self.output_method,
             filename=self.filename,
         )
-        characters = self._resolve_characters(node=node, ctx=ctx)
+        characters = node.get_characters(ctx=ctx)
         if not characters:
             raise ValueError(
                 "character_vector_graph は characters を持つノードでのみ使用できます"
@@ -487,28 +485,6 @@ class CharacterVectorGraphOutputNode(
             margin=self.margin,
         )
         return path
-
-    @staticmethod
-    def _resolve_characters(
-        *,
-        node: "ApplicationNode",
-        ctx: NodeResolutionContext,
-    ) -> tuple[Character, ...]:
-        if isinstance(node, CharacterSource):
-            return cast(tuple[Character, ...], ctx.get_node_value(node))
-
-        character_source = getattr(node, "characters", None)
-        if isinstance(character_source, CharacterSource):
-            return cast(tuple[Character, ...], ctx.get_node_value(character_source))
-
-        character_matrix = getattr(node, "character_matrix", None)
-        if character_matrix is None:
-            return ()
-        nested_character_source = getattr(character_matrix, "characters", None)
-        if isinstance(nested_character_source, CharacterSource):
-            return cast(tuple[Character, ...], ctx.get_node_value(nested_character_source))
-
-        return ()
 
 
 @dataclass(frozen=True)
