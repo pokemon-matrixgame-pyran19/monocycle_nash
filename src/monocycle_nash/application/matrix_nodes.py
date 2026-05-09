@@ -41,6 +41,7 @@ from monocycle_nash.domain.visualization.payoff_graph import PayoffDirectedGraph
 
 
 DomainT = TypeVar("DomainT")
+# TOML 由来のネスト配列か、既に数値化済みの ndarray を受け付ける。
 RawMatrix = list[list[float]] | np.ndarray
 
 
@@ -104,10 +105,10 @@ class ApplicationNode(ABC, Generic[DomainT]):
             return name
         raise TypeError("ApplicationNode.name は str である必要があります")
 
-    def resolve_outputs(self) -> tuple["OutputNode", ...]:
+    def resolve_outputs(self) -> tuple["OutputNode[ApplicationNode]", ...]:
         """resolver 上の出力ノード列。outputs 属性がある場合のみ返す。"""
         outputs = getattr(self, "outputs", ())
-        resolved_outputs: list["OutputNode"] = []
+        resolved_outputs: list["OutputNode[ApplicationNode]"] = []
         for output in outputs:
             if not isinstance(output, OutputNode):
                 raise TypeError("ApplicationNode.outputs は OutputNode の列である必要があります")
@@ -124,7 +125,7 @@ class ApplicationNode(ABC, Generic[DomainT]):
         raise NotImplementedError
 
 
-NodeT = TypeVar("NodeT", bound=ApplicationNode)
+NodeT = TypeVar("NodeT", bound=ApplicationNode, contravariant=True)
 
 
 # ---------------------------------------------------------------------------
