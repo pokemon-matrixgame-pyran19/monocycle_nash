@@ -298,6 +298,10 @@ class OutputEmission:
     node: "ApplicationNode"
     payload: Any | None = None
 
+    def resolve_value(self, *, ctx: "NodeResolutionContext") -> Any:
+        """Resolve and return the domain object provided by this emission's node."""
+        return ctx.get_node_value(self.node)
+
 
 class OutputNode(ABC, Generic[NodeT]):
     """出力ノードの抽象基底。
@@ -353,10 +357,6 @@ class OutputNode(ABC, Generic[NodeT]):
     def resolve_runner(self) -> str | None:
         return getattr(self, "runner", None)
 
-    def resolve_batch_key(self) -> str:
-        """同一 runner 内で emit をまとめるキーを返す。"""
-        return self.output_method
-
     def execute_emissions(
         self,
         *,
@@ -365,7 +365,7 @@ class OutputNode(ABC, Generic[NodeT]):
         emissions: tuple[OutputEmission, ...],
         ctx: NodeResolutionContext,
     ) -> tuple[Path, ...]:
-        """同一バッチの emit 群を実行して成果物パス群を返す。"""
+        """Execute runner emissions and return output artifact paths."""
         return tuple(
             emission.output_node.execute(
                 output_path_port=output_path_port,

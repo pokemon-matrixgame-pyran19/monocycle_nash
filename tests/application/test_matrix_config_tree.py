@@ -350,6 +350,134 @@ def test_resolver_allows_single_execute_for_multi_node_emissions(tmp_path: Path)
     assert result.outputs[0].path.read_text(encoding="utf-8") == "left\nright"
 
 
+def test_execute_emissions_can_access_character_and_matrix_values(tmp_path: Path) -> None:
+    @dataclass(frozen=True)
+    class _UsecaseOutputNode(OutputNode["ApplicationNode[object]"], output_method="usecase_multi_domain"):
+        runner: str | None = "usecase-a"
+        filename: str = "usecase.txt"
+
+        @classmethod
+        def _from_output_spec(cls, output_spec):  # pragma: no cover
+            raise NotImplementedError
+
+        def emit(
+            self,
+            *,
+            node_name: str,
+            node_path: tuple[str, ...],
+            node: "ApplicationNode[object]",
+        ) -> OutputEmission:
+            return OutputEmission(
+                output_node=self,
+                node_name=node_name,
+                node_path=node_path,
+                runner=self.runner,
+                node=node,
+            )
+
+        def execute(
+            self,
+            *,
+            output_path_port: OutputPathPort,
+            run_id: str,
+            node_path: tuple[str, ...],
+            node: "ApplicationNode[object]",
+            ctx: NodeResolutionContext,
+        ) -> Path:  # pragma: no cover
+            raise NotImplementedError
+
+        def execute_emissions(
+            self,
+            *,
+            output_path_port: OutputPathPort,
+            run_id: str,
+            emissions: tuple[OutputEmission, ...],
+            ctx: NodeResolutionContext,
+        ) -> tuple[Path, ...]:
+            character_count = 0
+            matrix_shape: tuple[int, int] | None = None
+            for emission in emissions:
+                value = emission.resolve_value(ctx=ctx)
+                if isinstance(value, tuple) and value and isinstance(value[0], Character):
+                    character_count = len(value)
+                if isinstance(value, GeneralPayoffMatrix):
+                    matrix_shape = value.matrix.shape
+            path = output_path_port.resolve_output_path(
+                run_id=run_id,
+                node_path=emissions[0].node_path,
+                output_method=self.output_method,
+                filename=self.filename,
+            )
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(
+                f"characters={character_count},matrix_shape={matrix_shape}",
+                encoding="utf-8",
+            )
+            return (path,)
+
+    @dataclass
+    class _CharacterValueNode(ApplicationNode[tuple[Character, ...]]):
+        name: str = "characters"
+        outputs: tuple[OutputNode, ...] = ()
+
+        def provide_object(
+            self,
+            *,
+            ctx: NodeResolutionContext,
+        ) -> tuple[Character, ...]:
+            return (
+                Character(1.0, MatchupVector(1.0, 0.0), "A"),
+                Character(0.0, MatchupVector(0.0, 1.0), "B"),
+            )
+
+    @dataclass
+    class _MatrixValueNode(ApplicationNode[GeneralPayoffMatrix]):
+        name: str = "matrix"
+        outputs: tuple[OutputNode, ...] = ()
+
+        def provide_object(
+            self,
+            *,
+            ctx: NodeResolutionContext,
+        ) -> GeneralPayoffMatrix:
+            return GeneralPayoffMatrix([[0.0, 1.0], [-1.0, 0.0]], ["A", "B"])
+
+    @dataclass
+    class _BridgeMatrixNode(MatrixNode):
+        characters_node: _CharacterValueNode
+        matrix_node: _MatrixValueNode
+        name: str = "root"
+        outputs: tuple[OutputNode, ...] = ()
+
+        @classmethod
+        def _from_spec(cls, matrix_spec, child_builder):  # pragma: no cover
+            raise NotImplementedError
+
+        def resolve_value(self, *, ctx: NodeResolutionContext):
+            ctx.resolve_node(self.characters_node)
+            resolved_matrix = ctx.get_node_value(self.matrix_node)
+            return resolved_matrix
+
+    marker = _UsecaseOutputNode(runner="usecase-a")
+    tree = MatrixConfigTree(
+        root=_BridgeMatrixNode(
+            characters_node=_CharacterValueNode(outputs=(marker,)),
+            matrix_node=_MatrixValueNode(outputs=(marker,)),
+        )
+    )
+    output_port = StubOutputPathPort(tmp_path)
+    resolver = MatrixConfigTreeResolver(output_path_port=output_port)
+
+    result = resolver.resolve(tree)
+
+    assert len(result.output_emissions) == 2
+    assert len(result.runners) == 1
+    assert result.runners[0].runner == "usecase-a"
+    assert result.runners[0].output_count == 1
+    assert len(result.outputs) == 1
+    assert result.outputs[0].path.read_text(encoding="utf-8") == "characters=2,matrix_shape=(2, 2)"
+
+
 def test_monocycle_node_resolves_characters_from_character_source() -> None:
     target_node = MonocycleFromCharactersNode(
         characters=CharacterInlineSource((

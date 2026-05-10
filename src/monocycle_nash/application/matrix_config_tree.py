@@ -203,44 +203,34 @@ class _ResolutionSession(NodeResolutionContext):
         resolved_outputs: list[ResolvedOutput] = []
         resolved_runners: list[ResolvedRunner] = []
         for runner, emissions in self._emissions_by_runner.items():
-            output_count = 0
-            emissions_by_batch_key: dict[str, list[OutputEmission]] = {}
-            for emission in emissions:
-                batch_key = emission.output_node.resolve_batch_key()
-                emissions_by_batch_key.setdefault(batch_key, []).append(emission)
-
-            for grouped_emissions in emissions_by_batch_key.values():
-                representative = grouped_emissions[0]
-                paths = representative.output_node.execute_emissions(
-                    output_path_port=output_path_port,
-                    run_id=str(self.run_id),
-                    emissions=tuple(grouped_emissions),
-                    ctx=self,
-                )
-                output_count += len(paths)
-                is_one_to_one_mapping = len(paths) == len(grouped_emissions)
-                if is_one_to_one_mapping:
-                    for emission, path in zip(grouped_emissions, paths, strict=True):
-                        resolved_outputs.append(
-                            ResolvedOutput(
-                                node_name=emission.node_name,
-                                output_node=emission.output_node,
-                                runner=runner,
-                                path=path,
-                            )
+            representative = emissions[0]
+            paths = representative.output_node.execute_emissions(
+                output_path_port=output_path_port,
+                run_id=str(self.run_id),
+                emissions=tuple(emissions),
+                ctx=self,
+            )
+            output_count = len(paths)
+            if output_count == len(emissions):
+                for emission, path in zip(emissions, paths, strict=True):
+                    resolved_outputs.append(
+                        ResolvedOutput(
+                            node_name=emission.node_name,
+                            output_node=emission.output_node,
+                            runner=runner,
+                            path=path,
                         )
-                else:
-                    # 集約出力（N emissions -> 1..M outputs）を許容する。
-                    # その場合は代表 emission のメタデータで結果を記録する。
-                    for path in paths:
-                        resolved_outputs.append(
-                            ResolvedOutput(
-                                node_name=representative.node_name,
-                                output_node=representative.output_node,
-                                runner=runner,
-                                path=path,
-                            )
+                    )
+            else:
+                for path in paths:
+                    resolved_outputs.append(
+                        ResolvedOutput(
+                            node_name=representative.node_name,
+                            output_node=representative.output_node,
+                            runner=runner,
+                            path=path,
                         )
+                    )
             resolved_runners.append(
                 ResolvedRunner(
                     runner=runner,

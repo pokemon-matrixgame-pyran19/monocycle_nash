@@ -47,13 +47,13 @@ TOML 設定の `[[outputs]]` で指定できる新しい出力の種類を追加
 2. `_from_output_spec(cls, spec)` classmethod を実装する（TOML の `outputs.params` をもとにインスタンスを組み立てる）
 3. `emit(self, *, node_name, node_path, domains)` を実装する（Runner に送るイベントを生成）
 4. `execute(self, *, output_path_port, run_id, node_path, domains) -> Path` を実装する（既定のemit単位実行）
-5. 複数ノード情報をまとめて処理したい場合は `execute_emissions(...)`（必要なら `resolve_batch_key()`）をオーバーライドする
+5. 複数ノード情報をまとめて処理したい場合は `execute_emissions(...)` をオーバーライドする
 
 ### `outputs[].runner` について
 
 - `OutputSpec.runner`（TOMLでは `outputs[].runner`）で集約先 runner を明示指定する
 - 同じ runner 名の出力は、resolver が全ノード解決後にまとめて最終1回実行する
-- runner 内の emit は `resolve_batch_key()` ごとにグループ化され、各グループに対して `execute_emissions(...)` が呼ばれる
+- runner 実行時には、その runner に集まった emit が `execute_emissions(...)` へまとめて渡される
 - 未指定時は後方互換として出力ごとに独立 runner で実行される
 
 ### クラス登録の作業は不要
