@@ -204,23 +204,29 @@ class _ResolutionSession(NodeResolutionContext):
         resolved_runners: list[ResolvedRunner] = []
         for runner, emissions in self._emissions_by_runner.items():
             output_count = 0
+            emissions_by_batch_key: dict[str, list[OutputEmission]] = {}
             for emission in emissions:
-                path = emission.output_node.execute(
+                batch_key = emission.output_node.resolve_batch_key()
+                emissions_by_batch_key.setdefault(batch_key, []).append(emission)
+
+            for grouped_emissions in emissions_by_batch_key.values():
+                representative = grouped_emissions[0]
+                paths = representative.output_node.execute_emissions(
                     output_path_port=output_path_port,
                     run_id=str(self.run_id),
-                    node_path=emission.node_path,
-                    node=emission.node,
+                    emissions=tuple(grouped_emissions),
                     ctx=self,
                 )
-                output_count += 1
-                resolved_outputs.append(
-                    ResolvedOutput(
-                        node_name=emission.node_name,
-                        output_node=emission.output_node,
-                        runner=runner,
-                        path=path,
+                output_count += len(paths)
+                for path in paths:
+                    resolved_outputs.append(
+                        ResolvedOutput(
+                            node_name=representative.node_name,
+                            output_node=representative.output_node,
+                            runner=runner,
+                            path=path,
+                        )
                     )
-                )
             resolved_runners.append(
                 ResolvedRunner(
                     runner=runner,

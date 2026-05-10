@@ -14,6 +14,7 @@
   1. 具象 OutputNode サブクラスを作り、class 宣言に `output_method="..."` を付ける
   2. `_from_output_spec(cls, spec)` classmethod を実装する
   3. `emit(...)` と `execute(...)` を実装する
+  4. 必要に応じて `execute_emissions(...)` を実装し、複数 emit の集約実行を行う
 """
 
 from __future__ import annotations
@@ -23,7 +24,7 @@ import tomli_w
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable, ClassVar, Generic, TypeVar, cast
+from typing import Any, Callable, ClassVar, Generic, TypeVar, cast
 
 from monocycle_nash.application.node_spec import NodeSpec, OutputSpec
 from monocycle_nash.application.ports import (
@@ -295,6 +296,7 @@ class OutputEmission:
     node_path: tuple[str, ...]
     runner: str | None
     node: "ApplicationNode"
+    payload: Any | None = None
 
 
 class OutputNode(ABC, Generic[NodeT]):
@@ -350,6 +352,30 @@ class OutputNode(ABC, Generic[NodeT]):
 
     def resolve_runner(self) -> str | None:
         return getattr(self, "runner", None)
+
+    def resolve_batch_key(self) -> str:
+        """同一 runner 内で emit をまとめるキーを返す。"""
+        return self.output_method
+
+    def execute_emissions(
+        self,
+        *,
+        output_path_port: OutputPathPort,
+        run_id: str,
+        emissions: tuple[OutputEmission, ...],
+        ctx: NodeResolutionContext,
+    ) -> tuple[Path, ...]:
+        """同一バッチの emit 群を実行して成果物パス群を返す。"""
+        return tuple(
+            emission.output_node.execute(
+                output_path_port=output_path_port,
+                run_id=run_id,
+                node_path=emission.node_path,
+                node=cast(NodeT, emission.node),
+                ctx=ctx,
+            )
+            for emission in emissions
+        )
 
     @abstractmethod
     def execute(

@@ -233,6 +233,122 @@ def test_resolver_runs_shared_runner_once_after_full_resolution(tmp_path: Path) 
     assert all(o.runner == "final" for o in result.outputs)
 
 
+def test_resolver_allows_single_execute_for_multi_node_emissions(tmp_path: Path) -> None:
+    execute_calls: list[tuple[str, ...]] = []
+
+    @dataclass(frozen=True)
+    class _CombinedTextOutputNode(OutputNode["ApplicationNode[str]"], output_method="combined_text"):
+        runner: str | None = "final"
+        filename: str = "combined.txt"
+
+        @classmethod
+        def _from_output_spec(cls, output_spec):  # pragma: no cover
+            raise NotImplementedError
+
+        def emit(
+            self,
+            *,
+            node_name: str,
+            node_path: tuple[str, ...],
+            node: "ApplicationNode[str]",
+        ) -> OutputEmission:
+            return OutputEmission(
+                output_node=self,
+                node_name=node_name,
+                node_path=node_path,
+                runner=self.runner,
+                node=node,
+                payload=node.value,
+            )
+
+        def execute(
+            self,
+            *,
+            output_path_port: OutputPathPort,
+            run_id: str,
+            node_path: tuple[str, ...],
+            node: "ApplicationNode[str]",
+            ctx: NodeResolutionContext,
+        ) -> Path:  # pragma: no cover
+            raise NotImplementedError
+
+        def execute_emissions(
+            self,
+            *,
+            output_path_port: OutputPathPort,
+            run_id: str,
+            emissions: tuple[OutputEmission, ...],
+            ctx: NodeResolutionContext,
+        ) -> tuple[Path, ...]:
+            execute_calls.append(tuple(str(e.payload) for e in emissions))
+            path = output_path_port.resolve_output_path(
+                run_id=run_id,
+                node_path=emissions[0].node_path,
+                output_method=self.output_method,
+                filename=self.filename,
+            )
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("\n".join(str(e.payload) for e in emissions), encoding="utf-8")
+            return (path,)
+
+    @dataclass
+    class _DummyValueNode(ApplicationNode[str]):
+        payload: str
+        name: str
+        outputs: tuple[OutputNode, ...] = ()
+
+        def provide_object(
+            self,
+            *,
+            ctx: NodeResolutionContext,
+        ) -> str:
+            return self.payload
+
+    @dataclass
+    class _BridgeMatrixNode(MatrixNode):
+        left: _DummyValueNode
+        right: _DummyValueNode
+        name: str = "root"
+        outputs: tuple[OutputNode, ...] = ()
+
+        @classmethod
+        def _from_spec(cls, matrix_spec, child_builder):  # pragma: no cover
+            raise NotImplementedError
+
+        def resolve_value(self, *, ctx: NodeResolutionContext):
+            ctx.resolve_node(self.left)
+            ctx.resolve_node(self.right)
+            return GeneralPayoffMatrix([[0.0, 1.0], [-1.0, 0.0]], ["A", "B"])
+
+    tree = MatrixConfigTree(
+        root=_BridgeMatrixNode(
+            left=_DummyValueNode(
+                payload="left",
+                name="left",
+                outputs=(_CombinedTextOutputNode(runner="final"),),
+            ),
+            right=_DummyValueNode(
+                payload="right",
+                name="right",
+                outputs=(_CombinedTextOutputNode(runner="final"),),
+            ),
+        )
+    )
+    output_port = StubOutputPathPort(tmp_path)
+    resolver = MatrixConfigTreeResolver(output_path_port=output_port)
+
+    result = resolver.resolve(tree)
+
+    assert execute_calls == [("left", "right")]
+    assert len(result.output_emissions) == 2
+    assert len(result.runners) == 1
+    assert result.runners[0].runner == "final"
+    assert result.runners[0].emitted_count == 2
+    assert result.runners[0].output_count == 1
+    assert len(result.outputs) == 1
+    assert result.outputs[0].path.read_text(encoding="utf-8") == "left\nright"
+
+
 def test_monocycle_node_resolves_characters_from_character_source() -> None:
     target_node = MonocycleFromCharactersNode(
         characters=CharacterInlineSource((
