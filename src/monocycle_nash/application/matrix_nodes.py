@@ -24,7 +24,7 @@ import tomli_w
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, ClassVar, Generic, TypeVar, cast
+from typing import Callable, ClassVar, Generic, TypeVar, cast
 
 from monocycle_nash.application.node_spec import NodeSpec, OutputSpec
 from monocycle_nash.application.ports import (
@@ -47,6 +47,7 @@ from monocycle_nash.domain.visualization.payoff_graph import PayoffDirectedGraph
 
 
 DomainT = TypeVar("DomainT")
+PayloadT = TypeVar("PayloadT")
 # TOML 由来のネスト配列か、既に数値化済みの ndarray を受け付ける。
 RawMatrix = list[list[float]] | np.ndarray
 
@@ -288,17 +289,21 @@ class TeamListFromFileNode(TeamSource):
 
 
 @dataclass(frozen=True)
-class OutputEmission:
-    """OutputNode が runner へ送る出力イベント。"""
+class OutputEmission(Generic[DomainT, PayloadT]):
+    """OutputNode が runner へ送る出力イベント。
+
+    payload は OutputNode 実装が任意で持ち回る補助メタデータ。
+    型は各 OutputNode 実装側で `emit()` の返却時に具体化する。
+    """
 
     output_node: "OutputNode"
     node_name: str
     node_path: tuple[str, ...]
     runner: str | None
-    node: "ApplicationNode"
-    payload: Any | None = None
+    node: "ApplicationNode[DomainT]"
+    payload: PayloadT | None = None
 
-    def resolve_value(self, *, ctx: "NodeResolutionContext") -> Any:
+    def resolve_value(self, *, ctx: "NodeResolutionContext") -> DomainT:
         """Resolve and return the domain object provided by this emission's node."""
         return ctx.get_node_value(self.node)
 
