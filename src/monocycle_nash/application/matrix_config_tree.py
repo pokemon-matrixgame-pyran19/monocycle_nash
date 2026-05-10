@@ -218,15 +218,29 @@ class _ResolutionSession(NodeResolutionContext):
                     ctx=self,
                 )
                 output_count += len(paths)
-                for path in paths:
-                    resolved_outputs.append(
-                        ResolvedOutput(
-                            node_name=representative.node_name,
-                            output_node=representative.output_node,
-                            runner=runner,
-                            path=path,
+                is_one_to_one_mapping = len(paths) == len(grouped_emissions)
+                if is_one_to_one_mapping:
+                    for emission, path in zip(grouped_emissions, paths, strict=True):
+                        resolved_outputs.append(
+                            ResolvedOutput(
+                                node_name=emission.node_name,
+                                output_node=emission.output_node,
+                                runner=runner,
+                                path=path,
+                            )
                         )
-                    )
+                else:
+                    # 集約出力（N emissions -> 1..M outputs）を許容する。
+                    # その場合は代表 emission のメタデータで結果を記録する。
+                    for path in paths:
+                        resolved_outputs.append(
+                            ResolvedOutput(
+                                node_name=representative.node_name,
+                                output_node=representative.output_node,
+                                runner=runner,
+                                path=path,
+                            )
+                        )
             resolved_runners.append(
                 ResolvedRunner(
                     runner=runner,

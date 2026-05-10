@@ -270,6 +270,7 @@ def test_resolver_allows_single_execute_for_multi_node_emissions(tmp_path: Path)
             node: "ApplicationNode[str]",
             ctx: NodeResolutionContext,
         ) -> Path:  # pragma: no cover
+            # このテストでは execute_emissions を使った集約実行のみを検証する。
             raise NotImplementedError
 
         def execute_emissions(
