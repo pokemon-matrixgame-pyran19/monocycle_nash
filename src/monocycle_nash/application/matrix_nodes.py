@@ -14,6 +14,7 @@
   1. 具象 OutputNode サブクラスを作り、class 宣言に `output_method="..."` を付ける
   2. `_from_output_spec(cls, spec)` classmethod を実装する
   3. `emit(...)` と `execute(...)` を実装する
+  4. 必要に応じて `execute_emissions(...)` を実装し、複数 emit の集約実行を行う
 """
 
 from __future__ import annotations
@@ -46,6 +47,7 @@ from monocycle_nash.domain.visualization.payoff_graph import PayoffDirectedGraph
 
 
 DomainT = TypeVar("DomainT")
+PayloadT = TypeVar("PayloadT")
 # TOML 由来のネスト配列か、既に数値化済みの ndarray を受け付ける。
 RawMatrix = list[list[float]] | np.ndarray
 
@@ -287,14 +289,23 @@ class TeamListFromFileNode(TeamSource):
 
 
 @dataclass(frozen=True)
-class OutputEmission:
-    """OutputNode が runner へ送る出力イベント。"""
+class OutputEmission(Generic[DomainT, PayloadT]):
+    """OutputNode が runner へ送る出力イベント。
+
+    payload は OutputNode 実装が任意で持ち回る補助メタデータ。
+    型は各 OutputNode 実装側で `emit()` の返却時に具体化する。
+    """
 
     output_node: "OutputNode"
     node_name: str
     node_path: tuple[str, ...]
     runner: str | None
-    node: "ApplicationNode"
+    node: "ApplicationNode[DomainT]"
+    payload: PayloadT | None = None
+
+    def resolve_value(self, *, ctx: "NodeResolutionContext") -> DomainT:
+        """Resolve and return the domain object provided by this emission's node."""
+        return ctx.get_node_value(self.node)
 
 
 class OutputNode(ABC, Generic[NodeT]):
@@ -350,6 +361,26 @@ class OutputNode(ABC, Generic[NodeT]):
 
     def resolve_runner(self) -> str | None:
         return getattr(self, "runner", None)
+
+    def execute_emissions(
+        self,
+        *,
+        output_path_port: OutputPathPort,
+        run_id: str,
+        emissions: tuple[OutputEmission, ...],
+        ctx: NodeResolutionContext,
+    ) -> tuple[Path, ...]:
+        """Execute runner emissions and return output artifact paths."""
+        return tuple(
+            emission.output_node.execute(
+                output_path_port=output_path_port,
+                run_id=run_id,
+                node_path=emission.node_path,
+                node=cast(NodeT, emission.node),
+                ctx=ctx,
+            )
+            for emission in emissions
+        )
 
     @abstractmethod
     def execute(

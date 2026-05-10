@@ -113,6 +113,8 @@ runner = "..."                  # 任意（同名 runner で最終集約）
 
 - `outputs[].runner`
   - 任意。同じ値を指定した出力は同一 runner に送信され、**全ノード解決後に runner が1回だけ**実行されます。
+  - runner 実行時は `OutputNode.execute_emissions(...)` に同一 runner の emit 群がまとめて渡されます。
+  - 既定実装は従来どおり emit ごとに `execute(...)` を呼ぶため後方互換です。
   - 省略時は後方互換の単体実行（出力ごとに独立 runner）です。
 - `payoff_directed_graph`
   - 任意パラメータ: `filename`, `threshold`, `canvas_size`

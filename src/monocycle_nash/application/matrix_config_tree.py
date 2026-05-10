@@ -203,24 +203,34 @@ class _ResolutionSession(NodeResolutionContext):
         resolved_outputs: list[ResolvedOutput] = []
         resolved_runners: list[ResolvedRunner] = []
         for runner, emissions in self._emissions_by_runner.items():
-            output_count = 0
-            for emission in emissions:
-                path = emission.output_node.execute(
-                    output_path_port=output_path_port,
-                    run_id=str(self.run_id),
-                    node_path=emission.node_path,
-                    node=emission.node,
-                    ctx=self,
-                )
-                output_count += 1
-                resolved_outputs.append(
-                    ResolvedOutput(
-                        node_name=emission.node_name,
-                        output_node=emission.output_node,
-                        runner=runner,
-                        path=path,
+            representative = emissions[0]
+            paths = representative.output_node.execute_emissions(
+                output_path_port=output_path_port,
+                run_id=str(self.run_id),
+                emissions=tuple(emissions),
+                ctx=self,
+            )
+            output_count = len(paths)
+            if output_count == len(emissions):
+                for emission, path in zip(emissions, paths, strict=True):
+                    resolved_outputs.append(
+                        ResolvedOutput(
+                            node_name=emission.node_name,
+                            output_node=emission.output_node,
+                            runner=runner,
+                            path=path,
+                        )
                     )
-                )
+            else:
+                for path in paths:
+                    resolved_outputs.append(
+                        ResolvedOutput(
+                            node_name=representative.node_name,
+                            output_node=representative.output_node,
+                            runner=runner,
+                            path=path,
+                        )
+                    )
             resolved_runners.append(
                 ResolvedRunner(
                     runner=runner,
