@@ -197,6 +197,7 @@ def test_resolver_runs_team_matchup_experiment_csv_output_node(tmp_path: Path) -
                     CharacterNode(power=0.0, vector=(-1.0, -1.0), label="c4"),
                     CharacterNode(power=0.0, vector=(1.0, -1.0), label="c5"),
                 )),
+                labels=["c1", "c2", "c3", "c4", "c5"],
             ),
             use_monocycle_formula=False,
             outputs=(

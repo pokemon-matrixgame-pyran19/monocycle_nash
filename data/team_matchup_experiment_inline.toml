@@ -48,6 +48,9 @@ member_ids = ["g1", "g9"]
 method = "monocycle_from_characters"
 name = "character_matrix"
 
+[children.character_matrix.params]
+labels = ["c1", "c2", "g1", "g2", "g3", "g4", "g5", "g6", "g7", "g8", "g9"]
+
 [[children.character_matrix.params.characters]]
 power = 0.0
 vector = [4.0, 0.0]
