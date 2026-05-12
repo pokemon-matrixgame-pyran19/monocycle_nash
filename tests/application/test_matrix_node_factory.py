@@ -17,6 +17,7 @@ from monocycle_nash.application.matrix_nodes import (
     MonocycleFromCharactersNode,
     PayoffDirectedGraphOutputNode,
     RandomSkewSymmetricNode,
+    TeamMatchupExperimentCsvOutputNode,
     TeamInlineSource,
     TeamListFromFileNode,
 )
@@ -350,6 +351,28 @@ def test_build_with_output_defaults() -> None:
     assert output_node.filename == "payoff_directed_graph.svg"
     assert output_node.threshold == pytest.approx(0.0)
     assert output_node.canvas_size == 840
+
+
+def test_build_with_team_matchup_experiment_csv_output() -> None:
+    out = OutputSpec(
+        method="team_matchup_experiment_csv",
+        runner="exp",
+        params={"filename": "experiment.csv", "focus_team": "team_a"},
+    )
+    char_spec = NodeSpec(method="monocycle_from_characters", params=INLINE_CHARS_PARAMS)
+    spec = NodeSpec(
+        method="general_from_team_matchups",
+        params=INLINE_TEAMS_PARAMS,
+        children={"character_matrix": char_spec},
+        outputs=(out,),
+    )
+    node = FACTORY.build(spec)
+    assert len(node.outputs) == 1
+    output_node = node.outputs[0]
+    assert isinstance(output_node, TeamMatchupExperimentCsvOutputNode)
+    assert output_node.runner == "exp"
+    assert output_node.filename == "experiment.csv"
+    assert output_node.focus_team == "team_a"
 
 
 # ---------------------------------------------------------------------------

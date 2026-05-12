@@ -1,0 +1,111 @@
+method = "general_from_team_matchups"
+name = "team_matchup_experiment"
+
+[params]
+use_monocycle_formula = false
+
+[[params.teams]]
+label = "team_i"
+member_ids = ["c1", "c2"]
+
+[[params.teams]]
+label = "team_j1"
+member_ids = ["g1", "g2"]
+
+[[params.teams]]
+label = "team_j2"
+member_ids = ["g2", "g3"]
+
+[[params.teams]]
+label = "team_j3"
+member_ids = ["g3", "g6"]
+
+[[params.teams]]
+label = "team_j4"
+member_ids = ["g6", "g9"]
+
+[[params.teams]]
+label = "team_j5"
+member_ids = ["g9", "g8"]
+
+[[params.teams]]
+label = "team_j6"
+member_ids = ["g8", "g7"]
+
+[[params.teams]]
+label = "team_j7"
+member_ids = ["g7", "g4"]
+
+[[params.teams]]
+label = "team_j8"
+member_ids = ["g4", "g1"]
+
+[[params.teams]]
+label = "team_j9"
+member_ids = ["g1", "g9"]
+
+[children.character_matrix]
+method = "monocycle_from_characters"
+name = "character_matrix"
+
+[[children.character_matrix.params.characters]]
+power = 0.0
+vector = [4.0, 0.0]
+label = "c1"
+
+[[children.character_matrix.params.characters]]
+power = 0.0
+vector = [0.0, 4.0]
+label = "c2"
+
+[[children.character_matrix.params.characters]]
+power = 0.0
+vector = [-1.0, -1.0]
+label = "g1"
+
+[[children.character_matrix.params.characters]]
+power = 0.0
+vector = [0.0, -1.0]
+label = "g2"
+
+[[children.character_matrix.params.characters]]
+power = 0.0
+vector = [1.0, -1.0]
+label = "g3"
+
+[[children.character_matrix.params.characters]]
+power = 0.0
+vector = [-1.0, 0.0]
+label = "g4"
+
+[[children.character_matrix.params.characters]]
+power = 0.0
+vector = [0.0, 0.0]
+label = "g5"
+
+[[children.character_matrix.params.characters]]
+power = 0.0
+vector = [1.0, 0.0]
+label = "g6"
+
+[[children.character_matrix.params.characters]]
+power = 0.0
+vector = [-1.0, 1.0]
+label = "g7"
+
+[[children.character_matrix.params.characters]]
+power = 0.0
+vector = [0.0, 1.0]
+label = "g8"
+
+[[children.character_matrix.params.characters]]
+power = 0.0
+vector = [1.0, 1.0]
+label = "g9"
+
+[[outputs]]
+method = "team_matchup_experiment_csv"
+
+[outputs.params]
+filename = "team_matchup_experiment.csv"
+focus_team = "team_i"

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import tomllib
+import csv
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -27,6 +28,7 @@ from monocycle_nash.application.matrix_nodes import (
     OutputEmission,
     OutputNode,
     PayoffDirectedGraphOutputNode,
+    TeamMatchupExperimentCsvOutputNode,
     TeamInlineSource,
     TeamListFromFileNode,
     TeamNode,
@@ -175,6 +177,60 @@ def test_resolver_runs_equilibrium_output_node(tmp_path: Path) -> None:
     assert len(data["strategies"]) == 3
     probabilities = [float(s["probability"]) for s in data["strategies"]]
     assert pytest.approx(sum(probabilities), rel=1e-6, abs=1e-6) == 1.0
+
+
+def test_resolver_runs_team_matchup_experiment_csv_output_node(tmp_path: Path) -> None:
+    tree = MatrixConfigTree(
+        root=GeneralFromTeamMatchupsNode(
+            name="team-root",
+            teams=TeamInlineSource((
+                TeamNode(label="team_i", member_ids=("c1", "c2")),
+                TeamNode(label="team_j1", member_ids=("c3", "c4")),
+                TeamNode(label="team_j2", member_ids=("c4", "c5")),
+            )),
+            character_matrix=MonocycleFromCharactersNode(
+                name="character-source",
+                characters=CharacterInlineSource((
+                    CharacterNode(power=0.0, vector=(3.0, 0.0), label="c1"),
+                    CharacterNode(power=0.0, vector=(0.0, 2.0), label="c2"),
+                    CharacterNode(power=0.0, vector=(-1.0, 1.0), label="c3"),
+                    CharacterNode(power=0.0, vector=(-1.0, -1.0), label="c4"),
+                    CharacterNode(power=0.0, vector=(1.0, -1.0), label="c5"),
+                )),
+            ),
+            use_monocycle_formula=False,
+            outputs=(
+                TeamMatchupExperimentCsvOutputNode(
+                    filename="team_experiment.csv",
+                    focus_team="team_i",
+                ),
+            ),
+        )
+    )
+
+    output_port = StubOutputPathPort(tmp_path)
+    resolver = MatrixConfigTreeResolver(output_path_port=output_port)
+    result = resolver.resolve(tree)
+
+    assert len(result.outputs) == 1
+    output = result.outputs[0]
+    assert output.path.exists()
+    assert output_port.calls[0][2] == "team_matchup_experiment_csv"
+
+    with output.path.open("r", encoding="utf-8", newline="") as f:
+        records = list(csv.DictReader(f))
+
+    assert len(records) == 2
+    assert all(r["fixed_team_label"] == "team_i" for r in records)
+    assert {r["j_team_label"] for r in records} == {"team_j1", "team_j2"}
+    for record in records:
+        assert record["j3_label"] in {"c3", "c4", "c5"}
+        assert record["j4_label"] in {"c3", "c4", "c5"}
+        angle_deg = float(record["angle_v12_to_v34_deg"])
+        assert -180.0 <= angle_deg <= 180.0
+        bij = float(record["bij"])
+        j_index = int(record["j_team_index"])
+        assert bij == pytest.approx(float(result.root.value.matrix[0, j_index]))
 
 
 # ---------------------------------------------------------------------------

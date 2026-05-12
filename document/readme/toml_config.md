@@ -165,6 +165,19 @@ runner = "..."                # 任意: 同一 runner 名で最終集約
   - `outputs.params.canvas_size`（既定: `840`）
   - `outputs.params.margin`（既定: `90`）
 
+### `team_matchup_experiment_csv`
+
+- 対象ノード: `general_from_team_matchups`
+- 任意:
+  - `outputs.params.filename`（既定: `"team_matchup_experiment.csv"`）
+  - `outputs.params.focus_team`（既定: `0`）
+    - `int`: チームインデックス
+    - `str`: チームラベル
+- 固定チーム i に対する各チーム j の比較実験データを CSV で出力する
+  - `j3`,`j4` のベクトル（反時計回り順）
+  - `v1-v2` と `v3-v4` のなす角（rad/deg）
+  - `Bij`（i vs j のチーム利得）
+
 ## 5. 例
 
 ### 5.1 インライン定義（キャラクター + 出力）
