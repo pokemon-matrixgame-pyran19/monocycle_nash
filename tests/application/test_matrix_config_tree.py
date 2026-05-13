@@ -13,6 +13,7 @@ from monocycle_nash.application.matrix_config_tree import (
     MatrixResolutionResult,
     ResolvedOutput,
 )
+from monocycle_nash.application.experiment_output_nodes import TeamMatchupExperimentCsvOutputNode
 from monocycle_nash.application.matrix_nodes import (
     ApplicationNode,
     ApproxMonocycleToGeneralNode,
@@ -28,7 +29,6 @@ from monocycle_nash.application.matrix_nodes import (
     OutputEmission,
     OutputNode,
     PayoffDirectedGraphOutputNode,
-    TeamMatchupExperimentCsvOutputNode,
     TeamInlineSource,
     TeamListFromFileNode,
     TeamNode,

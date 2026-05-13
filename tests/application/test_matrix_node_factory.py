@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from monocycle_nash.application.matrix_node_factory import MatrixNodeFactory
+from monocycle_nash.application.experiment_output_nodes import TeamMatchupExperimentCsvOutputNode
 from monocycle_nash.application.matrix_nodes import (
     ApproxDominantEigenpairNode,
     ApproxEquilibriumPreservingNode,
@@ -17,7 +18,6 @@ from monocycle_nash.application.matrix_nodes import (
     MonocycleFromCharactersNode,
     PayoffDirectedGraphOutputNode,
     RandomSkewSymmetricNode,
-    TeamMatchupExperimentCsvOutputNode,
     TeamInlineSource,
     TeamListFromFileNode,
 )

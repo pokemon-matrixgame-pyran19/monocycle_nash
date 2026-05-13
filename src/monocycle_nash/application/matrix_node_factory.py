@@ -11,6 +11,7 @@ matrix_nodes.py に具象クラスを追加するだけでよい。
 
 from __future__ import annotations
 
+import monocycle_nash.application.experiment_output_nodes  # noqa: F401
 from monocycle_nash.application.matrix_nodes import MatrixNode
 from monocycle_nash.application.node_spec import NodeSpec
 
