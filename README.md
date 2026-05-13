@@ -124,6 +124,9 @@ runner = "..."                  # 任意（同名 runner で最終集約）
 - `equilibrium`
   - 任意パラメータ: `filename`
   - 均衡解を `strategies = [{ id, probability }, ...]` 形式のTOMLで出力
+- `team_matchup_experiment_csv`
+  - 任意パラメータ: `filename`, `focus_team`
+  - `general_from_team_matchups` ノードで、固定チーム i と各チーム j の比較実験列（ベクトル差・角度・Bij）を CSV 出力
 
 ### 出力先パス仕様
 
@@ -154,6 +157,7 @@ result/<run_id>/<node_path...>/<output_method>/<filename>
 - `data/random_5.toml`
 - `data/team_matchups_inline.toml`
 - `data/approx_equilibrium_preserving.toml`
+- `data/team_matchup_experiment_inline.toml`
 
 ## TOML仕様の詳細
 
