@@ -58,6 +58,44 @@ vector = [0.5, -0.5]
     assert characters[0].p == pytest.approx(1.0)
 
 
+def test_load_characters_from_csv_ref(tmp_path: Path) -> None:
+    data_dir = tmp_path / "data"
+    chars_path = data_dir / "characters"
+    chars_path.mkdir(parents=True)
+    (chars_path / "rps.csv").write_text(
+        """
+label,power,vector_x,vector_y
+Rock,1.0,1.0,0.0
+Paper,0.0,0.0,1.0
+""".strip(),
+        encoding="utf-8",
+    )
+
+    port = TomlCharacterListFilePort(data_dir=data_dir)
+    characters = port.load_characters("characters/rps.csv")
+
+    assert len(characters) == 2
+    assert characters[0].label == "Rock"
+    assert characters[1].label == "Paper"
+
+
+def test_load_characters_from_csv_with_missing_required_columns_raises(tmp_path: Path) -> None:
+    data_dir = tmp_path / "data"
+    chars_path = data_dir / "characters"
+    chars_path.mkdir(parents=True)
+    (chars_path / "invalid.csv").write_text(
+        """
+label,power,vector_x
+Rock,1.0,1.0
+""".strip(),
+        encoding="utf-8",
+    )
+
+    port = TomlCharacterListFilePort(data_dir=data_dir)
+    with pytest.raises(ValueError, match="必須列がありません"):
+        port.load_characters("characters/invalid.csv")
+
+
 def test_load_teams_from_relative_ref(tmp_path: Path) -> None:
     data_dir = tmp_path / "data"
     data_dir.mkdir()

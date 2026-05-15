@@ -1,0 +1,25 @@
+method = "general_from_team_matchups"
+name = "team_matchup_experiment_all_pairs_refs_csv"
+
+[params]
+use_monocycle_formula = false
+
+[refs]
+teams = "team_matchup_experiment/teams_all_pairs.toml"
+
+[children.character_matrix]
+method = "monocycle_from_characters"
+name = "character_matrix"
+
+[children.character_matrix.params]
+labels = ["c1", "c2", "g1", "g2", "g3", "g4", "g5", "g6", "g7", "g8", "g9"]
+
+[children.character_matrix.refs]
+characters = "team_matchup_experiment/characters_grid.csv"
+
+[[outputs]]
+method = "team_matchup_experiment_csv"
+
+[outputs.params]
+filename = "team_matchup_experiment_all_pairs_refs_csv.csv"
+focus_team = "team_i"

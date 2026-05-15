@@ -158,6 +158,8 @@ result/<run_id>/<node_path...>/<output_method>/<filename>
 - `data/team_matchups_inline.toml`
 - `data/approx_equilibrium_preserving.toml`
 - `data/team_matchup_experiment_inline.toml`
+- `data/team_matchup_experiment_all_pairs_inline.toml`
+- `data/team_matchup_experiment_all_pairs_refs_csv.toml`
 
 ## TOML仕様の詳細
 
