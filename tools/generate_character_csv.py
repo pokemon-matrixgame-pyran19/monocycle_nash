@@ -2,8 +2,9 @@
 """方向分散を意識したキャラクターCSV生成の簡易スクリプト。
 
 目的:
-- 点 v_1..v_n から作る差分ベクトル V_{ij} = v_i - v_j (i<j) の向きが
-  なるべく均等になるように点群を探索する。
+- 差分ベクトル V_{ij} = v_i - v_j (i<j) を
+  V_{ij} = |V_{ij}|(x_{ij}, y_{ij}) と見たときの方向 (x_{ij}, y_{ij}) が
+  なるべく均等になるように、元の点 v_1..v_n を探索する。
 - 交互最適化 (角度→半径) とシミュレーテッドアニーリングを併用する。
 
 出力:
@@ -147,7 +148,7 @@ def direction_vectors(points: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     for i in range(n):
         for j in range(i + 1, n):
             v = points[i] - points[j]
-            norm = float(np.linalg.norm(v))
+            norm = np.linalg.norm(v)
             diffs.append(v)
             norms.append(norm)
     diff_arr = np.asarray(diffs, dtype=float)
@@ -221,12 +222,10 @@ def optimize(cfg: Config) -> tuple[np.ndarray, float]:
         for i in range(cfg.n_points):
             for _ in range(cfg.inner_iters):
                 cand_radius = radius.copy()
-                cand_radius[i] = float(
-                    np.clip(
-                        cand_radius[i] + rng.normal(0.0, cfg.radius_step * temp),
-                        cfg.radius_min,
-                        cfg.radius_max,
-                    )
+                cand_radius[i] = np.clip(
+                    cand_radius[i] + rng.normal(0.0, cfg.radius_step * temp),
+                    cfg.radius_min,
+                    cfg.radius_max,
                 )
                 cand_points = points_from(theta, cand_radius)
                 cand_e = energy(cand_points, cfg.penalty_alpha, cfg.zero_distance_penalty)
@@ -263,9 +262,9 @@ def summarize(points: np.ndarray, best_e: float) -> str:
     min_dist = float(nonzero_norm.min()) if nonzero_norm.size > 0 else 0.0
     max_dist = float(nonzero_norm.max()) if nonzero_norm.size > 0 else 0.0
     return (
-        f"best_energy={best_e:.6f}\\n"
-        f"diff_vectors={len(diffs)}\\n"
-        f"pair_distance_min={min_dist:.6f}, pair_distance_max={max_dist:.6f}\\n"
+        f"best_energy={best_e:.6f}\n"
+        f"diff_vectors={len(diffs)}\n"
+        f"pair_distance_min={min_dist:.6f}, pair_distance_max={max_dist:.6f}\n"
         f"angle_hist(12bins)={hist.tolist()}"
     )
 
