@@ -106,8 +106,6 @@ class TomlCharacterListFilePort(_BaseTomlRefFilePort, CharacterListFilePort):
 
             characters: list[Character] = []
             for i, row in enumerate(reader):
-                if row is None:
-                    continue
                 if all((v is None or str(v).strip() == "") for v in row.values()):
                     continue
                 try:
