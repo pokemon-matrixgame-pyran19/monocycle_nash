@@ -1,0 +1,147 @@
+[[teams]]
+label = "team_i"
+member_ids = ["c1", "c2"]
+
+[[teams]]
+label = "team_j01"
+member_ids = ["g1", "g2"]
+
+[[teams]]
+label = "team_j02"
+member_ids = ["g1", "g3"]
+
+[[teams]]
+label = "team_j03"
+member_ids = ["g1", "g4"]
+
+[[teams]]
+label = "team_j04"
+member_ids = ["g1", "g5"]
+
+[[teams]]
+label = "team_j05"
+member_ids = ["g1", "g6"]
+
+[[teams]]
+label = "team_j06"
+member_ids = ["g1", "g7"]
+
+[[teams]]
+label = "team_j07"
+member_ids = ["g1", "g8"]
+
+[[teams]]
+label = "team_j08"
+member_ids = ["g1", "g9"]
+
+[[teams]]
+label = "team_j09"
+member_ids = ["g2", "g3"]
+
+[[teams]]
+label = "team_j10"
+member_ids = ["g2", "g4"]
+
+[[teams]]
+label = "team_j11"
+member_ids = ["g2", "g5"]
+
+[[teams]]
+label = "team_j12"
+member_ids = ["g2", "g6"]
+
+[[teams]]
+label = "team_j13"
+member_ids = ["g2", "g7"]
+
+[[teams]]
+label = "team_j14"
+member_ids = ["g2", "g8"]
+
+[[teams]]
+label = "team_j15"
+member_ids = ["g2", "g9"]
+
+[[teams]]
+label = "team_j16"
+member_ids = ["g3", "g4"]
+
+[[teams]]
+label = "team_j17"
+member_ids = ["g3", "g5"]
+
+[[teams]]
+label = "team_j18"
+member_ids = ["g3", "g6"]
+
+[[teams]]
+label = "team_j19"
+member_ids = ["g3", "g7"]
+
+[[teams]]
+label = "team_j20"
+member_ids = ["g3", "g8"]
+
+[[teams]]
+label = "team_j21"
+member_ids = ["g3", "g9"]
+
+[[teams]]
+label = "team_j22"
+member_ids = ["g4", "g5"]
+
+[[teams]]
+label = "team_j23"
+member_ids = ["g4", "g6"]
+
+[[teams]]
+label = "team_j24"
+member_ids = ["g4", "g7"]
+
+[[teams]]
+label = "team_j25"
+member_ids = ["g4", "g8"]
+
+[[teams]]
+label = "team_j26"
+member_ids = ["g4", "g9"]
+
+[[teams]]
+label = "team_j27"
+member_ids = ["g5", "g6"]
+
+[[teams]]
+label = "team_j28"
+member_ids = ["g5", "g7"]
+
+[[teams]]
+label = "team_j29"
+member_ids = ["g5", "g8"]
+
+[[teams]]
+label = "team_j30"
+member_ids = ["g5", "g9"]
+
+[[teams]]
+label = "team_j31"
+member_ids = ["g6", "g7"]
+
+[[teams]]
+label = "team_j32"
+member_ids = ["g6", "g8"]
+
+[[teams]]
+label = "team_j33"
+member_ids = ["g6", "g9"]
+
+[[teams]]
+label = "team_j34"
+member_ids = ["g7", "g8"]
+
+[[teams]]
+label = "team_j35"
+member_ids = ["g7", "g9"]
+
+[[teams]]
+label = "team_j36"
+member_ids = ["g8", "g9"]

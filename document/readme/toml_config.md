@@ -59,7 +59,7 @@ runner = "..."                # 任意: 同一 runner 名で最終集約
 | パラメータ | 必須 | 説明 |
 |---|---|---|
 | `params.characters` | △ | インライン定義。`refs.characters` がない場合に使う |
-| `refs.characters` | △ | キャラクターリストのファイルパス（`params.characters` より優先） |
+| `refs.characters` | △ | キャラクターリストのファイルパス（`params.characters` より優先、`.toml` または `.csv`） |
 | `params.labels` | — | 行列ラベルの上書き。省略時はキャラクターの `label` 属性を使用 |
 
 `params.characters` の各要素:
@@ -68,6 +68,15 @@ runner = "..."                # 任意: 同一 runner 名で最終集約
 |---|---|---|
 | `power` | ✓ | スカラー値。大きいほど純粋に有利になる。全員同値でも可 |
 | `vector` | ✓ | 2 次元ベクトル `[x, y]`。外積によってじゃんけん的な相関を生む |
+| `label` | — | キャラクター名（省略可） |
+
+`refs.characters` で `.csv` を参照する場合の列:
+
+| 列名 | 必須 | 説明 |
+|---|---|---|
+| `power` | ✓ | スカラー値 |
+| `vector_x` | ✓ | ベクトル x 成分 |
+| `vector_y` | ✓ | ベクトル y 成分 |
 | `label` | — | キャラクター名（省略可） |
 
 ### `general_from_teams_payoff`
@@ -243,6 +252,38 @@ method = "payoff_directed_graph"
 [outputs.params]
 filename = "team_matrix.svg"
 threshold = 0.0
+```
+
+### 5.3 team_matchup_experiment（CSVキャラクター参照）
+
+大量キャラクターをインラインで持たせたくない場合は、`children.character_matrix.refs.characters` に CSV を指定できる。
+
+```toml
+method = "general_from_team_matchups"
+name = "team_matchup_experiment_all_pairs_refs_csv"
+
+[params]
+use_monocycle_formula = false
+
+[refs]
+teams = "team_matchup_experiment/teams_all_pairs.toml"
+
+[children.character_matrix]
+method = "monocycle_from_characters"
+name = "character_matrix"
+
+[children.character_matrix.params]
+labels = ["c1", "c2", "g1", "g2", "g3", "g4", "g5", "g6", "g7", "g8", "g9"]
+
+[children.character_matrix.refs]
+characters = "team_matchup_experiment/characters_grid.csv"
+
+[[outputs]]
+method = "team_matchup_experiment_csv"
+
+[outputs.params]
+filename = "team_matchup_experiment_all_pairs_refs_csv.csv"
+focus_team = "team_i"
 ```
 
 ## 6. エラーになる代表ケース

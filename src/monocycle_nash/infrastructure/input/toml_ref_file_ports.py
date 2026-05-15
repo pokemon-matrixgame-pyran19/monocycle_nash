@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import csv
 import tomllib
 from pathlib import Path
 from typing import Any
@@ -63,6 +64,8 @@ class TomlCharacterListFilePort(_BaseTomlRefFilePort, CharacterListFilePort):
 
     def load_characters(self, path: str) -> tuple[Character, ...]:
         source_path = self._resolve_path(path)
+        if source_path.suffix.lower() == ".csv":
+            return self._load_characters_from_csv(source_path)
         data = self._load_toml(source_path)
         items = self._extract_list(data, "characters", source_path)
 
@@ -86,6 +89,42 @@ class TomlCharacterListFilePort(_BaseTomlRefFilePort, CharacterListFilePort):
                     label=label,
                 )
             )
+        return tuple(characters)
+
+    def _load_characters_from_csv(self, source_path: Path) -> tuple[Character, ...]:
+        if not source_path.exists():
+            raise FileNotFoundError(f"参照ファイルが見つかりません: {source_path}")
+        with source_path.open("r", encoding="utf-8", newline="") as f:
+            reader = csv.DictReader(f)
+            fieldnames = reader.fieldnames or []
+            required = ("power", "vector_x", "vector_y")
+            missing = [col for col in required if col not in fieldnames]
+            if missing:
+                raise ValueError(
+                    f"CSV 参照ファイルに必須列がありません ({', '.join(missing)}): {source_path}"
+                )
+
+            characters: list[Character] = []
+            for i, row in enumerate(reader):
+                if all(v is None or str(v).strip() == "" for v in row.values()):
+                    continue
+                try:
+                    power = float(row["power"])
+                    vector_x = float(row["vector_x"])
+                    vector_y = float(row["vector_y"])
+                    label = str(row.get("label", "") or "")
+                except (TypeError, ValueError) as exc:
+                    raise ValueError(
+                        f"characters_csv[{i}] の形式が不正です ({exc}): {source_path}"
+                    ) from exc
+
+                characters.append(
+                    Character(
+                        power=power,
+                        vector=MatchupVector(vector_x, vector_y),
+                        label=label,
+                    )
+                )
         return tuple(characters)
 
 
