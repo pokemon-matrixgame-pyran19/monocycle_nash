@@ -103,7 +103,9 @@ runner = "..."                  # 任意（同名 runner で最終集約）
 - `general_from_raw`（`params.matrix` 必須）
 - `monocycle_from_characters`（`params.characters` または `refs.characters`）
 - `general_from_teams_payoff`（`params.team_payoff` 必須、`params.teams` または `refs.teams`）
-- `general_from_team_matchups`（`children.character_matrix` 必須、`params.teams` または `refs.teams`）
+- `general_from_team_matchups`（`children.characters` または `children.character_matrix` 必須、`params.teams` または `refs.teams`）
+- `character_inline`（`children.characters` 用。`params.characters`）
+- `character_from_file`（`children.characters` 用。`refs.characters`）
 - `random_skew_symmetric`（`params.size` 必須）
 - `approx_monocycle_to_general`（`children.source` 必須）
 - `approx_dominant_eigenpair`（`children.source` 必須）

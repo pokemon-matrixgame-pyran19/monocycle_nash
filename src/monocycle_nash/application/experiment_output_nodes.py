@@ -69,7 +69,7 @@ class TeamMatchupExperimentCsvOutputNode(
         path.parent.mkdir(parents=True, exist_ok=True)
 
         team_matrix = node.provide_object(ctx=ctx)
-        character_matrix = node.character_matrix.provide_object(ctx=ctx)
+        character_matrix = node.resolve_character_matrix(ctx=ctx)
         teams = node.teams.get_teams(ctx=ctx)
         focus_index = self._resolve_focus_team_index(teams)
         focus_team = teams[focus_index]

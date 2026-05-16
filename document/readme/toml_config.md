@@ -100,19 +100,33 @@ runner = "..."                # 任意: 同一 runner 名で最終集約
 
 ### `general_from_team_matchups`
 
-キャラクター間の利得行列（`children.character_matrix` で指定した子ノードで計算）とチーム定義から、チーム間の利得行列を導出するメソッド。キャラクター同士の対戦結果を基にしてチーム戦の行列を自動計算したい場合に使う。
+キャラクター間の利得行列とチーム定義から、チーム間の利得行列を導出するメソッド。キャラクター同士の対戦結果を基にしてチーム戦の行列を自動計算したい場合に使う。
 
 **入力は 2 系統ある**:
 
-1. `children.character_matrix` — キャラクター間の利得行列を生成するサブグラフ（任意の MatrixNode を再帰指定可）
-2. チーム定義（`params.teams` または `refs.teams`）
+1. `children.characters` — キャラクター入力ノード（`character_inline` / `character_from_file`）
+2. `children.character_matrix` — 既存互換。キャラクター間の利得行列を生成するサブグラフ（任意の MatrixNode を再帰指定可）
+3. チーム定義（`params.teams` または `refs.teams`）
 
 | パラメータ | 必須 | 説明 |
 |---|---|---|
-| `children.character_matrix` | ✓ | キャラクター利得行列を生成する子ノード定義。`method` を持つ任意のノード一式を書く |
+| `children.characters` | △ | キャラクター入力ノード。`method = "character_inline"` または `method = "character_from_file"` |
+| `children.character_matrix` | △ | 既存互換。キャラクター利得行列を生成する子ノード定義。`method` を持つ任意のノード一式を書く |
 | `params.teams` | △ | インライン定義。`refs.teams` がない場合に使う |
 | `refs.teams` | △ | チームリストのファイルパス（`params.teams` より優先） |
 | `params.use_monocycle_formula` | — | `true` のとき単相性方式でチーム利得を計算（既定: `true`） |
+
+### `character_inline`（`children.characters` 用）
+
+| パラメータ | 必須 | 説明 |
+|---|---|---|
+| `params.characters` | ✓ | インラインのキャラクター定義（形式は `monocycle_from_characters` と同一） |
+
+### `character_from_file`（`children.characters` 用）
+
+| パラメータ | 必須 | 説明 |
+|---|---|---|
+| `refs.characters` | ✓ | キャラクターリストのファイルパス（`.toml` または `.csv`） |
 
 ### `random_skew_symmetric`
 
@@ -224,7 +238,7 @@ filename = "rps_characters.svg"
 このメソッドは **2 系統の入力**を必要とする:
 
 - `refs.teams` — チーム定義ファイルのパス（「誰と誰がチームを組むか」だけを持つ）
-- `children.character_matrix` — キャラクター間の利得行列を計算するサブグラフ（さらに `refs.characters` でキャラクター定義を参照）
+- `children.characters` — キャラクター入力ノード（ファイル参照またはインライン）
 
 ```toml
 method = "general_from_team_matchups"
@@ -234,12 +248,12 @@ name = "team_matrix"
 [refs]
 teams = "teams/default.toml"
 
-# 入力②: キャラクター間の利得行列を生成する子ノード
-[children.character_matrix]
-method = "monocycle_from_characters"
-name = "character_matrix"
+# 入力②: キャラクター入力ノード
+[children.characters]
+method = "character_from_file"
+name = "characters"
 
-[children.character_matrix.refs]
+[children.characters.refs]
 characters = "characters/default.toml"  # キャラクター定義ファイル
 
 [params]
@@ -256,7 +270,7 @@ threshold = 0.0
 
 ### 5.3 team_matchup_experiment（CSVキャラクター参照）
 
-大量キャラクターをインラインで持たせたくない場合は、`children.character_matrix.refs.characters` に CSV を指定できる。
+大量キャラクターをインラインで持たせたくない場合は、`children.characters.refs.characters` に CSV を指定できる。
 
 ```toml
 method = "general_from_team_matchups"
@@ -268,14 +282,11 @@ use_monocycle_formula = false
 [refs]
 teams = "team_matchup_experiment/teams_all_pairs.toml"
 
-[children.character_matrix]
-method = "monocycle_from_characters"
-name = "character_matrix"
+[children.characters]
+method = "character_from_file"
+name = "characters"
 
-[children.character_matrix.params]
-labels = ["c1", "c2", "g1", "g2", "g3", "g4", "g5", "g6", "g7", "g8", "g9"]
-
-[children.character_matrix.refs]
+[children.characters.refs]
 characters = "team_matchup_experiment/characters_grid.csv"
 
 [[outputs]]
@@ -291,4 +302,4 @@ focus_team = "team_i"
 - ルートに `method` がない
 - `[[outputs]]` 要素に `method` がない
 - 未知の `method` / `outputs[].method`
-- 必須 `children` がない（例: `general_from_team_matchups` の `children.character_matrix`）
+- 必須 `children` がない（例: `general_from_team_matchups` の `children.characters` / `children.character_matrix`）

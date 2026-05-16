@@ -147,11 +147,39 @@ class CharacterNode:
 class CharacterSource(ApplicationNode[tuple[Character, ...]]):
     """キャラクター入力ソースの抽象基底。"""
 
+    _registry: ClassVar[dict[str, type["CharacterSource"]]] = {}
+    node_method: ClassVar[str]
+
+    def __init_subclass__(cls, **kwargs: object) -> None:
+        node_method = kwargs.pop("node_method", None)
+        super().__init_subclass__(**kwargs)
+        if node_method is None:
+            return
+        if not isinstance(node_method, str):
+            raise TypeError("CharacterSource の node_method は str である必要があります")
+        cls.node_method = node_method
+        CharacterSource._registry[node_method] = cls
+
+    @classmethod
+    def create_from_spec(cls, spec: NodeSpec) -> "CharacterSource":
+        node_cls = cls._registry.get(spec.method)
+        if node_cls is None:
+            raise ValueError(f"未知の character source method です: {spec.method}")
+        return node_cls._from_spec(spec)
+
     @classmethod
     def from_node_spec(cls, spec: NodeSpec) -> CharacterSource:
-        """NodeSpec の refs または params.characters からキャラクターソースを生成する。"""
+        """NodeSpec からキャラクターソースを生成する。"""
+        characters_spec = spec.children.get("characters")
+        if characters_spec is not None:
+            return cls.create_from_spec(characters_spec)
+
+        # 後方互換: 既存の params/refs 直書きにも対応する。
         if "characters" in spec.refs:
-            return CharacterListFromFileNode(path=spec.refs["characters"])
+            return CharacterListFromFileNode(
+                path=spec.refs["characters"],
+                name="characters",
+            )
         chars_data = spec.params.get("characters", [])
         return CharacterInlineSource(
             characters=tuple(
@@ -161,13 +189,23 @@ class CharacterSource(ApplicationNode[tuple[Character, ...]]):
                     label=c.get("label", ""),
                 )
                 for c in chars_data
-            )
+            ),
+            name="characters",
         )
+
+    @classmethod
+    @abstractmethod
+    def _from_spec(cls, spec: NodeSpec) -> "CharacterSource":
+        raise NotImplementedError
 
     @abstractmethod
     def load_characters(self, ctx: NodeResolutionContext) -> tuple[Character, ...]:
         """キャラクターリストを返す。"""
         raise NotImplementedError
+
+    def get_characters(self, *, ctx: NodeResolutionContext) -> tuple[Character, ...]:
+        """キャラクタータプルを返す（provide_object への便利メソッド）。"""
+        return self.provide_object(ctx=ctx)
 
     def provide_object(
         self,
@@ -178,10 +216,28 @@ class CharacterSource(ApplicationNode[tuple[Character, ...]]):
 
 
 @dataclass
-class CharacterInlineSource(CharacterSource):
+class CharacterInlineSource(CharacterSource, node_method="character_inline"):
     """インラインのキャラクター設定ソース。"""
 
     characters: tuple[CharacterNode, ...]
+    name: str = "characters"
+    outputs: tuple["OutputNode", ...] = field(default_factory=tuple)
+
+    @classmethod
+    def _from_spec(cls, spec: NodeSpec) -> "CharacterInlineSource":
+        chars_data = spec.params.get("characters", [])
+        return cls(
+            characters=tuple(
+                CharacterNode(
+                    power=c["power"],
+                    vector=(float(c["vector"][0]), float(c["vector"][1])),
+                    label=c.get("label", ""),
+                )
+                for c in chars_data
+            ),
+            name=spec.name,
+            outputs=OutputNode.create_all_from_specs(spec.outputs),
+        )
 
     def load_characters(self, ctx: NodeResolutionContext) -> tuple[Character, ...]:
         return tuple(
@@ -191,7 +247,7 @@ class CharacterInlineSource(CharacterSource):
 
 
 @dataclass
-class CharacterListFromFileNode(CharacterSource):
+class CharacterListFromFileNode(CharacterSource, node_method="character_from_file"):
     """ファイルからキャラクターリストを読み込む設定ノード。
 
     CharacterListFilePort を用いて解決する。
@@ -199,6 +255,19 @@ class CharacterListFromFileNode(CharacterSource):
 
     path: str
     character_list_file_port: CharacterListFilePort | None = None
+    name: str = "characters"
+    outputs: tuple["OutputNode", ...] = field(default_factory=tuple)
+
+    @classmethod
+    def _from_spec(cls, spec: NodeSpec) -> "CharacterListFromFileNode":
+        refs_path = spec.refs.get("characters")
+        if refs_path is None:
+            raise ValueError("character_from_file には refs.characters が必要です")
+        return cls(
+            path=refs_path,
+            name=spec.name,
+            outputs=OutputNode.create_all_from_specs(spec.outputs),
+        )
 
     def load_characters(self, ctx: NodeResolutionContext) -> tuple[Character, ...]:
         if self.character_list_file_port is None:
@@ -749,7 +818,8 @@ class GeneralFromTeamMatchupsNode(MatrixNode, node_method="general_from_team_mat
     """
 
     teams: TeamSource
-    character_matrix: MatrixNode
+    character_matrix: MatrixNode | None = None
+    characters: CharacterSource | None = None
     use_monocycle_formula: bool = True
     name: str = "root"
     outputs: tuple[OutputNode, ...] = field(default_factory=tuple)
@@ -758,14 +828,21 @@ class GeneralFromTeamMatchupsNode(MatrixNode, node_method="general_from_team_mat
     def _from_spec(
         cls, spec: NodeSpec, build_child: Callable[[NodeSpec], MatrixNode]
     ) -> GeneralFromTeamMatchupsNode:
-        character_matrix_spec = spec.children.get("character_matrix")
-        if character_matrix_spec is None:
-            raise ValueError(
-                "general_from_team_matchups には children.character_matrix が必要です"
-            )
+        characters_spec = spec.children.get("characters")
+        characters = CharacterSource.create_from_spec(characters_spec) if characters_spec else None
+
+        character_matrix: MatrixNode | None = None
+        if characters is None:
+            character_matrix_spec = spec.children.get("character_matrix")
+            if character_matrix_spec is None:
+                raise ValueError(
+                    "general_from_team_matchups には children.characters または children.character_matrix が必要です"
+                )
+            character_matrix = build_child(character_matrix_spec)
         return cls(
             teams=TeamSource.from_node_spec(spec),
-            character_matrix=build_child(character_matrix_spec),
+            character_matrix=character_matrix,
+            characters=characters,
             use_monocycle_formula=spec.params.get("use_monocycle_formula", True),
             name=spec.name,
             outputs=OutputNode.create_all_from_specs(spec.outputs),
@@ -776,14 +853,34 @@ class GeneralFromTeamMatchupsNode(MatrixNode, node_method="general_from_team_mat
         *,
         ctx: NodeResolutionContext,
     ) -> PayoffMatrix:
-        character_matrix_node = ctx.resolve_node(self.character_matrix)
-        character_matrix = cast(PayoffMatrix, character_matrix_node.value)
+        character_matrix = self.resolve_character_matrix(ctx=ctx)
         teams = cast(tuple[Team, ...], ctx.get_node_value(self.teams))
         return PayoffMatrixBuilder.from_team_matchups(
             teams=teams,
             character_matrix=character_matrix,
             use_monocycle_formula=self.use_monocycle_formula,
         )
+
+    def resolve_character_matrix(
+        self,
+        *,
+        ctx: NodeResolutionContext,
+    ) -> PayoffMatrix:
+        if self.characters is not None:
+            characters = cast(tuple[Character, ...], ctx.get_node_value(self.characters))
+            labels = [c.label for c in characters]
+            resolved_labels = labels if all(label != "" for label in labels) else None
+            return PayoffMatrixBuilder.from_characters(
+                characters=characters,
+                labels=resolved_labels,
+            )
+        elif self.character_matrix is not None:
+            character_matrix_node = ctx.resolve_node(self.character_matrix)
+            return cast(PayoffMatrix, character_matrix_node.value)
+        else:
+            raise ValueError(
+                "general_from_team_matchups は characters か character_matrix の入力が必要です"
+            )
 
 
 @dataclass

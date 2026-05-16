@@ -150,6 +150,37 @@ def test_resolver_builds_team_matrix_with_nested_dependency_and_outputs(tmp_path
     }
 
 
+def test_resolver_builds_team_matrix_from_character_source_node(tmp_path: Path) -> None:
+    tree = MatrixConfigTree(
+        root=GeneralFromTeamMatchupsNode(
+            name="team-root",
+            teams=TeamInlineSource((
+                TeamNode(label="A+B", member_ids=("A", "B")),
+                TeamNode(label="B+C", member_ids=("B", "C")),
+            )),
+            characters=CharacterInlineSource(
+                (
+                    CharacterNode(power=1.0, vector=(1.0, 0.0), label="A"),
+                    CharacterNode(power=0.0, vector=(0.0, 1.0), label="B"),
+                    CharacterNode(power=-1.0, vector=(-1.0, 0.0), label="C"),
+                ),
+                name="characters",
+                outputs=(CharacterVectorGraphOutputNode(filename="chars.svg"),),
+            ),
+            use_monocycle_formula=True,
+        )
+    )
+
+    output_port = StubOutputPathPort(tmp_path)
+    resolver = MatrixConfigTreeResolver(output_path_port=output_port)
+    result = resolver.resolve(tree)
+
+    assert isinstance(result.root.value, GeneralPayoffMatrix)
+    assert result.root.value.matrix.shape == (2, 2)
+    assert len(result.outputs) == 1
+    assert output_port.calls[0][1] == ("team-root", "characters")
+
+
 def test_resolver_runs_equilibrium_output_node(tmp_path: Path) -> None:
     tree = MatrixConfigTree(
         root=MonocycleFromCharactersNode(

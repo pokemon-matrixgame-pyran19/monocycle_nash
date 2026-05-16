@@ -126,6 +126,23 @@ def test_build_monocycle_refs_takes_priority_over_params() -> None:
     assert isinstance(node.characters, CharacterListFromFileNode)
 
 
+def test_build_monocycle_from_character_child_node() -> None:
+    spec = NodeSpec(
+        method="monocycle_from_characters",
+        children={
+            "characters": NodeSpec(
+                method="character_inline",
+                name="chars",
+                params=INLINE_CHARS_PARAMS,
+            )
+        },
+    )
+    node = FACTORY.build(spec)
+    assert isinstance(node.characters, CharacterInlineSource)
+    assert node.characters.name == "chars"
+    assert len(node.characters.characters) == 2
+
+
 # ---------------------------------------------------------------------------
 # GeneralFromTeamsPayoffNode
 # ---------------------------------------------------------------------------
@@ -169,7 +186,45 @@ def test_build_general_from_team_matchups() -> None:
     assert isinstance(node, GeneralFromTeamMatchupsNode)
     assert isinstance(node.teams, TeamInlineSource)
     assert isinstance(node.character_matrix, MonocycleFromCharactersNode)
+    assert node.characters is None
     assert node.use_monocycle_formula is False
+
+
+def test_build_general_from_team_matchups_with_character_child() -> None:
+    spec = NodeSpec(
+        method="general_from_team_matchups",
+        params={**INLINE_TEAMS_PARAMS, "use_monocycle_formula": False},
+        children={
+            "characters": NodeSpec(
+                method="character_inline",
+                name="characters",
+                params=INLINE_CHARS_PARAMS,
+            )
+        },
+    )
+    node = FACTORY.build(spec)
+    assert isinstance(node, GeneralFromTeamMatchupsNode)
+    assert isinstance(node.teams, TeamInlineSource)
+    assert isinstance(node.characters, CharacterInlineSource)
+    assert node.character_matrix is None
+    assert node.use_monocycle_formula is False
+
+
+def test_build_general_from_team_matchups_with_character_file_child() -> None:
+    spec = NodeSpec(
+        method="general_from_team_matchups",
+        params=INLINE_TEAMS_PARAMS,
+        children={
+            "characters": NodeSpec(
+                method="character_from_file",
+                refs={"characters": "chars.toml"},
+            )
+        },
+    )
+    node = FACTORY.build(spec)
+    assert isinstance(node.characters, CharacterListFromFileNode)
+    assert node.characters.path == "chars.toml"
+    assert node.character_matrix is None
 
 
 def test_build_general_from_team_matchups_missing_child_raises() -> None:
@@ -177,7 +232,7 @@ def test_build_general_from_team_matchups_missing_child_raises() -> None:
         method="general_from_team_matchups",
         params=INLINE_TEAMS_PARAMS,
     )
-    with pytest.raises(ValueError, match="character_matrix"):
+    with pytest.raises(ValueError, match="children.characters"):
         FACTORY.build(spec)
 
 
