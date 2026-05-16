@@ -176,17 +176,20 @@ def test_build_general_from_teams_payoff_file_ref() -> None:
 
 
 def test_build_general_from_team_matchups() -> None:
-    char_spec = NodeSpec(method="monocycle_from_characters", params=INLINE_CHARS_PARAMS)
     spec = NodeSpec(
         method="general_from_team_matchups",
         params={**INLINE_TEAMS_PARAMS, "use_monocycle_formula": False},
-        children={"character_matrix": char_spec},
+        children={
+            "characters": NodeSpec(
+                method="character_inline",
+                params=INLINE_CHARS_PARAMS,
+            )
+        },
     )
     node = FACTORY.build(spec)
     assert isinstance(node, GeneralFromTeamMatchupsNode)
     assert isinstance(node.teams, TeamInlineSource)
-    assert isinstance(node.character_matrix, MonocycleFromCharactersNode)
-    assert node.characters is None
+    assert isinstance(node.characters, CharacterInlineSource)
     assert node.use_monocycle_formula is False
 
 
@@ -206,7 +209,6 @@ def test_build_general_from_team_matchups_with_character_child() -> None:
     assert isinstance(node, GeneralFromTeamMatchupsNode)
     assert isinstance(node.teams, TeamInlineSource)
     assert isinstance(node.characters, CharacterInlineSource)
-    assert node.character_matrix is None
     assert node.use_monocycle_formula is False
 
 
@@ -224,7 +226,6 @@ def test_build_general_from_team_matchups_with_character_file_child() -> None:
     node = FACTORY.build(spec)
     assert isinstance(node.characters, CharacterListFromFileNode)
     assert node.characters.path == "chars.toml"
-    assert node.character_matrix is None
 
 
 def test_build_general_from_team_matchups_missing_child_raises() -> None:
@@ -237,11 +238,15 @@ def test_build_general_from_team_matchups_missing_child_raises() -> None:
 
 
 def test_build_general_from_team_matchups_default_monocycle_formula() -> None:
-    char_spec = NodeSpec(method="monocycle_from_characters", params=INLINE_CHARS_PARAMS)
     spec = NodeSpec(
         method="general_from_team_matchups",
         params=INLINE_TEAMS_PARAMS,
-        children={"character_matrix": char_spec},
+        children={
+            "characters": NodeSpec(
+                method="character_inline",
+                params=INLINE_CHARS_PARAMS,
+            )
+        },
     )
     node = FACTORY.build(spec)
     assert node.use_monocycle_formula is True
@@ -414,11 +419,15 @@ def test_build_with_team_matchup_experiment_csv_output() -> None:
         runner="exp",
         params={"filename": "experiment.csv", "focus_team": "team_a"},
     )
-    char_spec = NodeSpec(method="monocycle_from_characters", params=INLINE_CHARS_PARAMS)
     spec = NodeSpec(
         method="general_from_team_matchups",
         params=INLINE_TEAMS_PARAMS,
-        children={"character_matrix": char_spec},
+        children={
+            "characters": NodeSpec(
+                method="character_inline",
+                params=INLINE_CHARS_PARAMS,
+            )
+        },
         outputs=(out,),
     )
     node = FACTORY.build(spec)

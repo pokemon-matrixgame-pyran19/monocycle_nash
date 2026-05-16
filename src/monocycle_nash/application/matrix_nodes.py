@@ -203,10 +203,6 @@ class CharacterSource(ApplicationNode[tuple[Character, ...]]):
         """キャラクターリストを返す。"""
         raise NotImplementedError
 
-    def get_characters(self, *, ctx: NodeResolutionContext) -> tuple[Character, ...]:
-        """キャラクタータプルを返す（provide_object への便利メソッド）。"""
-        return self.provide_object(ctx=ctx)
-
     def provide_object(
         self,
         *,
@@ -813,13 +809,12 @@ class GeneralFromTeamsPayoffNode(MatrixNode, node_method="general_from_teams_pay
 class GeneralFromTeamMatchupsNode(MatrixNode, node_method="general_from_team_matchups"):
     """キャラクター行列とチーム定義からチーム利得行列を構築するノード。
 
-    character_matrix には任意の MatrixNode を再帰的に指定できる。
+    characters には CharacterInlineSource または CharacterListFromFileNode を指定する。
     teams には TeamInlineSource または TeamListFromFileNode を指定する。
     """
 
     teams: TeamSource
-    character_matrix: MatrixNode | None = None
-    characters: CharacterSource | None = None
+    characters: CharacterSource
     use_monocycle_formula: bool = True
     name: str = "root"
     outputs: tuple[OutputNode, ...] = field(default_factory=tuple)
@@ -829,20 +824,11 @@ class GeneralFromTeamMatchupsNode(MatrixNode, node_method="general_from_team_mat
         cls, spec: NodeSpec, build_child: Callable[[NodeSpec], MatrixNode]
     ) -> GeneralFromTeamMatchupsNode:
         characters_spec = spec.children.get("characters")
-        characters = CharacterSource.create_from_spec(characters_spec) if characters_spec else None
-
-        character_matrix: MatrixNode | None = None
-        if characters is None:
-            character_matrix_spec = spec.children.get("character_matrix")
-            if character_matrix_spec is None:
-                raise ValueError(
-                    "general_from_team_matchups には children.characters または children.character_matrix が必要です"
-                )
-            character_matrix = build_child(character_matrix_spec)
+        if characters_spec is None:
+            raise ValueError("general_from_team_matchups には children.characters が必要です")
         return cls(
             teams=TeamSource.from_node_spec(spec),
-            character_matrix=character_matrix,
-            characters=characters,
+            characters=CharacterSource.create_from_spec(characters_spec),
             use_monocycle_formula=spec.params.get("use_monocycle_formula", True),
             name=spec.name,
             outputs=OutputNode.create_all_from_specs(spec.outputs),
@@ -866,21 +852,13 @@ class GeneralFromTeamMatchupsNode(MatrixNode, node_method="general_from_team_mat
         *,
         ctx: NodeResolutionContext,
     ) -> PayoffMatrix:
-        if self.characters is not None:
-            characters = cast(tuple[Character, ...], ctx.get_node_value(self.characters))
-            labels = [c.label for c in characters]
-            resolved_labels = labels if all(label != "" for label in labels) else None
-            return PayoffMatrixBuilder.from_characters(
-                characters=characters,
-                labels=resolved_labels,
-            )
-        elif self.character_matrix is not None:
-            character_matrix_node = ctx.resolve_node(self.character_matrix)
-            return cast(PayoffMatrix, character_matrix_node.value)
-        else:
-            raise ValueError(
-                "general_from_team_matchups は characters か character_matrix の入力が必要です"
-            )
+        characters = cast(tuple[Character, ...], ctx.get_node_value(self.characters))
+        labels = [c.label for c in characters]
+        resolved_labels = labels if all(label != "" for label in labels) else None
+        return PayoffMatrixBuilder.from_characters(
+            characters=characters,
+            labels=resolved_labels,
+        )
 
 
 @dataclass

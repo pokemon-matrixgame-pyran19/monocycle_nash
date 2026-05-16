@@ -105,13 +105,11 @@ runner = "..."                # 任意: 同一 runner 名で最終集約
 **入力は 2 系統ある**:
 
 1. `children.characters` — キャラクター入力ノード（`character_inline` / `character_from_file`）
-2. `children.character_matrix` — 既存互換。キャラクター間の利得行列を生成するサブグラフ（任意の MatrixNode を再帰指定可）
-3. チーム定義（`params.teams` または `refs.teams`）
+2. チーム定義（`params.teams` または `refs.teams`）
 
 | パラメータ | 必須 | 説明 |
 |---|---|---|
-| `children.characters` | △ | キャラクター入力ノード。`method = "character_inline"` または `method = "character_from_file"` |
-| `children.character_matrix` | △ | 既存互換。キャラクター利得行列を生成する子ノード定義。`method` を持つ任意のノード一式を書く |
+| `children.characters` | ✓ | キャラクター入力ノード。`method = "character_inline"` または `method = "character_from_file"` |
 | `params.teams` | △ | インライン定義。`refs.teams` がない場合に使う |
 | `refs.teams` | △ | チームリストのファイルパス（`params.teams` より優先） |
 | `params.use_monocycle_formula` | — | `true` のとき単相性方式でチーム利得を計算（既定: `true`） |
@@ -302,4 +300,4 @@ focus_team = "team_i"
 - ルートに `method` がない
 - `[[outputs]]` 要素に `method` がない
 - 未知の `method` / `outputs[].method`
-- 必須 `children` がない（例: `general_from_team_matchups` の `children.characters` / `children.character_matrix`）
+- 必須 `children` がない（例: `general_from_team_matchups` の `children.characters`）
