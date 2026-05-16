@@ -44,64 +44,61 @@ member_ids = ["g4", "g1"]
 label = "team_j9"
 member_ids = ["g1", "g9"]
 
-[children.character_matrix]
-method = "monocycle_from_characters"
-name = "character_matrix"
+[children.characters]
+method = "character_inline"
+name = "characters"
 
-[children.character_matrix.params]
-labels = ["c1", "c2", "g1", "g2", "g3", "g4", "g5", "g6", "g7", "g8", "g9"]
-
-[[children.character_matrix.params.characters]]
+[[children.characters.params.characters]]
 power = 0.0
 vector = [4.0, 0.0]
 label = "c1"
 
-[[children.character_matrix.params.characters]]
+[[children.characters.params.characters]]
 power = 0.0
 vector = [0.0, 4.0]
 label = "c2"
 
-[[children.character_matrix.params.characters]]
+[[children.characters.params.characters]]
 power = 0.0
 vector = [-1.0, -1.0]
 label = "g1"
 
-[[children.character_matrix.params.characters]]
+[[children.characters.params.characters]]
 power = 0.0
 vector = [0.0, -1.0]
 label = "g2"
 
-[[children.character_matrix.params.characters]]
+[[children.characters.params.characters]]
 power = 0.0
 vector = [1.0, -1.0]
 label = "g3"
 
-[[children.character_matrix.params.characters]]
+[[children.characters.params.characters]]
 power = 0.0
 vector = [-1.0, 0.0]
 label = "g4"
 
-[[children.character_matrix.params.characters]]
+[[children.characters.params.characters]]
 power = 0.0
 vector = [0.0, 0.0]
 label = "g5"
 
-[[children.character_matrix.params.characters]]
+[[children.characters.params.characters]]
 power = 0.0
 vector = [1.0, 0.0]
 label = "g6"
 
-[[children.character_matrix.params.characters]]
+[[children.characters.params.characters]]
 power = 0.0
 vector = [-1.0, 1.0]
 label = "g7"
 
-[[children.character_matrix.params.characters]]
+[[children.characters.params.characters]]
 power = 0.0
 vector = [0.0, 1.0]
 label = "g8"
 
-[[children.character_matrix.params.characters]]
+[[children.characters.params.characters]]
 power = 0.0
 vector = [1.0, 1.0]
 label = "g9"

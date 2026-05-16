@@ -114,15 +114,14 @@ def test_resolver_builds_team_matrix_with_nested_dependency_and_outputs(tmp_path
                 TeamNode(label="A+B", member_ids=("A", "B")),
                 TeamNode(label="B+C", member_ids=("B", "C")),
             )),
-            character_matrix=MonocycleFromCharactersNode(
-                name="character-source",
-                characters=CharacterInlineSource((
+            characters=CharacterInlineSource(
+                (
                     CharacterNode(power=1.0, vector=(1.0, 0.0), label="A"),
                     CharacterNode(power=0.0, vector=(0.0, 1.0), label="B"),
                     CharacterNode(power=-1.0, vector=(-1.0, 0.0), label="C"),
-                )),
-                labels=["A", "B", "C"],
-                outputs=(PayoffDirectedGraphOutputNode(filename="chars.svg"),),
+                ),
+                name="characters",
+                outputs=(CharacterVectorGraphOutputNode(filename="chars.svg"),),
             ),
             use_monocycle_formula=True,
             outputs=(PayoffDirectedGraphOutputNode(filename="team.svg"),),
@@ -145,9 +144,40 @@ def test_resolver_builds_team_matrix_with_nested_dependency_and_outputs(tmp_path
         for run_id, _, _, _ in output_port.calls
     )
     assert set(node_path for _, node_path, _, _ in output_port.calls) == {
-        ("team-root", "character-source"),
+        ("team-root", "characters"),
         ("team-root",),
     }
+
+
+def test_resolver_builds_team_matrix_from_character_source_node(tmp_path: Path) -> None:
+    tree = MatrixConfigTree(
+        root=GeneralFromTeamMatchupsNode(
+            name="team-root",
+            teams=TeamInlineSource((
+                TeamNode(label="A+B", member_ids=("A", "B")),
+                TeamNode(label="B+C", member_ids=("B", "C")),
+            )),
+            characters=CharacterInlineSource(
+                (
+                    CharacterNode(power=1.0, vector=(1.0, 0.0), label="A"),
+                    CharacterNode(power=0.0, vector=(0.0, 1.0), label="B"),
+                    CharacterNode(power=-1.0, vector=(-1.0, 0.0), label="C"),
+                ),
+                name="characters",
+                outputs=(CharacterVectorGraphOutputNode(filename="chars.svg"),),
+            ),
+            use_monocycle_formula=True,
+        )
+    )
+
+    output_port = StubOutputPathPort(tmp_path)
+    resolver = MatrixConfigTreeResolver(output_path_port=output_port)
+    result = resolver.resolve(tree)
+
+    assert isinstance(result.root.value, GeneralPayoffMatrix)
+    assert result.root.value.matrix.shape == (2, 2)
+    assert len(result.outputs) == 1
+    assert output_port.calls[0][1] == ("team-root", "characters")
 
 
 def test_resolver_runs_equilibrium_output_node(tmp_path: Path) -> None:
@@ -188,16 +218,14 @@ def test_resolver_runs_team_matchup_experiment_csv_output_node(tmp_path: Path) -
                 TeamNode(label="team_j1", member_ids=("c3", "c4")),
                 TeamNode(label="team_j2", member_ids=("c4", "c5")),
             )),
-            character_matrix=MonocycleFromCharactersNode(
-                name="character-source",
-                characters=CharacterInlineSource((
+            characters=CharacterInlineSource(
+                (
                     CharacterNode(power=0.0, vector=(3.0, 0.0), label="c1"),
                     CharacterNode(power=0.0, vector=(0.0, 2.0), label="c2"),
                     CharacterNode(power=0.0, vector=(-1.0, 1.0), label="c3"),
                     CharacterNode(power=0.0, vector=(-1.0, -1.0), label="c4"),
                     CharacterNode(power=0.0, vector=(1.0, -1.0), label="c5"),
-                )),
-                labels=["c1", "c2", "c3", "c4", "c5"],
+                ),
             ),
             use_monocycle_formula=False,
             outputs=(
@@ -263,15 +291,14 @@ def test_resolver_runs_shared_runner_once_after_full_resolution(tmp_path: Path) 
                 TeamNode(label="A+B", member_ids=("A", "B")),
                 TeamNode(label="B+C", member_ids=("B", "C")),
             )),
-            character_matrix=MonocycleFromCharactersNode(
-                name="character-source",
-                characters=CharacterInlineSource((
+            characters=CharacterInlineSource(
+                (
                     CharacterNode(power=1.0, vector=(1.0, 0.0), label="A"),
                     CharacterNode(power=0.0, vector=(0.0, 1.0), label="B"),
                     CharacterNode(power=-1.0, vector=(-1.0, 0.0), label="C"),
-                )),
-                labels=["A", "B", "C"],
-                outputs=(PayoffDirectedGraphOutputNode(runner="final", filename="chars.svg"),),
+                ),
+                name="characters",
+                outputs=(CharacterVectorGraphOutputNode(runner="final", filename="chars.svg"),),
             ),
             use_monocycle_formula=True,
             outputs=(PayoffDirectedGraphOutputNode(runner="final", filename="team.svg"),),
@@ -561,7 +588,7 @@ def test_monocycle_node_resolves_characters_from_character_source() -> None:
                 return self.resolve_node(node).value
             raise NotImplementedError
 
-    characters = target_node.characters.get_characters(ctx=_Ctx())
+    characters = target_node.characters.provide_object(ctx=_Ctx())
     assert len(characters) == 2
     assert [c.label for c in characters] == ["A", "B"]
 
@@ -855,10 +882,7 @@ def test_resolver_file_backed_teams(tmp_path: Path) -> None:
     tree = MatrixConfigTree(
         root=GeneralFromTeamMatchupsNode(
             teams=TeamListFromFileNode(path="teams.toml"),
-            character_matrix=MonocycleFromCharactersNode(
-                characters=characters,
-                labels=["A", "B", "C"],
-            ),
+            characters=characters,
         )
     )
 
@@ -874,12 +898,10 @@ def test_resolver_file_backed_teams_without_port_raises() -> None:
     tree = MatrixConfigTree(
         root=GeneralFromTeamMatchupsNode(
             teams=TeamListFromFileNode(path="teams.toml"),
-            character_matrix=MonocycleFromCharactersNode(
-                characters=CharacterInlineSource((
-                    CharacterNode(power=1.0, vector=(1.0, 0.0), label="A"),
-                    CharacterNode(power=0.0, vector=(0.0, 1.0), label="B"),
-                )),
-            ),
+            characters=CharacterInlineSource((
+                CharacterNode(power=1.0, vector=(1.0, 0.0), label="A"),
+                CharacterNode(power=0.0, vector=(0.0, 1.0), label="B"),
+            )),
         )
     )
     resolver = MatrixConfigTreeResolver()

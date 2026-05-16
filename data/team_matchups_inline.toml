@@ -16,21 +16,21 @@ member_ids = ["paper", "scissors"]
 label = "team_c"
 member_ids = ["scissors", "rock"]
 
-[children.character_matrix]
-method = "monocycle_from_characters"
-name = "character_matrix"
+[children.characters]
+method = "character_inline"
+name = "characters"
 
-[[children.character_matrix.params.characters]]
+[[children.characters.params.characters]]
 power = 1.0
 vector = [1.0, 0.0]
 label = "rock"
 
-[[children.character_matrix.params.characters]]
+[[children.characters.params.characters]]
 power = 0.0
 vector = [0.0, 1.0]
 label = "paper"
 
-[[children.character_matrix.params.characters]]
+[[children.characters.params.characters]]
 power = -1.0
 vector = [-1.0, 0.0]
 label = "scissors"
