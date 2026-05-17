@@ -12,7 +12,10 @@ method = "character_from_file"
 name = "characters"
 
 [children.characters.refs]
-characters = "team_matchup_experiment/characters_grid.csv"
+characters = "team_matchup_experiment/isotropic_characters_9.csv"
+
+[[children.characters.outputs]]
+method = "character_vector_graph"
 
 [[outputs]]
 method = "team_matchup_experiment_csv"
