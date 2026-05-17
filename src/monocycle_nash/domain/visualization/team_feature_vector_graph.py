@@ -60,6 +60,11 @@ class TeamFeatureVectorScatterPlotter:
         axis_y1 = sy(world_max_y)
         zero_x = sx(0.0)
         zero_y = sy(0.0)
+        origin_point_radius = 5.5
+        origin_label_x_offset = 10.0
+        point_radius = 14.0
+        label_y_offset = 16.0
+        vector_text_y_offset = 18.0
 
         svg_parts: list[str] = [
             f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}">',
@@ -68,12 +73,11 @@ class TeamFeatureVectorScatterPlotter:
             f'<line x1="{axis_x0:.2f}" y1="{axis_y1:.2f}" x2="{axis_x0:.2f}" y2="{axis_y0:.2f}" stroke="#d1d5db" stroke-width="1" />',
             f'<line x1="{axis_x0:.2f}" y1="{zero_y:.2f}" x2="{axis_x1:.2f}" y2="{zero_y:.2f}" stroke="#6b7280" stroke-width="1.5" />',
             f'<line x1="{zero_x:.2f}" y1="{axis_y1:.2f}" x2="{zero_x:.2f}" y2="{axis_y0:.2f}" stroke="#6b7280" stroke-width="1.5" />',
-            f'<circle cx="{zero_x:.2f}" cy="{zero_y:.2f}" r="5.50" fill="#ef4444" stroke="white" stroke-width="1.5" />',
-            f'<text x="{zero_x + 10.0:.2f}" y="{zero_y - 10.0:.2f}" text-anchor="start" dominant-baseline="baseline" '
+            f'<circle cx="{zero_x:.2f}" cy="{zero_y:.2f}" r="{origin_point_radius:.2f}" fill="#ef4444" stroke="white" stroke-width="1.5" />',
+            f'<text x="{zero_x + origin_label_x_offset:.2f}" y="{zero_y - origin_label_x_offset:.2f}" text-anchor="start" dominant-baseline="baseline" '
             f'font-size="14" fill="#991b1b">原点 (0, 0)</text>',
         ]
 
-        point_radius = 14.0
         for i, vector in enumerate(self._vectors):
             x = sx(float(vector.x))
             y = sy(float(vector.y))
@@ -82,11 +86,11 @@ class TeamFeatureVectorScatterPlotter:
                 f'<circle cx="{x:.2f}" cy="{y:.2f}" r="{point_radius:.2f}" fill="#dbeafe" stroke="#2563eb" stroke-width="2" opacity="0.90" />'
             )
             svg_parts.append(
-                f'<text x="{x:.2f}" y="{y - 16:.2f}" text-anchor="middle" dominant-baseline="middle" '
+                f'<text x="{x:.2f}" y="{y - label_y_offset:.2f}" text-anchor="middle" dominant-baseline="middle" '
                 f'font-size="13" fill="#1e3a8a">{label}</text>'
             )
             svg_parts.append(
-                f'<text x="{x:.2f}" y="{y + 18:.2f}" text-anchor="middle" dominant-baseline="middle" '
+                f'<text x="{x:.2f}" y="{y + vector_text_y_offset:.2f}" text-anchor="middle" dominant-baseline="middle" '
                 f'font-size="11" fill="#1f2937">({vector.x:.2f}, {vector.y:.2f})</text>'
             )
 
