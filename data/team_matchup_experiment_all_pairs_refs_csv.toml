@@ -23,3 +23,9 @@ method = "team_matchup_experiment_csv"
 [outputs.params]
 filename = "team_matchup_experiment_all_pairs_refs_csv.csv"
 focus_team = "team_i"
+
+[[outputs]]
+method = "team_feature_vector_csv"
+
+[[outputs]]
+method = "team_feature_vector_directed_graph"
