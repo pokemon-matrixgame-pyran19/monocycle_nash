@@ -1,6 +1,10 @@
 """Application layer services and configuration tree."""
 
-from monocycle_nash.application.experiment_output_nodes import TeamMatchupExperimentCsvOutputNode
+from monocycle_nash.application.experiment_output_nodes import (
+    TeamFeatureVectorCsvOutputNode,
+    TeamFeatureVectorDirectedGraphOutputNode,
+    TeamMatchupExperimentCsvOutputNode,
+)
 from monocycle_nash.application.matrix_config_tree import (
     MatrixConfigTree,
     MatrixConfigTreeResolver,
@@ -40,6 +44,8 @@ __all__ = [
     "MatrixResolutionResult",
     "ResolvedOutput",
     "TeamMatchupExperimentCsvOutputNode",
+    "TeamFeatureVectorCsvOutputNode",
+    "TeamFeatureVectorDirectedGraphOutputNode",
     # matrix_nodes — context
     "ApplicationNode",
     "NodeResolutionContext",
