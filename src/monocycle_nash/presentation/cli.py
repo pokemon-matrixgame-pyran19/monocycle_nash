@@ -102,11 +102,14 @@ def _is_temp_run_enabled(config_path: Path) -> bool:
 def _next_serial_run_id(result_base_dir: Path) -> str:
     if not result_base_dir.exists():
         return "1"
-    serial_ids = [
-        int(child.name)
-        for child in result_base_dir.iterdir()
-        if child.is_dir() and child.name.isdigit() and int(child.name) >= 1
-    ]
+    serial_ids: list[int] = []
+    for child in result_base_dir.iterdir():
+        if not child.is_dir() or not child.name.isdigit():
+            continue
+        serial_id = int(child.name)
+        # run_id は 1 始まりなので 0 ディレクトリは採番対象から除外する。
+        if serial_id >= 1:
+            serial_ids.append(serial_id)
     if not serial_ids:
         return "1"
     return str(max(serial_ids) + 1)
