@@ -199,6 +199,25 @@ runner = "..."                # 任意: 同一 runner 名で最終集約
   - `v1-v2` と `v3-v4` のなす角（rad/deg）
   - `Bij`（i vs j のチーム利得）
 
+### `team_feature_vector_csv`
+
+- 対象ノード: `general_from_team_matchups`
+- 任意:
+  - `outputs.params.filename`（既定: `"team_feature_vectors.csv"`）
+- 各チーム（2匹構築）の特徴ベクトルを CSV で出力する
+  - 特徴ベクトル `V=(v1-v2)/(v1×v2)` の `x`,`y`
+  - 原点からの距離
+  - 角度（rad/deg）
+
+### `team_feature_vector_directed_graph`
+
+- 対象ノード: `general_from_team_matchups`
+- 任意:
+  - `outputs.params.filename`（既定: `"team_feature_vector_directed_graph.svg"`）
+  - `outputs.params.threshold`（既定: `0.0`）
+  - `outputs.params.canvas_size`（既定: `840`）
+- 特徴ベクトル同士の外積（`Vi × Vj`）が閾値を超える向きを辺として SVG の有向グラフを出力する
+
 ## 5. 例
 
 ### 5.1 インライン定義（キャラクター + 出力）

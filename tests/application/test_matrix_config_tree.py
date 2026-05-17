@@ -13,7 +13,11 @@ from monocycle_nash.application.matrix_config_tree import (
     MatrixResolutionResult,
     ResolvedOutput,
 )
-from monocycle_nash.application.experiment_output_nodes import TeamMatchupExperimentCsvOutputNode
+from monocycle_nash.application.experiment_output_nodes import (
+    TeamFeatureVectorCsvOutputNode,
+    TeamFeatureVectorDirectedGraphOutputNode,
+    TeamMatchupExperimentCsvOutputNode,
+)
 from monocycle_nash.application.matrix_nodes import (
     ApplicationNode,
     ApproxMonocycleToGeneralNode,
@@ -260,6 +264,53 @@ def test_resolver_runs_team_matchup_experiment_csv_output_node(tmp_path: Path) -
         bij = float(record["bij"])
         j_index = int(record["j_team_index"])
         assert bij == pytest.approx(float(result.root.value.matrix[0, j_index]))
+
+
+def test_resolver_runs_team_feature_vector_outputs(tmp_path: Path) -> None:
+    tree = MatrixConfigTree(
+        root=GeneralFromTeamMatchupsNode(
+            name="team-root",
+            teams=TeamInlineSource((
+                TeamNode(label="team_i", member_ids=("c1", "c2")),
+                TeamNode(label="team_j1", member_ids=("c3", "c4")),
+            )),
+            characters=CharacterInlineSource(
+                (
+                    CharacterNode(power=0.0, vector=(3.0, 0.0), label="c1"),
+                    CharacterNode(power=0.0, vector=(0.0, 2.0), label="c2"),
+                    CharacterNode(power=0.0, vector=(-1.0, 1.0), label="c3"),
+                    CharacterNode(power=0.0, vector=(-1.0, -1.0), label="c4"),
+                ),
+            ),
+            use_monocycle_formula=False,
+            outputs=(
+                TeamFeatureVectorCsvOutputNode(filename="team_feature_vectors.csv"),
+                TeamFeatureVectorDirectedGraphOutputNode(filename="team_feature_vectors.svg"),
+            ),
+        )
+    )
+    output_port = StubOutputPathPort(tmp_path)
+    resolver = MatrixConfigTreeResolver(output_path_port=output_port)
+    result = resolver.resolve(tree)
+
+    assert len(result.outputs) == 2
+    csv_output = next(o for o in result.outputs if o.path.suffix == ".csv")
+    svg_output = next(o for o in result.outputs if o.path.suffix == ".svg")
+    assert csv_output.path.exists()
+    assert svg_output.path.exists()
+    assert "<svg" in svg_output.path.read_text(encoding="utf-8")
+
+    with csv_output.path.open("r", encoding="utf-8", newline="") as f:
+        records = list(csv.DictReader(f))
+    assert len(records) == 2
+    assert {r["team_label"] for r in records} == {"team_i", "team_j1"}
+    for record in records:
+        assert "feature_x" in record
+        assert "feature_y" in record
+        assert "feature_distance" in record
+        assert "feature_angle_rad" in record
+        assert "feature_angle_deg" in record
+        assert float(record["feature_distance"]) >= 0.0
 
 
 # ---------------------------------------------------------------------------
