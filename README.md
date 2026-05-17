@@ -90,6 +90,7 @@ method = "..."                  # 必須
 name = "..."                    # 任意
 [params]                        # 任意
 [refs]                          # 任意
+[run]                           # 任意（実行モード）
 [children.<key>]                # 任意（再帰）
 method = "..."
 [[outputs]]                     # 任意
@@ -97,6 +98,11 @@ method = "..."                  # outputsでは必須
 runner = "..."                  # 任意（同名 runner で最終集約）
 [outputs.params]                # 任意
 ```
+
+`[run]` の任意オプション:
+
+- `temp = true` のとき、出力先を `result/temp/` に固定し、実行前に `result/temp` を毎回リセットします。
+- 省略時（または `false`）は、`result/1`, `result/2`, ... の連番ディレクトリに保存します。
 
 ### `method` 一覧（行列構築ノード）
 

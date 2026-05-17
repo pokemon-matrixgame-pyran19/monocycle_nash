@@ -76,3 +76,58 @@ def test_cli_main_returns_error_for_missing_config(
     assert code == 1
     captured = capsys.readouterr()
     assert "実行に失敗しました (FileNotFoundError)" in captured.err
+
+
+def test_cli_main_increments_result_run_id_across_invocations(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config_path = tmp_path / "config.toml"
+    config_path.write_text(
+        """
+method = "general_from_raw"
+name = "raw"
+
+[params]
+matrix = [[0.0, 1.0], [-1.0, 0.0]]
+labels = ["A", "B"]
+""".strip(),
+        encoding="utf-8",
+    )
+
+    monkeypatch.chdir(tmp_path)
+    assert main([str(config_path)]) == 0
+    assert main([str(config_path)]) == 0
+
+    assert (tmp_path / "result" / "1" / "input" / "config_tree.toml").exists()
+    assert (tmp_path / "result" / "2" / "input" / "config_tree.toml").exists()
+
+
+def test_cli_main_temp_mode_resets_result_temp_each_invocation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config_path = tmp_path / "config_temp.toml"
+    config_path.write_text(
+        """
+method = "general_from_raw"
+name = "raw"
+
+[params]
+matrix = [[0.0, 1.0], [-1.0, 0.0]]
+labels = ["A", "B"]
+
+[run]
+temp = true
+""".strip(),
+        encoding="utf-8",
+    )
+
+    monkeypatch.chdir(tmp_path)
+    assert main([str(config_path)]) == 0
+    temp_dir = tmp_path / "result" / "temp"
+    marker = temp_dir / "marker.txt"
+    marker.write_text("stale", encoding="utf-8")
+
+    assert main([str(config_path)]) == 0
+
+    assert (temp_dir / "input" / "config_tree.toml").exists()
+    assert not marker.exists()
