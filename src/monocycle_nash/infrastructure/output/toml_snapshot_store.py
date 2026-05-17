@@ -1,6 +1,6 @@
 """設定ツリースナップショットを TOML ファイルに保存するストア実装。
 
-保存先: result/<run_id>/input/config_tree.toml
+保存先: results/<run_id>/input/config_tree.toml
 
 NodeSpec の構造を再帰的に TOML 互換の辞書へ変換し、
 tomli_w で書き出す。空のセクション（params / refs / children / outputs）は
@@ -22,12 +22,12 @@ from monocycle_nash.application.snapshot import ConfigTreeSnapshot
 class TomlConfigTreeSnapshotStore(ConfigTreeSnapshotStorePort):
     """TOML 形式で設定ツリースナップショットを保存するストア。
 
-    `result/<run_id>/input/config_tree.toml` にルート NodeSpec を書き出す。
+    `results/<run_id>/input/config_tree.toml` にルート NodeSpec を書き出す。
     """
 
     FILENAME = "config_tree.toml"
 
-    def __init__(self, result_base_dir: Path | str = "result") -> None:
+    def __init__(self, result_base_dir: Path | str = "results") -> None:
         self._result_base_dir = Path(result_base_dir)
 
     def store(self, run_id: str, snapshot: ConfigTreeSnapshot) -> Path:

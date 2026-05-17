@@ -26,7 +26,7 @@ labels = ["A", "B"]
     code = main([str(config_path)])
 
     assert code == 0
-    snapshot_path = tmp_path / "result" / "1" / "input" / "config_tree.toml"
+    snapshot_path = tmp_path / "results" / "1" / "input" / "config_tree.toml"
     assert snapshot_path.exists()
 
 
@@ -64,7 +64,7 @@ label = "Paper"
     code = main([str(config_path), "--data-dir", str(tmp_path / "data")])
 
     assert code == 0
-    snapshot_path = tmp_path / "result" / "1" / "input" / "config_tree.toml"
+    snapshot_path = tmp_path / "results" / "1" / "input" / "config_tree.toml"
     assert snapshot_path.exists()
 
 
@@ -98,8 +98,8 @@ labels = ["A", "B"]
     assert main([str(config_path)]) == 0
     assert main([str(config_path)]) == 0
 
-    assert (tmp_path / "result" / "1" / "input" / "config_tree.toml").exists()
-    assert (tmp_path / "result" / "2" / "input" / "config_tree.toml").exists()
+    assert (tmp_path / "results" / "1" / "input" / "config_tree.toml").exists()
+    assert (tmp_path / "results" / "2" / "input" / "config_tree.toml").exists()
 
 
 def test_cli_main_temp_mode_resets_result_temp_each_invocation(
@@ -123,7 +123,7 @@ temp = true
 
     monkeypatch.chdir(tmp_path)
     assert main([str(config_path)]) == 0
-    temp_dir = tmp_path / "result" / "temp"
+    temp_dir = tmp_path / "results" / "temp"
     marker = temp_dir / "marker.txt"
     marker.write_text("stale", encoding="utf-8")
 

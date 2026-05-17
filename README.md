@@ -101,8 +101,8 @@ runner = "..."                  # 任意（同名 runner で最終集約）
 
 `[run]` の任意オプション:
 
-- `temp = true` のとき、出力先を `result/temp/` に固定し、実行前に `result/temp` を毎回リセットします（以前の一時結果は失われます）。
-- 省略時（または `false`）は、`result/1`, `result/2`, ... の連番ディレクトリに保存します。
+- `temp = true` のとき、出力先を `results/temp/` に固定し、実行前に `results/temp` を毎回リセットします（以前の一時結果は失われます）。
+- 省略時（または `false`）は、`results/1`, `results/2`, ... の連番ディレクトリに保存します。
 
 ### `method` 一覧（行列構築ノード）
 
@@ -147,7 +147,7 @@ runner = "..."                  # 任意（同名 runner で最終集約）
 `FileSystemOutputPathPort` は以下へ出力します。
 
 ```text
-result/<run_id>/<node_path...>/<output_method>/<filename>
+results/<run_id>/<node_path...>/<output_method>/<filename>
 ```
 
 ## 開発者向け: 機能追加ガイド

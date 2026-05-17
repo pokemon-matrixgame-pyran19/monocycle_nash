@@ -30,7 +30,7 @@ name = "..."                  # 任意（既定: "root"）
 # teams = "..."
 
 [run]                           # 任意: 実行モード設定
-# temp = true                   # true のとき result/temp を使い毎回リセット
+# temp = true                   # true のとき results/temp を使い毎回リセット
 
 [children.<key>]                # 任意: 子ノード定義（再帰）
 method = "..."
@@ -46,7 +46,7 @@ runner = "..."                # 任意: 同一 runner 名で最終集約
 
 | パラメータ | 必須 | 説明 |
 |---|---|---|
-| `run.temp` | — | `true` で一時実行モード。出力先は `result/temp` 固定で、実行ごとに `result/temp` を削除してから再作成される（以前の一時結果は失われる）。`false` または省略時は `result/1`, `result/2`, ... の連番保存。 |
+| `run.temp` | — | `true` で一時実行モード。出力先は `results/temp` 固定で、実行ごとに `results/temp` を削除してから再作成される（以前の一時結果は失われる）。`false` または省略時は `results/1`, `results/2`, ... の連番保存。 |
 
 ## 4. `method` 一覧（行列ノード）
 

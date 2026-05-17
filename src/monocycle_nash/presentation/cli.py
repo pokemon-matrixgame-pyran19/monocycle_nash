@@ -22,7 +22,7 @@ from monocycle_nash.infrastructure.output import (
     TomlConfigTreeSnapshotStore,
 )
 
-_RESULT_DIR = "result"
+_RESULT_DIR = "results"
 
 
 def _build_parser() -> argparse.ArgumentParser:
