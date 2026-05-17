@@ -5,7 +5,7 @@ import pytest
 from monocycle_nash.application.matrix_node_factory import MatrixNodeFactory
 from monocycle_nash.application.experiment_output_nodes import (
     TeamFeatureVectorCsvOutputNode,
-    TeamFeatureVectorDirectedGraphOutputNode,
+    TeamFeatureVectorScatterPlotOutputNode,
     TeamMatchupExperimentCsvOutputNode,
 )
 from monocycle_nash.application.matrix_nodes import (
@@ -472,7 +472,7 @@ def test_build_with_team_feature_vector_directed_graph_output() -> None:
     out = OutputSpec(
         method="team_feature_vector_directed_graph",
         runner="exp",
-        params={"filename": "feature_vectors.svg", "threshold": 0.2, "canvas_size": 640},
+        params={"filename": "feature_vectors.svg", "canvas_size": 640},
     )
     spec = NodeSpec(
         method="general_from_team_matchups",
@@ -488,10 +488,9 @@ def test_build_with_team_feature_vector_directed_graph_output() -> None:
     node = FACTORY.build(spec)
     assert len(node.outputs) == 1
     output_node = node.outputs[0]
-    assert isinstance(output_node, TeamFeatureVectorDirectedGraphOutputNode)
+    assert isinstance(output_node, TeamFeatureVectorScatterPlotOutputNode)
     assert output_node.runner == "exp"
     assert output_node.filename == "feature_vectors.svg"
-    assert output_node.threshold == pytest.approx(0.2)
     assert output_node.canvas_size == 640
 
 

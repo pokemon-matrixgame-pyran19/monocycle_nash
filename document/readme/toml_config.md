@@ -213,10 +213,9 @@ runner = "..."                # 任意: 同一 runner 名で最終集約
 
 - 対象ノード: `general_from_team_matchups`
 - 任意:
-  - `outputs.params.filename`（既定: `"team_feature_vector_directed_graph.svg"`）
-  - `outputs.params.threshold`（既定: `0.0`）
+  - `outputs.params.filename`（既定: `"team_feature_vector_scatter_plot.svg"`）
   - `outputs.params.canvas_size`（既定: `840`）
-- 特徴ベクトル同士の外積（`Vi × Vj`）が閾値を超える向きを辺として SVG の有向グラフを出力する
+- 各チームの特徴ベクトル `(x, y)` を2次元平面にそのまま散布図として SVG 出力する
 
 ## 5. 例
 

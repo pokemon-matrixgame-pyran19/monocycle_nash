@@ -15,7 +15,7 @@ from monocycle_nash.application.matrix_config_tree import (
 )
 from monocycle_nash.application.experiment_output_nodes import (
     TeamFeatureVectorCsvOutputNode,
-    TeamFeatureVectorDirectedGraphOutputNode,
+    TeamFeatureVectorScatterPlotOutputNode,
     TeamMatchupExperimentCsvOutputNode,
 )
 from monocycle_nash.application.matrix_nodes import (
@@ -285,7 +285,7 @@ def test_resolver_runs_team_feature_vector_outputs(tmp_path: Path) -> None:
             use_monocycle_formula=False,
             outputs=(
                 TeamFeatureVectorCsvOutputNode(filename="team_feature_vectors.csv"),
-                TeamFeatureVectorDirectedGraphOutputNode(filename="team_feature_vectors.svg"),
+                TeamFeatureVectorScatterPlotOutputNode(filename="team_feature_vectors.svg"),
             ),
         )
     )
