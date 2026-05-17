@@ -129,6 +129,12 @@ runner = "..."                  # 任意（同名 runner で最終集約）
 - `team_matchup_experiment_csv`
   - 任意パラメータ: `filename`, `focus_team`
   - `general_from_team_matchups` ノードで、固定チーム i と各チーム j の比較実験列（ベクトル差・角度・Bij）を CSV 出力
+- `team_feature_vector_csv`
+  - 任意パラメータ: `filename`
+  - `general_from_team_matchups` ノードで、各チームの特徴ベクトル `(x, y)` と原点距離・角度（rad/deg）を CSV 出力
+- `team_feature_vector_directed_graph`
+  - 任意パラメータ: `filename`, `threshold`, `canvas_size`
+  - `general_from_team_matchups` ノードで、特徴ベクトル同士の外積に基づく有向グラフを SVG 出力
 
 ### 出力先パス仕様
 

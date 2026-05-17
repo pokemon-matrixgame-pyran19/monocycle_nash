@@ -3,7 +3,11 @@ from __future__ import annotations
 import pytest
 
 from monocycle_nash.application.matrix_node_factory import MatrixNodeFactory
-from monocycle_nash.application.experiment_output_nodes import TeamMatchupExperimentCsvOutputNode
+from monocycle_nash.application.experiment_output_nodes import (
+    TeamFeatureVectorCsvOutputNode,
+    TeamFeatureVectorDirectedGraphOutputNode,
+    TeamMatchupExperimentCsvOutputNode,
+)
 from monocycle_nash.application.matrix_nodes import (
     ApproxDominantEigenpairNode,
     ApproxEquilibriumPreservingNode,
@@ -437,6 +441,58 @@ def test_build_with_team_matchup_experiment_csv_output() -> None:
     assert output_node.runner == "exp"
     assert output_node.filename == "experiment.csv"
     assert output_node.focus_team == "team_a"
+
+
+def test_build_with_team_feature_vector_csv_output() -> None:
+    out = OutputSpec(
+        method="team_feature_vector_csv",
+        runner="exp",
+        params={"filename": "feature_vectors.csv"},
+    )
+    spec = NodeSpec(
+        method="general_from_team_matchups",
+        params=INLINE_TEAMS_PARAMS,
+        children={
+            "characters": NodeSpec(
+                method="character_inline",
+                params=INLINE_CHARS_PARAMS,
+            )
+        },
+        outputs=(out,),
+    )
+    node = FACTORY.build(spec)
+    assert len(node.outputs) == 1
+    output_node = node.outputs[0]
+    assert isinstance(output_node, TeamFeatureVectorCsvOutputNode)
+    assert output_node.runner == "exp"
+    assert output_node.filename == "feature_vectors.csv"
+
+
+def test_build_with_team_feature_vector_directed_graph_output() -> None:
+    out = OutputSpec(
+        method="team_feature_vector_directed_graph",
+        runner="exp",
+        params={"filename": "feature_vectors.svg", "threshold": 0.2, "canvas_size": 640},
+    )
+    spec = NodeSpec(
+        method="general_from_team_matchups",
+        params=INLINE_TEAMS_PARAMS,
+        children={
+            "characters": NodeSpec(
+                method="character_inline",
+                params=INLINE_CHARS_PARAMS,
+            )
+        },
+        outputs=(out,),
+    )
+    node = FACTORY.build(spec)
+    assert len(node.outputs) == 1
+    output_node = node.outputs[0]
+    assert isinstance(output_node, TeamFeatureVectorDirectedGraphOutputNode)
+    assert output_node.runner == "exp"
+    assert output_node.filename == "feature_vectors.svg"
+    assert output_node.threshold == pytest.approx(0.2)
+    assert output_node.canvas_size == 640
 
 
 # ---------------------------------------------------------------------------

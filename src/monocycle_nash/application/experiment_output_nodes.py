@@ -15,6 +15,7 @@ from monocycle_nash.application.node_spec import OutputSpec
 from monocycle_nash.application.ports import OutputPathPort
 from monocycle_nash.domain.matrix.base import PayoffMatrix
 from monocycle_nash.domain.team import Team
+from monocycle_nash.domain.visualization import TeamFeatureVectorDirectedGraphPlotter
 
 
 @dataclass(frozen=True)
@@ -199,3 +200,169 @@ class TeamMatchupExperimentCsvOutputNode(
         base_x, base_y = base
         target_x, target_y = target
         return math.atan2(base_x * target_y - base_y * target_x, base_x * target_x + base_y * target_y)
+
+
+@dataclass(frozen=True)
+class TeamFeatureVectorCsvOutputNode(
+    OutputNode["GeneralFromTeamMatchupsNode"],
+    output_method="team_feature_vector_csv",
+):
+    """各チームの特徴ベクトルを CSV 出力する。"""
+
+    runner: str | None = None
+    filename: str = "team_feature_vectors.csv"
+
+    @classmethod
+    def _from_output_spec(cls, spec: OutputSpec) -> "TeamFeatureVectorCsvOutputNode":
+        return cls(
+            runner=spec.runner,
+            filename=spec.params.get("filename", "team_feature_vectors.csv"),
+        )
+
+    def emit(
+        self,
+        *,
+        node_name: str,
+        node_path: tuple[str, ...],
+        node: "GeneralFromTeamMatchupsNode",
+    ) -> OutputEmission:
+        return OutputEmission(
+            output_node=self,
+            node_name=node_name,
+            node_path=node_path,
+            runner=self.runner,
+            node=node,
+        )
+
+    def execute(
+        self,
+        *,
+        output_path_port: OutputPathPort,
+        run_id: str,
+        node_path: tuple[str, ...],
+        node: "GeneralFromTeamMatchupsNode",
+        ctx: NodeResolutionContext,
+    ) -> Path:
+        path = output_path_port.resolve_output_path(
+            run_id=run_id,
+            node_path=node_path,
+            output_method=self.output_method,
+            filename=self.filename,
+        )
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+        character_matrix = node.resolve_character_matrix(ctx=ctx)
+        teams = node.teams.get_teams(ctx=ctx)
+        rows: list[dict[str, str | int | float]] = []
+        for i, team in enumerate(teams):
+            i1, i2 = TeamMatchupExperimentCsvOutputNode._resolve_team_member_indices(team, character_matrix)
+            i1_label, i1_vec = TeamMatchupExperimentCsvOutputNode._resolve_strategy_label_and_vector(
+                character_matrix,
+                i1,
+            )
+            i2_label, i2_vec = TeamMatchupExperimentCsvOutputNode._resolve_strategy_label_and_vector(
+                character_matrix,
+                i2,
+            )
+            feature = team.calculate_feature_vector(character_matrix.row_strategies)
+            rows.append(
+                {
+                    "team_index": i,
+                    "team_label": team.label,
+                    "member_1_label": i1_label,
+                    "member_1_x": i1_vec[0],
+                    "member_1_y": i1_vec[1],
+                    "member_2_label": i2_label,
+                    "member_2_x": i2_vec[0],
+                    "member_2_y": i2_vec[1],
+                    "feature_x": feature.x,
+                    "feature_y": feature.y,
+                    "feature_distance": feature.distance_from_origin,
+                    "feature_angle_rad": feature.angle_rad,
+                    "feature_angle_deg": feature.angle_deg,
+                }
+            )
+
+        fieldnames = [
+            "team_index",
+            "team_label",
+            "member_1_label",
+            "member_1_x",
+            "member_1_y",
+            "member_2_label",
+            "member_2_x",
+            "member_2_y",
+            "feature_x",
+            "feature_y",
+            "feature_distance",
+            "feature_angle_rad",
+            "feature_angle_deg",
+        ]
+        with path.open("w", encoding="utf-8", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(rows)
+        return path
+
+
+@dataclass(frozen=True)
+class TeamFeatureVectorDirectedGraphOutputNode(
+    OutputNode["GeneralFromTeamMatchupsNode"],
+    output_method="team_feature_vector_directed_graph",
+):
+    """各チームの特徴ベクトル間の有向グラフを SVG 出力する。"""
+
+    runner: str | None = None
+    filename: str = "team_feature_vector_directed_graph.svg"
+    threshold: float = 0.0
+    canvas_size: int = 840
+
+    @classmethod
+    def _from_output_spec(cls, spec: OutputSpec) -> "TeamFeatureVectorDirectedGraphOutputNode":
+        return cls(
+            runner=spec.runner,
+            filename=spec.params.get("filename", "team_feature_vector_directed_graph.svg"),
+            threshold=spec.params.get("threshold", 0.0),
+            canvas_size=spec.params.get("canvas_size", 840),
+        )
+
+    def emit(
+        self,
+        *,
+        node_name: str,
+        node_path: tuple[str, ...],
+        node: "GeneralFromTeamMatchupsNode",
+    ) -> OutputEmission:
+        return OutputEmission(
+            output_node=self,
+            node_name=node_name,
+            node_path=node_path,
+            runner=self.runner,
+            node=node,
+        )
+
+    def execute(
+        self,
+        *,
+        output_path_port: OutputPathPort,
+        run_id: str,
+        node_path: tuple[str, ...],
+        node: "GeneralFromTeamMatchupsNode",
+        ctx: NodeResolutionContext,
+    ) -> Path:
+        path = output_path_port.resolve_output_path(
+            run_id=run_id,
+            node_path=node_path,
+            output_method=self.output_method,
+            filename=self.filename,
+        )
+        character_matrix = node.resolve_character_matrix(ctx=ctx)
+        teams = node.teams.get_teams(ctx=ctx)
+        labels = [team.label for team in teams]
+        vectors = [team.calculate_feature_vector(character_matrix.row_strategies) for team in teams]
+        TeamFeatureVectorDirectedGraphPlotter(
+            labels=labels,
+            vectors=vectors,
+            threshold=self.threshold,
+        ).draw(path, canvas_size=self.canvas_size)
+        return path
