@@ -255,12 +255,12 @@ class TeamFeatureVectorCsvOutputNode(
         teams = node.teams.get_teams(ctx=ctx)
         rows: list[dict[str, str | int | float]] = []
         for i, team in enumerate(teams):
-            i1, i2 = TeamMatchupExperimentCsvOutputNode._resolve_team_member_indices(team, character_matrix)
-            i1_label, i1_vec = TeamMatchupExperimentCsvOutputNode._resolve_strategy_label_and_vector(
+            i1, i2 = self._resolve_team_member_indices(team, character_matrix)
+            i1_label, i1_vec = self._resolve_strategy_label_and_vector(
                 character_matrix,
                 i1,
             )
-            i2_label, i2_vec = TeamMatchupExperimentCsvOutputNode._resolve_strategy_label_and_vector(
+            i2_label, i2_vec = self._resolve_strategy_label_and_vector(
                 character_matrix,
                 i2,
             )
@@ -303,6 +303,26 @@ class TeamFeatureVectorCsvOutputNode(
             writer.writeheader()
             writer.writerows(rows)
         return path
+
+    @staticmethod
+    def _resolve_team_member_indices(team: Team, character_matrix: PayoffMatrix) -> tuple[int, int]:
+        indices = team.resolve_member_indices(character_matrix.row_strategies)
+        if len(indices) != 2:
+            raise ValueError(
+                "team_feature_vector_csv は 2匹チームのみ対応します: "
+                f"{team.label} has {len(indices)} members"
+            )
+        return indices[0], indices[1]
+
+    @staticmethod
+    def _resolve_strategy_label_and_vector(
+        character_matrix: PayoffMatrix,
+        index: int,
+    ) -> tuple[str, tuple[float, float]]:
+        strategy = character_matrix.row_strategies[index]
+        if strategy.vector is None:
+            raise TypeError("team_feature_vector_csv には Character 戦略が必要です")
+        return strategy.label, (float(strategy.vector.x), float(strategy.vector.y))
 
 
 @dataclass(frozen=True)

@@ -118,8 +118,8 @@ class TeamFeatureVectorDirectedGraphPlotter:
         return f"#{rgb[0]:02x}{rgb[1]:02x}{rgb[2]:02x}"
 
     @staticmethod
-    def _circle_layout(size: int, center: float, radius: float) -> list[tuple[float, float]]:
-        angles = [2 * math.pi * i / size for i in range(size)]
+    def _circle_layout(node_count: int, center: float, radius: float) -> list[tuple[float, float]]:
+        angles = [2 * math.pi * i / node_count for i in range(node_count)]
         return [
             (float(center + radius * math.cos(theta)), float(center + radius * math.sin(theta)))
             for theta in angles
