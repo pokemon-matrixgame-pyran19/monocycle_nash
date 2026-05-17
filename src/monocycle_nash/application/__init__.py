@@ -3,6 +3,7 @@
 from monocycle_nash.application.experiment_output_nodes import (
     TeamFeatureVectorCsvOutputNode,
     TeamFeatureVectorDirectedGraphOutputNode,
+    TeamFeatureVectorScatterPlotOutputNode,
     TeamMatchupExperimentCsvOutputNode,
 )
 from monocycle_nash.application.matrix_config_tree import (
@@ -45,6 +46,7 @@ __all__ = [
     "ResolvedOutput",
     "TeamMatchupExperimentCsvOutputNode",
     "TeamFeatureVectorCsvOutputNode",
+    "TeamFeatureVectorScatterPlotOutputNode",
     "TeamFeatureVectorDirectedGraphOutputNode",
     # matrix_nodes — context
     "ApplicationNode",

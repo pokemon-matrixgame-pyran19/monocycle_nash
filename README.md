@@ -133,8 +133,8 @@ runner = "..."                  # 任意（同名 runner で最終集約）
   - 任意パラメータ: `filename`
   - `general_from_team_matchups` ノードで、各チームの特徴ベクトル `(x, y)` と原点距離・角度（rad/deg）を CSV 出力
 - `team_feature_vector_directed_graph`
-  - 任意パラメータ: `filename`, `threshold`, `canvas_size`
-  - `general_from_team_matchups` ノードで、特徴ベクトル同士の外積に基づく有向グラフを SVG 出力
+  - 任意パラメータ: `filename`, `canvas_size`
+  - `general_from_team_matchups` ノードで、特徴ベクトル `(x, y)` を2次元平面の散布図として SVG 出力
 
 ### 出力先パス仕様
 
