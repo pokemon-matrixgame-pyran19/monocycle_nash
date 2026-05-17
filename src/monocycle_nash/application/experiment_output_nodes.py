@@ -15,7 +15,7 @@ from monocycle_nash.application.node_spec import OutputSpec
 from monocycle_nash.application.ports import OutputPathPort
 from monocycle_nash.domain.matrix.base import PayoffMatrix
 from monocycle_nash.domain.team import Team
-from monocycle_nash.domain.visualization import TeamFeatureVectorDirectedGraphPlotter
+from monocycle_nash.domain.visualization import TeamFeatureVectorScatterPlotter
 
 
 @dataclass(frozen=True)
@@ -326,23 +326,21 @@ class TeamFeatureVectorCsvOutputNode(
 
 
 @dataclass(frozen=True)
-class TeamFeatureVectorDirectedGraphOutputNode(
+class TeamFeatureVectorScatterPlotOutputNode(
     OutputNode["GeneralFromTeamMatchupsNode"],
     output_method="team_feature_vector_directed_graph",
 ):
-    """各チームの特徴ベクトル間の有向グラフを SVG 出力する。"""
+    """各チームの特徴ベクトルを2次元散布図として SVG 出力する。"""
 
     runner: str | None = None
-    filename: str = "team_feature_vector_directed_graph.svg"
-    threshold: float = 0.0
+    filename: str = "team_feature_vector_scatter_plot.svg"
     canvas_size: int = 840
 
     @classmethod
-    def _from_output_spec(cls, spec: OutputSpec) -> "TeamFeatureVectorDirectedGraphOutputNode":
+    def _from_output_spec(cls, spec: OutputSpec) -> "TeamFeatureVectorScatterPlotOutputNode":
         return cls(
             runner=spec.runner,
-            filename=spec.params.get("filename", "team_feature_vector_directed_graph.svg"),
-            threshold=spec.params.get("threshold", 0.0),
+            filename=spec.params.get("filename", "team_feature_vector_scatter_plot.svg"),
             canvas_size=spec.params.get("canvas_size", 840),
         )
 
@@ -380,9 +378,12 @@ class TeamFeatureVectorDirectedGraphOutputNode(
         teams = node.teams.get_teams(ctx=ctx)
         labels = [team.label for team in teams]
         vectors = [team.calculate_feature_vector(character_matrix.row_strategies) for team in teams]
-        TeamFeatureVectorDirectedGraphPlotter(
+        TeamFeatureVectorScatterPlotter(
             labels=labels,
             vectors=vectors,
-            threshold=self.threshold,
         ).draw(path, canvas_size=self.canvas_size)
         return path
+
+
+# Backward compatible alias for existing imports.
+TeamFeatureVectorDirectedGraphOutputNode = TeamFeatureVectorScatterPlotOutputNode

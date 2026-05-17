@@ -1,29 +1,19 @@
-"""構築特徴ベクトル群から有向グラフ画像(SVG)を生成する。"""
+"""構築特徴ベクトル群を2次元散布図(SVG)として生成する。"""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-import math
 from pathlib import Path
 
 from monocycle_nash.domain.team import TeamFeatureVector
 
 
-@dataclass(frozen=True)
-class FeatureVectorGraphEdge:
-    source: int
-    target: int
-    value: float
-
-
-class TeamFeatureVectorDirectedGraphPlotter:
-    """特徴ベクトル間の外積に基づく有向グラフを描画する。"""
+class TeamFeatureVectorScatterPlotter:
+    """構築特徴ベクトルを2次元平面に散布図として描画する。"""
 
     def __init__(
         self,
         labels: list[str],
         vectors: list[TeamFeatureVector],
-        threshold: float = 0.0,
     ):
         if len(labels) != len(vectors):
             raise ValueError("labels and vectors must have the same length")
@@ -31,99 +21,78 @@ class TeamFeatureVectorDirectedGraphPlotter:
             raise ValueError("labels must contain at least one element")
         self._labels = labels
         self._vectors = vectors
-        self._threshold = float(threshold)
 
-    def extract_edges(self) -> list[FeatureVectorGraphEdge]:
-        edges: list[FeatureVectorGraphEdge] = []
-        for i, vi in enumerate(self._vectors):
-            for j, vj in enumerate(self._vectors):
-                if i == j:
-                    continue
-                cross = vi.x * vj.y - vi.y * vj.x
-                if cross > self._threshold:
-                    edges.append(FeatureVectorGraphEdge(source=i, target=j, value=float(cross)))
-        return edges
-
-    def draw(self, output_path: str | Path, canvas_size: int = 840) -> Path:
+    def draw(self, output_path: str | Path, canvas_size: int = 840, margin: int = 90) -> Path:
         output = Path(output_path)
         output.parent.mkdir(parents=True, exist_ok=True)
 
-        center = canvas_size / 2
-        radius = canvas_size * 0.34
-        node_r = 42
-        positions = self._circle_layout(len(self._labels), center, radius)
-        edges = self.extract_edges()
-        max_value = max((edge.value for edge in edges), default=1.0)
+        xs = [float(v.x) for v in self._vectors]
+        ys = [float(v.y) for v in self._vectors]
+        min_x, max_x = min(xs), max(xs)
+        min_y, max_y = min(ys), max(ys)
 
-        defs: list[str] = []
-        edge_draw_parts: list[str] = []
-        for edge_index, edge in enumerate(edges):
-            start = positions[edge.source]
-            end = positions[edge.target]
-            dx = end[0] - start[0]
-            dy = end[1] - start[1]
-            dist = math.hypot(dx, dy)
-            ux, uy = dx / dist, dy / dist
-            sx, sy = start[0] + ux * node_r, start[1] + uy * node_r
-            tx, ty = end[0] - ux * node_r, end[1] - uy * node_r
+        span_x = max(max_x - min_x, 1e-6)
+        span_y = max(max_y - min_y, 1e-6)
+        pad_x = span_x * 0.2
+        pad_y = span_y * 0.2
+        world_min_x, world_max_x = min_x - pad_x, max_x + pad_x
+        world_min_y, world_max_y = min_y - pad_y, max_y + pad_y
 
-            norm = edge.value / max_value if max_value > 0 else 0.0
-            stroke_width = 1.5 + 5.0 * norm
-            opacity = 0.4 + 0.6 * norm
-            edge_color = self._interpolate_color(norm)
-            marker_id = f"arrow-{edge_index}"
-            defs.append(
-                f'<marker id="{marker_id}" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">'
-                f'<polygon points="0 0, 10 3.5, 0 7" fill="{edge_color}" /></marker>'
-            )
-            edge_draw_parts.append(
-                f'<line x1="{sx:.2f}" y1="{sy:.2f}" x2="{tx:.2f}" y2="{ty:.2f}" '
-                f'stroke="{edge_color}" stroke-width="{stroke_width:.2f}" opacity="{opacity:.3f}" marker-end="url(#{marker_id})" />'
-            )
+        world_min_x = min(world_min_x, 0.0)
+        world_max_x = max(world_max_x, 0.0)
+        world_min_y = min(world_min_y, 0.0)
+        world_max_y = max(world_max_y, 0.0)
+
+        width = canvas_size
+        height = canvas_size
+        inner_w = width - margin * 2
+        inner_h = height - margin * 2
+
+        def sx(x: float) -> float:
+            return margin + (x - world_min_x) / (world_max_x - world_min_x) * inner_w
+
+        def sy(y: float) -> float:
+            return height - margin - (y - world_min_y) / (world_max_y - world_min_y) * inner_h
+
+        axis_x0 = sx(world_min_x)
+        axis_x1 = sx(world_max_x)
+        axis_y0 = sy(world_min_y)
+        axis_y1 = sy(world_max_y)
+        zero_x = sx(0.0)
+        zero_y = sy(0.0)
 
         svg_parts: list[str] = [
-            f'<svg xmlns="http://www.w3.org/2000/svg" width="{canvas_size}" height="{canvas_size}">',
-            "<defs>",
-            *defs,
-            "</defs>",
+            f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}">',
             '<rect width="100%" height="100%" fill="white" />',
-            *edge_draw_parts,
+            f'<line x1="{axis_x0:.2f}" y1="{axis_y0:.2f}" x2="{axis_x1:.2f}" y2="{axis_y0:.2f}" stroke="#d1d5db" stroke-width="1" />',
+            f'<line x1="{axis_x0:.2f}" y1="{axis_y1:.2f}" x2="{axis_x0:.2f}" y2="{axis_y0:.2f}" stroke="#d1d5db" stroke-width="1" />',
+            f'<line x1="{axis_x0:.2f}" y1="{zero_y:.2f}" x2="{axis_x1:.2f}" y2="{zero_y:.2f}" stroke="#6b7280" stroke-width="1.5" />',
+            f'<line x1="{zero_x:.2f}" y1="{axis_y1:.2f}" x2="{zero_x:.2f}" y2="{axis_y0:.2f}" stroke="#6b7280" stroke-width="1.5" />',
+            f'<circle cx="{zero_x:.2f}" cy="{zero_y:.2f}" r="5.50" fill="#ef4444" stroke="white" stroke-width="1.5" />',
+            f'<text x="{zero_x + 10.0:.2f}" y="{zero_y - 10.0:.2f}" text-anchor="start" dominant-baseline="baseline" '
+            f'font-size="14" fill="#991b1b">原点 (0, 0)</text>',
         ]
 
-        for i, (x, y) in enumerate(positions):
+        point_radius = 14.0
+        for i, vector in enumerate(self._vectors):
+            x = sx(float(vector.x))
+            y = sy(float(vector.y))
             label = self._escape(self._labels[i])
-            vector = self._vectors[i]
             svg_parts.append(
-                f'<circle cx="{x:.2f}" cy="{y:.2f}" r="{node_r}" fill="#e5e7eb" stroke="#111827" stroke-width="2" />'
+                f'<circle cx="{x:.2f}" cy="{y:.2f}" r="{point_radius:.2f}" fill="#dbeafe" stroke="#2563eb" stroke-width="2" opacity="0.90" />'
             )
             svg_parts.append(
-                f'<text x="{x:.2f}" y="{y - 8:.2f}" text-anchor="middle" dominant-baseline="middle" '
-                f'font-size="13" fill="#111827">{label}</text>'
+                f'<text x="{x:.2f}" y="{y - 16:.2f}" text-anchor="middle" dominant-baseline="middle" '
+                f'font-size="13" fill="#1e3a8a">{label}</text>'
             )
             svg_parts.append(
-                f'<text x="{x:.2f}" y="{y + 12:.2f}" text-anchor="middle" dominant-baseline="middle" '
+                f'<text x="{x:.2f}" y="{y + 18:.2f}" text-anchor="middle" dominant-baseline="middle" '
                 f'font-size="11" fill="#1f2937">({vector.x:.2f}, {vector.y:.2f})</text>'
             )
 
         svg_parts.append("</svg>")
         output.write_text("\n".join(svg_parts), encoding="utf-8")
         return output
-
-    @staticmethod
-    def _interpolate_color(norm: float) -> str:
-        clamped = max(0.0, min(1.0, norm))
-        low = (29, 78, 216)
-        high = (220, 38, 38)
-        rgb = tuple(int(low[i] + (high[i] - low[i]) * clamped) for i in range(3))
-        return f"#{rgb[0]:02x}{rgb[1]:02x}{rgb[2]:02x}"
-
-    @staticmethod
-    def _circle_layout(node_count: int, center: float, radius: float) -> list[tuple[float, float]]:
-        angles = [2 * math.pi * i / node_count for i in range(node_count)]
-        return [
-            (float(center + radius * math.cos(theta)), float(center + radius * math.sin(theta)))
-            for theta in angles
-        ]
 
     @staticmethod
     def _escape(text: str) -> str:
@@ -134,3 +103,7 @@ class TeamFeatureVectorDirectedGraphPlotter:
             .replace('"', "&quot;")
             .replace("'", "&#39;")
         )
+
+
+# Backward compatible alias for existing imports.
+TeamFeatureVectorDirectedGraphPlotter = TeamFeatureVectorScatterPlotter
