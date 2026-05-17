@@ -26,9 +26,9 @@ class TeamFeatureVectorDirectedGraphPlotter:
         threshold: float = 0.0,
     ):
         if len(labels) != len(vectors):
-            raise ValueError("labels と vectors の数は一致する必要があります")
+            raise ValueError("labels and vectors must have the same length")
         if not labels:
-            raise ValueError("labels は1件以上必要です")
+            raise ValueError("labels must contain at least one element")
         self._labels = labels
         self._vectors = vectors
         self._threshold = float(threshold)

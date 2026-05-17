@@ -18,7 +18,9 @@ class TeamFeatureVector:
     def from_member_vectors(cls, v1: MatchupVector, v2: MatchupVector) -> "TeamFeatureVector":
         denom = float(v1.times(v2))
         if abs(denom) < 1e-12:
-            raise ValueError("feature vector denominator is zero")
+            raise ValueError(
+                f"team feature vector denominator is zero: v1={v1!r}, v2={v2!r}"
+            )
         diff = v1 - v2
         return cls(x=float(diff.x / denom), y=float(diff.y / denom))
 

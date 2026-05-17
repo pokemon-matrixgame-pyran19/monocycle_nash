@@ -309,7 +309,7 @@ class TeamFeatureVectorCsvOutputNode(
         indices = team.resolve_member_indices(character_matrix.row_strategies)
         if len(indices) != 2:
             raise ValueError(
-                "team_feature_vector_csv は 2匹チームのみ対応します: "
+                "team_feature_vector_csv only supports 2-member teams: "
                 f"{team.label} has {len(indices)} members"
             )
         return indices[0], indices[1]
@@ -321,7 +321,7 @@ class TeamFeatureVectorCsvOutputNode(
     ) -> tuple[str, tuple[float, float]]:
         strategy = character_matrix.row_strategies[index]
         if strategy.vector is None:
-            raise TypeError("team_feature_vector_csv には Character 戦略が必要です")
+            raise TypeError("team_feature_vector_csv requires character strategies with vectors")
         return strategy.label, (float(strategy.vector.x), float(strategy.vector.y))
 
 
