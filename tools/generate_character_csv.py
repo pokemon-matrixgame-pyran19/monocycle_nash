@@ -64,8 +64,8 @@ def parse_args() -> Config:
     parser.add_argument(
         "--label-prefix",
         type=str,
-        default="c",
-        help="label列の接頭辞 (例: c -> c1,c2,...)",
+        default="g",
+        help="label列の接頭辞 (例: g -> g1,g2,...)",
     )
 
     parser.add_argument("--outer-iters", type=int, default=250, help="外側反復回数")

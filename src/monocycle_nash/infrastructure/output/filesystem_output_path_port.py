@@ -13,7 +13,7 @@ class FileSystemOutputPathPort(OutputPathPort):
 
     _SAFE_CHARS = re.compile(r"[^0-9A-Za-z_-]+")
 
-    def __init__(self, result_base_dir: Path | str = "result") -> None:
+    def __init__(self, result_base_dir: Path | str = "results") -> None:
         self._result_base_dir = Path(result_base_dir)
 
     def resolve_output_path(
