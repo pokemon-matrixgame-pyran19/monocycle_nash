@@ -46,7 +46,7 @@ runner = "..."                # 任意: 同一 runner 名で最終集約
 
 | パラメータ | 必須 | 説明 |
 |---|---|---|
-| `run.temp` | — | `true` で一時実行モード。出力先は `result/temp` 固定で、実行ごとに `result/temp` を削除してから再作成される。`false` または省略時は `result/1`, `result/2`, ... の連番保存。 |
+| `run.temp` | — | `true` で一時実行モード。出力先は `result/temp` 固定で、実行ごとに `result/temp` を削除してから再作成される（以前の一時結果は失われる）。`false` または省略時は `result/1`, `result/2`, ... の連番保存。 |
 
 ## 4. `method` 一覧（行列ノード）
 

@@ -91,6 +91,7 @@ def _resolve_run_id(*, result_base_dir: Path, config_path: Path) -> str:
 
 
 def _is_temp_run_enabled(config_path: Path) -> bool:
+    """`[run].temp` を読む。読み込み/構文エラーは呼び出し側へ伝播させる。"""
     with config_path.open("rb") as f:
         data = tomllib.load(f)
     run_section = data.get("run")
