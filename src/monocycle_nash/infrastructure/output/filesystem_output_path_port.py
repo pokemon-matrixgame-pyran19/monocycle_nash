@@ -13,8 +13,13 @@ class FileSystemOutputPathPort(OutputPathPort):
 
     _SAFE_CHARS = re.compile(r"[^0-9A-Za-z_-]+")
 
-    def __init__(self, result_base_dir: Path | str = "results") -> None:
+    def __init__(
+        self,
+        result_base_dir: Path | str = "results",
+        run_id_override: str | None = None,
+    ) -> None:
         self._result_base_dir = Path(result_base_dir)
+        self._run_id_override = run_id_override
 
     def resolve_output_path(
         self,
@@ -24,7 +29,8 @@ class FileSystemOutputPathPort(OutputPathPort):
         output_method: str,
         filename: str,
     ) -> Path:
-        safe_run_id = self._sanitize_component(run_id)
+        effective_run_id = self._run_id_override if self._run_id_override else run_id
+        safe_run_id = self._sanitize_component(effective_run_id)
         safe_output_method = self._sanitize_component(output_method)
         if len(node_path) == 0:
             # 防御的に、空階層入力時は root フォルダへフォールバックする。

@@ -29,6 +29,9 @@ name = "..."                  # 任意（既定: "root"）
 # characters = "..."
 # teams = "..."
 
+[run]                           # 任意: 実行モード設定
+# temp = true                   # true のとき results/temp を使い毎回リセット
+
 [children.<key>]                # 任意: 子ノード定義（再帰）
 method = "..."
 
@@ -39,7 +42,13 @@ runner = "..."                # 任意: 同一 runner 名で最終集約
 # ...
 ```
 
-## 3. `method` 一覧（行列ノード）
+## 3. 実行モード (`[run]`)
+
+| パラメータ | 必須 | 説明 |
+|---|---|---|
+| `run.temp` | — | `true` で一時実行モード。出力先は `results/temp` 固定で、実行ごとに `results/temp` を削除してから再作成される（以前の一時結果は失われる）。`false` または省略時は `results/1`, `results/2`, ... の連番保存。 |
+
+## 4. `method` 一覧（行列ノード）
 
 ### `general_from_raw`
 
@@ -165,7 +174,7 @@ runner = "..."                # 任意: 同一 runner 名で最終集約
 | `children.source` | ✓ | 変換元の交代行列を生成する子ノード定義 |
 | `params.atol` | — | 交代行列かどうかを判定する数値許容誤差（既定: `1e-8`） |
 
-## 4. `outputs[].method` 一覧
+## 5. `outputs[].method` 一覧
 
 ### `outputs[].runner`
 
@@ -217,9 +226,9 @@ runner = "..."                # 任意: 同一 runner 名で最終集約
   - `outputs.params.canvas_size`（既定: `840`）
 - 各チームの特徴ベクトル `(x, y)` を2次元平面にそのまま散布図として SVG 出力する
 
-## 5. 例
+## 6. 例
 
-### 5.1 インライン定義（キャラクター + 出力）
+### 6.1 インライン定義（キャラクター + 出力）
 
 ```toml
 method = "monocycle_from_characters"
@@ -249,7 +258,7 @@ method = "character_vector_graph"
 filename = "rps_characters.svg"
 ```
 
-### 5.2 子ノード + ファイル参照
+### 6.2 子ノード + ファイル参照
 
 このメソッドは **2 系統の入力**を必要とする:
 
@@ -284,7 +293,7 @@ filename = "team_matrix.svg"
 threshold = 0.0
 ```
 
-### 5.3 team_matchup_experiment（CSVキャラクター参照）
+### 6.3 team_matchup_experiment（CSVキャラクター参照）
 
 大量キャラクターをインラインで持たせたくない場合は、`children.characters.refs.characters` に CSV を指定できる。
 
@@ -313,7 +322,7 @@ filename = "team_matchup_experiment_all_pairs_refs_csv.csv"
 focus_team = "team_i"
 ```
 
-## 6. エラーになる代表ケース
+## 7. エラーになる代表ケース
 
 - ルートに `method` がない
 - `[[outputs]]` 要素に `method` がない

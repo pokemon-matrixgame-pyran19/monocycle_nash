@@ -62,6 +62,10 @@ class TomlMatrixConfigPort(MatrixTreeConfigPort):
         data = self._load_toml(path)
         return self._parse_node_spec(data)
 
+    def resolve_config_path(self, config_id: str) -> Path:
+        """設定 ID から実ファイルパスを解決して返す。"""
+        return self._resolve_path(config_id)
+
     # ------------------------------------------------------------------
     # 内部実装
     # ------------------------------------------------------------------
