@@ -14,6 +14,7 @@ from monocycle_nash.application.matrix_nodes import (
     ApproxMonocycleToGeneralNode,
     CharacterInlineSource,
     CharacterListFromFileNode,
+    CharacterRotatingPairSource,
     CharacterVectorGraphOutputNode,
     EquilibriumOutputNode,
     GeneralFromRawNode,
@@ -145,6 +146,29 @@ def test_build_monocycle_from_character_child_node() -> None:
     assert isinstance(node.characters, CharacterInlineSource)
     assert node.characters.name == "chars"
     assert len(node.characters.characters) == 2
+
+
+def test_build_monocycle_from_rotating_pair_character_child() -> None:
+    spec = NodeSpec(
+        method="monocycle_from_characters",
+        children={
+            "characters": NodeSpec(
+                method="character_rotating_pair",
+                params={
+                    "x": 4.0,
+                    "y": 3.0,
+                    "r3": 1.0,
+                    "r4": 2.0,
+                    "d": 0.5,
+                    "theta_step_deg": 90.0,
+                },
+            )
+        },
+    )
+    node = FACTORY.build(spec)
+    assert isinstance(node.characters, CharacterRotatingPairSource)
+    assert node.characters.x == pytest.approx(4.0)
+    assert node.characters.theta_step_rad == pytest.approx(1.5707963267948966)
 
 
 # ---------------------------------------------------------------------------
