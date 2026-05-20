@@ -51,6 +51,7 @@ DomainT = TypeVar("DomainT")
 PayloadT = TypeVar("PayloadT")
 # TOML 由来のネスト配列か、既に数値化済みの ndarray を受け付ける。
 RawMatrix = list[list[float]] | np.ndarray
+THETA_STEP_FLOOR_EPSILON = 1e-12
 
 
 # ---------------------------------------------------------------------------
@@ -302,7 +303,7 @@ class CharacterRotatingPairSource(CharacterSource, node_method="character_rotati
         )
 
     def load_characters(self, ctx: NodeResolutionContext) -> tuple[Character, ...]:
-        count = int(math.floor((2 * math.pi) / self.theta_step_rad + 1e-12))
+        count = int(math.floor((2 * math.pi) / self.theta_step_rad + THETA_STEP_FLOOR_EPSILON))
         if count < 1:
             raise ValueError("character_rotating_pair で生成される点数が0です")
 
