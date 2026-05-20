@@ -51,6 +51,7 @@ DomainT = TypeVar("DomainT")
 PayloadT = TypeVar("PayloadT")
 # TOML 由来のネスト配列か、既に数値化済みの ndarray を受け付ける。
 RawMatrix = list[list[float]] | np.ndarray
+FULL_ROTATION_RAD = 2 * math.pi
 THETA_STEP_FLOOR_EPSILON = 1e-9
 
 
@@ -281,7 +282,7 @@ class CharacterRotatingPairSource(CharacterSource, node_method="character_rotati
         theta_step_rad = float(theta_step_rad)
         if theta_step_rad <= 0:
             raise ValueError("character_rotating_pair の theta_step は正の値が必要です")
-        if theta_step_rad > 2 * math.pi:
+        if theta_step_rad > FULL_ROTATION_RAD:
             raise ValueError("character_rotating_pair の theta_step は 2π 以下で指定してください")
 
         return cls(
@@ -303,7 +304,7 @@ class CharacterRotatingPairSource(CharacterSource, node_method="character_rotati
         )
 
     def load_characters(self, ctx: NodeResolutionContext) -> tuple[Character, ...]:
-        count = int(math.floor((2 * math.pi) / self.theta_step_rad + THETA_STEP_FLOOR_EPSILON))
+        count = int(math.floor(FULL_ROTATION_RAD / self.theta_step_rad + THETA_STEP_FLOOR_EPSILON))
         if count < 1:
             raise ValueError("character_rotating_pair で生成される点数が0です")
 
@@ -326,6 +327,7 @@ class CharacterRotatingPairSource(CharacterSource, node_method="character_rotati
             cos_theta = math.cos(theta)
             sin_d_theta = math.sin(self.d + theta)
             cos_d_theta = math.cos(self.d + theta)
+            # 問題設定の定義 v=(r*sinθ, r*cosθ) に合わせる。
             v3 = MatchupVector(self.r3 * sin_theta, self.r3 * cos_theta)
             v4 = MatchupVector(self.r4 * sin_d_theta, self.r4 * cos_d_theta)
             characters.append(Character(self.power, v3, f"{self.rotating_label_3_prefix}{suffix}"))
