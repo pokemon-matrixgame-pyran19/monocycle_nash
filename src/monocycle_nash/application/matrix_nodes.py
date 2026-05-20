@@ -303,10 +303,6 @@ class CharacterRotatingPairSource(CharacterSource, node_method="character_rotati
         )
 
     def load_characters(self, ctx: NodeResolutionContext) -> tuple[Character, ...]:
-        count = int(round(FULL_ROTATION_RAD / self.theta_step_rad))
-        if count <= 0:
-            raise ValueError("character_rotating_pair で生成される点数が不正です")
-
         characters: list[Character] = [
             Character(
                 self.power,
@@ -319,9 +315,11 @@ class CharacterRotatingPairSource(CharacterSource, node_method="character_rotati
                 self.fixed_label_2,
             ),
         ]
-        for i in range(count):
+        i = 0
+        rotation = 0.0
+        while rotation < FULL_ROTATION_RAD:
             suffix = f"{i:0{self.index_width}d}"
-            theta = self.theta_offset_rad + i * self.theta_step_rad
+            theta = self.theta_offset_rad + rotation
             sin_theta = math.sin(theta)
             cos_theta = math.cos(theta)
             sin_d_theta = math.sin(self.d + theta)
@@ -331,6 +329,8 @@ class CharacterRotatingPairSource(CharacterSource, node_method="character_rotati
             v4 = MatchupVector(self.r4 * sin_d_theta, self.r4 * cos_d_theta)
             characters.append(Character(self.power, v3, f"{self.rotating_label_3_prefix}{suffix}"))
             characters.append(Character(self.power, v4, f"{self.rotating_label_4_prefix}{suffix}"))
+            i += 1
+            rotation = i * self.theta_step_rad
         return tuple(characters)
 
 
