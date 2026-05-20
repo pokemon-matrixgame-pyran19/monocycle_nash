@@ -307,13 +307,12 @@ def test_resolver_supports_rotating_pair_character_source(tmp_path: Path) -> Non
 
     assert len(records) == 2
     assert {r["j_team_label"] for r in records} == {"team_j0", "team_j1"}
+    expected_pairs = {
+        "team_j0": {"g3_000", "g4_000"},
+        "team_j1": {"g3_001", "g4_001"},
+    }
     for record in records:
-        if record["j_team_label"] == "team_j0":
-            assert {record["j3_label"], record["j4_label"]} == {"g3_000", "g4_000"}
-        elif record["j_team_label"] == "team_j1":
-            assert {record["j3_label"], record["j4_label"]} == {"g3_001", "g4_001"}
-        else:  # pragma: no cover
-            raise AssertionError(f"unexpected team label: {record['j_team_label']}")
+        assert {record["j3_label"], record["j4_label"]} == expected_pairs[record["j_team_label"]]
 
 
 def test_resolver_runs_team_feature_vector_outputs(tmp_path: Path) -> None:

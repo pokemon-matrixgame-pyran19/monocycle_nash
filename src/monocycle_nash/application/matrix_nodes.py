@@ -51,7 +51,7 @@ DomainT = TypeVar("DomainT")
 PayloadT = TypeVar("PayloadT")
 # TOML 由来のネスト配列か、既に数値化済みの ndarray を受け付ける。
 RawMatrix = list[list[float]] | np.ndarray
-THETA_STEP_FLOOR_EPSILON = 1e-12
+THETA_STEP_FLOOR_EPSILON = 1e-9
 
 
 # ---------------------------------------------------------------------------
@@ -322,11 +322,12 @@ class CharacterRotatingPairSource(CharacterSource, node_method="character_rotati
         for i in range(count):
             suffix = f"{i:0{self.index_width}d}"
             theta = self.theta_offset_rad + i * self.theta_step_rad
-            v3 = MatchupVector(self.r3 * math.sin(theta), self.r3 * math.cos(theta))
-            v4 = MatchupVector(
-                self.r4 * math.sin(self.d + theta),
-                self.r4 * math.cos(self.d + theta),
-            )
+            sin_theta = math.sin(theta)
+            cos_theta = math.cos(theta)
+            sin_d_theta = math.sin(self.d + theta)
+            cos_d_theta = math.cos(self.d + theta)
+            v3 = MatchupVector(self.r3 * sin_theta, self.r3 * cos_theta)
+            v4 = MatchupVector(self.r4 * sin_d_theta, self.r4 * cos_d_theta)
             characters.append(Character(self.power, v3, f"{self.rotating_label_3_prefix}{suffix}"))
             characters.append(Character(self.power, v4, f"{self.rotating_label_4_prefix}{suffix}"))
         return tuple(characters)
