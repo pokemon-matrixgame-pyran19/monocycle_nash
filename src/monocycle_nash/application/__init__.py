@@ -19,6 +19,7 @@ from monocycle_nash.application.matrix_nodes import (
     ApproxMonocycleToGeneralNode,
     CharacterInlineSource,
     CharacterListFromFileNode,
+    CharacterRotatingPairSource,
     CharacterNode,
     CharacterSource,
     CharacterVectorGraphOutputNode,
@@ -66,6 +67,7 @@ __all__ = [
     "CharacterNode",
     "CharacterInlineSource",
     "CharacterListFromFileNode",
+    "CharacterRotatingPairSource",
     # matrix_nodes — team nodes
     "TeamSource",
     "TeamNode",

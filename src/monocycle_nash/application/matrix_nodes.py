@@ -19,6 +19,7 @@
 
 from __future__ import annotations
 
+import math
 import numpy as np
 import tomli_w
 from abc import ABC, abstractmethod
@@ -50,6 +51,7 @@ DomainT = TypeVar("DomainT")
 PayloadT = TypeVar("PayloadT")
 # TOML 由来のネスト配列か、既に数値化済みの ndarray を受け付ける。
 RawMatrix = list[list[float]] | np.ndarray
+FULL_ROTATION_RAD = 2 * math.pi
 
 
 # ---------------------------------------------------------------------------
@@ -240,6 +242,96 @@ class CharacterInlineSource(CharacterSource, node_method="character_inline"):
             Character(c.power, MatchupVector(c.vector[0], c.vector[1]), c.label)
             for c in self.characters
         )
+
+
+@dataclass
+class CharacterRotatingPairSource(CharacterSource, node_method="character_rotating_pair"):
+    """回転する2点ペアを含むキャラクター列を生成する設定ソース。"""
+
+    x: float
+    y: float
+    r3: float
+    r4: float
+    d: float
+    theta_step_rad: float
+    power: float = 0.0
+    fixed_label_1: str = "c1"
+    fixed_label_2: str = "c2"
+    rotating_label_3_prefix: str = "g3_"
+    rotating_label_4_prefix: str = "g4_"
+    index_width: int = 3
+    theta_offset_rad: float = 0.0
+    name: str = "characters"
+    outputs: tuple["OutputNode", ...] = field(default_factory=tuple)
+
+    @classmethod
+    def _from_spec(cls, spec: NodeSpec) -> "CharacterRotatingPairSource":
+        theta_step_rad = spec.params.get("theta_step_rad")
+        theta_step_deg = spec.params.get("theta_step_deg")
+        if theta_step_rad is not None and theta_step_deg is not None:
+            raise ValueError(
+                "character_rotating_pair では theta_step_rad と theta_step_deg を同時に指定できません"
+            )
+        if theta_step_rad is None:
+            if theta_step_deg is None:
+                raise ValueError(
+                    "character_rotating_pair には theta_step_rad または theta_step_deg が必要です"
+                )
+            theta_step_rad = math.radians(float(theta_step_deg))
+        theta_step_rad = float(theta_step_rad)
+        if theta_step_rad <= 0:
+            raise ValueError("character_rotating_pair の theta_step は正の値が必要です")
+        if theta_step_rad > FULL_ROTATION_RAD:
+            raise ValueError("character_rotating_pair の theta_step は 2π 以下で指定してください")
+
+        return cls(
+            x=float(spec.params["x"]),
+            y=float(spec.params["y"]),
+            r3=float(spec.params["r3"]),
+            r4=float(spec.params["r4"]),
+            d=float(spec.params["d"]),
+            theta_step_rad=theta_step_rad,
+            power=float(spec.params.get("power", 0.0)),
+            fixed_label_1=str(spec.params.get("fixed_label_1", "c1")),
+            fixed_label_2=str(spec.params.get("fixed_label_2", "c2")),
+            rotating_label_3_prefix=str(spec.params.get("rotating_label_3_prefix", "g3_")),
+            rotating_label_4_prefix=str(spec.params.get("rotating_label_4_prefix", "g4_")),
+            index_width=int(spec.params.get("index_width", 3)),
+            theta_offset_rad=float(spec.params.get("theta_offset_rad", 0.0)),
+            name=spec.name,
+            outputs=OutputNode.create_all_from_specs(spec.outputs),
+        )
+
+    def load_characters(self, ctx: NodeResolutionContext) -> tuple[Character, ...]:
+        characters: list[Character] = [
+            Character(
+                self.power,
+                MatchupVector(float(self.x), 0.0),
+                self.fixed_label_1,
+            ),
+            Character(
+                self.power,
+                MatchupVector(0.0, float(self.y)),
+                self.fixed_label_2,
+            ),
+        ]
+        i = 0
+        rotation = 0.0
+        while rotation < FULL_ROTATION_RAD:
+            suffix = f"{i:0{self.index_width}d}"
+            theta = self.theta_offset_rad + rotation
+            sin_theta = math.sin(theta)
+            cos_theta = math.cos(theta)
+            sin_d_theta = math.sin(self.d + theta)
+            cos_d_theta = math.cos(self.d + theta)
+            # Matches the problem definition convention: v=(r*sinθ, r*cosθ).
+            v3 = MatchupVector(self.r3 * sin_theta, self.r3 * cos_theta)
+            v4 = MatchupVector(self.r4 * sin_d_theta, self.r4 * cos_d_theta)
+            characters.append(Character(self.power, v3, f"{self.rotating_label_3_prefix}{suffix}"))
+            characters.append(Character(self.power, v4, f"{self.rotating_label_4_prefix}{suffix}"))
+            i += 1
+            rotation = i * self.theta_step_rad
+        return tuple(characters)
 
 
 @dataclass

@@ -135,6 +135,42 @@ runner = "..."                # 任意: 同一 runner 名で最終集約
 |---|---|---|
 | `refs.characters` | ✓ | キャラクターリストのファイルパス（`.toml` または `.csv`） |
 
+### `character_rotating_pair`（`children.characters` 用）
+
+`v1=(x,0)`,`v2=(0,y)` を固定し、`v3=(r3*sinθ, r3*cosθ)`,`v4=(r4*sin(d+θ), r4*cos(d+θ))` の2点を θ を進めながら1周ぶん生成する。`general_from_team_matchups` で固定構築 vs 回転構築の実験データを作る用途を想定。
+
+| パラメータ | 必須 | 説明 |
+|---|---|---|
+| `params.x` | ✓ | 固定キャラ1の x 成分（`(x, 0)`） |
+| `params.y` | ✓ | 固定キャラ2の y 成分（`(0, y)`） |
+| `params.r3` | ✓ | 回転キャラ3の半径 |
+| `params.r4` | ✓ | 回転キャラ4の半径 |
+| `params.d` | ✓ | 回転キャラ4の位相オフセット（rad） |
+| `params.theta_step_rad` | △ | θ の刻み幅（rad）。`theta_step_deg` とどちらか片方必須 |
+| `params.theta_step_deg` | △ | θ の刻み幅（deg）。`theta_step_rad` とどちらか片方必須 |
+| `params.power` | — | 全キャラクター共通 power（既定: `0.0`） |
+| `params.fixed_label_1` | — | `v1` のラベル（既定: `"c1"`） |
+| `params.fixed_label_2` | — | `v2` のラベル（既定: `"c2"`） |
+| `params.rotating_label_3_prefix` | — | `v3` 系ラベル接頭辞（既定: `"g3_"`） |
+| `params.rotating_label_4_prefix` | — | `v4` 系ラベル接頭辞（既定: `"g4_"`） |
+| `params.index_width` | — | 連番ゼロ埋め桁数（既定: `3`） |
+| `params.theta_offset_rad` | — | θ の初期オフセット（rad, 既定: `0.0`） |
+
+例（4分割で1周）:
+
+```toml
+[children.characters]
+method = "character_rotating_pair"
+
+[children.characters.params]
+x = 4.0
+y = 4.0
+r3 = 1.0
+r4 = 1.0
+d = 1.57079632679 # pi/2
+theta_step_deg = 90.0
+```
+
 ### `random_skew_symmetric`
 
 指定サイズのランダム交代行列（`A[i,j] = -A[j,i]`, 対角成分 0）を生成するメソッド。乱数による行列を使ったテストや実験に向く。

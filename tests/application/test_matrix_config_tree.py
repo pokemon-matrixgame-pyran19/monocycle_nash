@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import tomllib
 import csv
+import math
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -24,6 +25,7 @@ from monocycle_nash.application.matrix_nodes import (
     CharacterInlineSource,
     CharacterListFromFileNode,
     CharacterNode,
+    CharacterRotatingPairSource,
     CharacterVectorGraphOutputNode,
     EquilibriumOutputNode,
     GeneralFromTeamMatchupsNode,
@@ -264,6 +266,53 @@ def test_resolver_runs_team_matchup_experiment_csv_output_node(tmp_path: Path) -
         bij = float(record["bij"])
         j_index = int(record["j_team_index"])
         assert bij == pytest.approx(float(result.root.value.matrix[0, j_index]))
+
+
+def test_resolver_supports_rotating_pair_character_source(tmp_path: Path) -> None:
+    tree = MatrixConfigTree(
+        root=GeneralFromTeamMatchupsNode(
+            name="team-root",
+            teams=TeamInlineSource((
+                TeamNode(label="team_i", member_ids=("c1", "c2")),
+                TeamNode(label="team_j0", member_ids=("g3_000", "g4_000")),
+                TeamNode(label="team_j1", member_ids=("g3_001", "g4_001")),
+            )),
+            characters=CharacterRotatingPairSource(
+                x=4.0,
+                y=2.0,
+                r3=1.0,
+                r4=1.0,
+                d=math.pi / 2,
+                theta_step_rad=math.pi,
+                power=0.0,
+            ),
+            use_monocycle_formula=False,
+            outputs=(
+                TeamMatchupExperimentCsvOutputNode(
+                    filename="rotating_pair.csv",
+                    focus_team="team_i",
+                ),
+            ),
+        )
+    )
+
+    output_port = StubOutputPathPort(tmp_path)
+    resolver = MatrixConfigTreeResolver(output_path_port=output_port)
+    result = resolver.resolve(tree)
+
+    assert len(result.outputs) == 1
+    output = result.outputs[0]
+    with output.path.open("r", encoding="utf-8", newline="") as f:
+        records = list(csv.DictReader(f))
+
+    assert len(records) == 2
+    assert {r["j_team_label"] for r in records} == {"team_j0", "team_j1"}
+    expected_pairs = {
+        "team_j0": {"g3_000", "g4_000"},
+        "team_j1": {"g3_001", "g4_001"},
+    }
+    for record in records:
+        assert {record["j3_label"], record["j4_label"]} == expected_pairs[record["j_team_label"]]
 
 
 def test_resolver_runs_team_feature_vector_outputs(tmp_path: Path) -> None:
