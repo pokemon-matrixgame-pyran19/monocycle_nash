@@ -19,6 +19,7 @@
 
 from __future__ import annotations
 
+import json
 import math
 import numpy as np
 import tomli_w
@@ -727,6 +728,83 @@ class EquilibriumOutputNode(OutputNode["MatrixNode"], output_method="equilibrium
                     ],
                 },
                 f,
+            )
+        return path
+
+
+@dataclass(frozen=True)
+class PayoffMatrixOutputNode(OutputNode["MatrixNode"], output_method="payoff_matrix"):
+    """利得行列ファイル出力設定ノード。"""
+
+    runner: str | None = None
+    filename: str = "payoff_matrix.json"
+    rows: tuple[int, ...] | None = None
+    cols: tuple[int, ...] | None = None
+
+    @classmethod
+    def _from_output_spec(cls, spec: OutputSpec) -> PayoffMatrixOutputNode:
+        rows = spec.params.get("rows")
+        cols = spec.params.get("cols")
+        return cls(
+            runner=spec.runner,
+            filename=spec.params.get("filename", "payoff_matrix.json"),
+            rows=tuple(rows) if rows is not None else None,
+            cols=tuple(cols) if cols is not None else None,
+        )
+
+    def emit(
+        self,
+        *,
+        node_name: str,
+        node_path: tuple[str, ...],
+        node: "MatrixNode",
+    ) -> OutputEmission:
+        return OutputEmission(
+            output_node=self,
+            node_name=node_name,
+            node_path=node_path,
+            runner=self.runner,
+            node=node,
+        )
+
+    def execute(
+        self,
+        *,
+        output_path_port: OutputPathPort,
+        run_id: str,
+        node_path: tuple[str, ...],
+        node: "MatrixNode",
+        ctx: NodeResolutionContext,
+    ) -> Path:
+        path = output_path_port.resolve_output_path(
+            run_id=run_id,
+            node_path=node_path,
+            output_method=self.output_method,
+            filename=self.filename,
+        )
+        matrix_obj = node.provide_object(ctx=ctx)
+        matrix = matrix_obj.matrix
+        row_labels = matrix_obj.row_strategies.labels
+        col_labels = matrix_obj.col_strategies.labels
+
+        if self.rows is not None:
+            matrix = matrix[list(self.rows), :]
+            row_labels = [row_labels[i] for i in self.rows]
+        if self.cols is not None:
+            matrix = matrix[:, list(self.cols)]
+            col_labels = [col_labels[i] for i in self.cols]
+
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("w", encoding="utf-8") as f:
+            json.dump(
+                {
+                    "matrix": matrix.tolist(),
+                    "row_labels": row_labels,
+                    "col_labels": col_labels,
+                },
+                f,
+                indent=2,
+                ensure_ascii=False,
             )
         return path
 
