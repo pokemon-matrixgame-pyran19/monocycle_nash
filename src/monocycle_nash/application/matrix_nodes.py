@@ -325,9 +325,9 @@ class CharacterRotatingPairSource(CharacterSource, node_method="character_rotati
             cos_theta = math.cos(theta)
             sin_d_theta = math.sin(self.d + theta)
             cos_d_theta = math.cos(self.d + theta)
-            # Matches the problem definition convention: v=(r*sinθ, r*cosθ).
-            v3 = MatchupVector(self.r3 * sin_theta, self.r3 * cos_theta)
-            v4 = MatchupVector(self.r4 * sin_d_theta, self.r4 * cos_d_theta)
+            # Matches the standard (cos, sin) convention.
+            v3 = MatchupVector(self.r3 * cos_theta, self.r3 * sin_theta)
+            v4 = MatchupVector(self.r4 * cos_d_theta, self.r4 * sin_d_theta)
             characters.append(Character(self.power, v3, f"{self.rotating_label_3_prefix}{suffix}"))
             characters.append(Character(self.power, v4, f"{self.rotating_label_4_prefix}{suffix}"))
             i += 1
