@@ -231,6 +231,20 @@ theta_step_deg = 90.0
   - `outputs.params.canvas_size`（既定: `840`）
   - `outputs.params.margin`（既定: `90`）
 
+### `equilibrium`
+
+- 任意:
+  - `outputs.params.filename`（既定: `"equilibrium.toml"`）
+- 均衡解を計算し、`strategies = [{ id, probability }, ...]` 形式の TOML で出力する。
+
+### `payoff_matrix`
+
+- 任意:
+  - `outputs.params.filename`（既定: `"payoff_matrix.json"`）
+  - `outputs.params.rows`（既定: 全行）
+  - `outputs.params.cols`（既定: 全列）
+- 利得行列を JSON 形式で出力する。`rows`, `cols` にインデックスのリストを指定することで、特定の行や列のみを抽出して出力できる。
+
 ### `team_matchup_experiment_csv`
 
 - 対象ノード: `general_from_team_matchups`
