@@ -132,6 +132,9 @@ runner = "..."                  # 任意（同名 runner で最終集約）
 - `equilibrium`
   - 任意パラメータ: `filename`
   - 均衡解を `strategies = [{ id, probability }, ...]` 形式のTOMLで出力
+- `payoff_matrix`
+  - 任意パラメータ: `filename`, `rows`, `cols`
+  - 利得行列を JSON 形式で出力。`rows`, `cols` でインデックス指定による抽出が可能
 - `team_matchup_experiment_csv`
   - 任意パラメータ: `filename`, `focus_team`
   - `general_from_team_matchups` ノードで、固定チーム i と各チーム j の比較実験列（ベクトル差・角度・Bij）を CSV 出力
