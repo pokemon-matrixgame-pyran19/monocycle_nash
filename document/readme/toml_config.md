@@ -137,7 +137,7 @@ runner = "..."                # 任意: 同一 runner 名で最終集約
 
 ### `character_rotating_pair`（`children.characters` 用）
 
-`v1=(x,0)`,`v2=(0,y)` を固定し、`v3=(r3*sinθ, r3*cosθ)`,`v4=(r4*sin(d+θ), r4*cos(d+θ))` の2点を θ を進めながら1周ぶん生成する。`general_from_team_matchups` で固定構築 vs 回転構築の実験データを作る用途を想定。
+`v1=(x,0)`,`v2=(0,y)` を固定し、`v3=(r3*cosθ, r3*sinθ)`,`v4=(r4*cos(θ+d), r4*sin(θ+d))` の2点を θ を進めながら1周ぶん生成する。`general_from_team_matchups` で固定構築 vs 回転構築の実験データを作る用途を想定。
 
 | パラメータ | 必須 | 説明 |
 |---|---|---|
